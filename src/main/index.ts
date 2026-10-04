@@ -141,9 +141,8 @@ function registerIpc(): void {
 }
 
 function registerMediaProtocol(): void {
-  // Grid covers ask for ?w=<px> and get a cached downscaled copy. The folder is getPaths().media/.thumbs, built
-  // from the data root directly because getPaths() creates every data folder on each call.
-  const thumbs = new ThumbCache(() => join(getSettings().dataRoot, 'media', '.thumbs'))
+  // Grid covers ask for ?w=<px> and get a cached downscaled copy.
+  const thumbs = new ThumbCache(() => join(getPaths().media, '.thumbs'))
   protocol.handle(MEDIA_SCHEME, async (req) => {
     const p = pathFromMediaUrl(req.url)
     if (!isManagedPath(p)) return new Response('Forbidden', { status: 403 })

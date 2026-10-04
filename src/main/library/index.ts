@@ -5,7 +5,7 @@ import type { RetroDeskApi } from '../../shared/api'
 import type { BiosStatus, Game, MediaKind, ScanResult, SystemSummary } from '../../shared/types'
 import { isSystemPlayable } from '../emulators'
 import { broadcast, createTask, emitLibraryChanged } from '../events'
-import { getPaths, isManagedPath as isServable } from '../paths'
+import { getPaths, managedPathPredicate } from '../paths'
 import { getSettings, onSettingsChanged } from '../settings'
 import { getSystemDefs } from '../systems'
 import { fetchArtworkForGames, loadArcadeNames } from './artwork'
@@ -317,7 +317,7 @@ async function runScan(scope?: string[]): Promise<ScanResult> {
     try {
       const candidates = scope ? [...seen].map((id) => lib.get(id)).filter((g): g is Game => !!g) : lib.all()
       const lacking = candidates.filter((g) => g.systemId !== 'steam' && (!g.media.boxart || !g.media.snap || !g.media.title))
-      const esde = await applyEsDeMedia(lacking, { romRoots: roots.map((r) => r.path), mediaDir: paths.media, isServable })
+      const esde = await applyEsDeMedia(lacking, { romRoots: roots.map((r) => r.path), mediaDir: paths.media, isServable: managedPathPredicate() })
       for (const [id, media] of esde) {
         const g = lib.get(id)
         if (!g || sameMedia(g.media, media)) continue
@@ -384,7 +384,7 @@ function importScope(copied: string[], romsDir: string): string[] | undefined {
 
 // ---------------------------------------------------------------- artwork
 
-function needsArtwork(g: Game): boolean {
+function needsArtwork(g: Game, isServable: (p: string) => boolean): boolean {
   if (g.hidden) return false
   // An image recorded under a previous data folder can no longer be shown, so it counts as missing.
   const has = (p?: string): boolean => !!p && isServable(p)
@@ -414,7 +414,7 @@ async function runArtwork(games: Game[], force: boolean): Promise<void> {
       force,
       steamPath,
       arcadeNames,
-      isServable,
+      isServable: managedPathPredicate(),
       onProgress: (done, total, title) => task.update(done / total, `${done.toLocaleString()} of ${total.toLocaleString()}: ${title}`),
       onUpdate: (id, media) => {
         if (lib.update(id, (g) => (g.media = media))) notifyMediaChanged(id)
@@ -444,7 +444,8 @@ async function runArtwork(games: Game[], force: boolean): Promise<void> {
 export function fetchArtwork(gameIds?: string[], force = gameIds !== undefined && gameIds.length > 0): Promise<void> {
   const next = artworkChain.then(() => {
     const lib = getStore()
-    const games = gameIds?.length ? gameIds.map((id) => lib.get(id)).filter((g): g is Game => !!g) : lib.all().filter(needsArtwork)
+    const servable = managedPathPredicate()
+    const games = gameIds?.length ? gameIds.map((id) => lib.get(id)).filter((g): g is Game => !!g) : lib.all().filter((g) => needsArtwork(g, servable))
     return runArtwork(games, force)
   })
   artworkChain = next.catch(() => undefined)

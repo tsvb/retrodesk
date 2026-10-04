@@ -6,7 +6,7 @@ import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 const h = vi.hoisted(() => ({ settings: { dataRoot: '', romFolders: [] as { path: string }[] } }))
 vi.mock('./settings', () => ({ getSettings: () => h.settings }))
 
-import { getPaths, invalidatePaths } from './paths'
+import { getPaths, invalidatePaths, isManagedPath, managedPathPredicate } from './paths'
 
 const tmp = mkdtempSync(join(tmpdir(), 'rd-paths-'))
 afterAll(() => rmSync(tmp, { recursive: true, force: true }))
@@ -51,5 +51,24 @@ describe('getPaths', () => {
     h.settings.dataRoot = join(tmp, 'e', 'x\0bad') // mkdir rejects it, as it would an unplugged drive
     expect(() => getPaths()).toThrow()
     expect(() => getPaths()).toThrow()
+  })
+})
+
+describe('managedPathPredicate', () => {
+  it('matches the data root and ROM folders like isManagedPath', () => {
+    h.settings.dataRoot = 'C:\\RetroDesk'
+    h.settings.romFolders = [{ path: 'D:\\Games\\ROMs\\' }, { path: '' }]
+    const servable = managedPathPredicate()
+    const cases = [
+      'C:\\RetroDesk\\media\\snes\\boxart\\a.png',
+      'c:\\retrodesk',
+      'D:\\Games\\ROMs\\snes\\b.sfc',
+      'C:\\RetroDeskOther\\a.png',
+      'E:\\elsewhere\\a.png',
+      'relative\\a.png'
+    ]
+    expect(cases.map(servable)).toEqual([true, true, true, false, false, false])
+    expect(cases.map(isManagedPath)).toEqual(cases.map(servable))
+    h.settings.romFolders = []
   })
 })

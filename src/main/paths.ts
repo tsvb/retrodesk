@@ -1,6 +1,6 @@
 import { mkdirSync } from 'fs'
 import { isAbsolute, join } from 'path'
-import { isUnder } from './library/util'
+import { isUnderNorm, normPath } from './library/util'
 import { getSettings } from './settings'
 
 export interface DataPaths {
@@ -59,7 +59,16 @@ export function invalidatePaths(): void {
  * rdmedia:// protocol serves, what the shell may open and which artwork paths the library keeps.
  */
 export function isManagedPath(p: string): boolean {
-  if (typeof p !== 'string' || !isAbsolute(p)) return false
+  return managedPathPredicate()(p)
+}
+
+/** isManagedPath with the roots normalised once, for checking many paths (e.g. every game's artwork). */
+export function managedPathPredicate(): (p: string) => boolean {
   const s = getSettings()
-  return [s.dataRoot, ...s.romFolders.map((f) => f.path)].some((r) => !!r && isAbsolute(r) && isUnder(p, r))
+  const roots = [s.dataRoot, ...s.romFolders.map((f) => f.path)].filter((r) => !!r && isAbsolute(r)).map(normPath)
+  return (p) => {
+    if (typeof p !== 'string' || !isAbsolute(p)) return false
+    const c = normPath(p)
+    return roots.some((r) => isUnderNorm(c, r))
+  }
 }

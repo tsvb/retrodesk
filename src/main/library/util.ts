@@ -21,8 +21,11 @@ export function gameIdForPath(p: string): string {
 
 /** True when `child` is `parent` or inside it (both absolute). */
 export function isUnder(child: string, parent: string): boolean {
-  const c = normPath(child)
-  const p = normPath(parent)
+  return isUnderNorm(normPath(child), normPath(parent))
+}
+
+/** isUnder for paths already passed through normPath. */
+export function isUnderNorm(c: string, p: string): boolean {
   return c === p || c.startsWith(p.endsWith('\\') ? p : `${p}\\`) || c.startsWith(`${p}/`)
 }
 
