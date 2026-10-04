@@ -74,11 +74,11 @@ describe('fetchArtworkForGames', () => {
     expect(res.updates.get('g3')?.title).toBe(join(mediaDir, 'snes', 'title', 'Super Mario World.png'))
   })
 
-  it('remembers artwork libretro does not have until the listing changes', async () => {
+  it('remembers artwork libretro does not list until the listing changes', async () => {
     const mediaDir = join(tmp, 'misses', 'media')
     const game = { id: 'g4', systemId: 'snes', path: 'C:\\roms\\Super Mario World (USA).sfc', rawName: 'Super Mario World (USA)', title: 'Super Mario World', regions: ['USA'], tags: [], media: {} } as unknown as Game
     const calls: string[] = []
-    // Listed but every download is a 404 (or, for snaps, not listed at all).
+    // Boxart and title are listed but fail to download; the snap is not listed at all.
     const download = async (url: string): Promise<boolean> => {
       calls.push(url)
       return false
@@ -89,12 +89,14 @@ describe('fetchArtworkForGames', () => {
     expect(first.notFound).toBe(1)
     expect(calls).toHaveLength(2) // boxart + title; the snap had no match
     const saved = JSON.parse(readFileSync(join(mediaDir, '_index', 'misses.json'), 'utf8')) as Record<string, unknown>
-    expect(Object.keys(saved)).toHaveLength(3)
+    expect(Object.keys(saved)).toHaveLength(1) // only the unlisted snap: failed downloads are tried again next run
 
     calls.length = 0
     await run('<a href="Other%20Game%20(USA).png">')
-    expect(calls).toEqual([])
+    expect(calls).toHaveLength(2)
+    expect(calls.filter((u) => u.includes('Named_Snaps'))).toEqual([])
     // An explicit refresh searches again.
+    calls.length = 0
     await run('<a href="Other%20Game%20(USA).png">', true)
     expect(calls).toHaveLength(2)
     // So does a run after the listings were refreshed with new content (the cached ones are still within 24h here,
@@ -103,7 +105,6 @@ describe('fetchArtworkForGames', () => {
     rmSync(join(mediaDir, '_index', `${SNES}.json`))
     await run('<a href="Super%20Mario%20World%20(USA).png">')
     expect(calls.filter((u) => u.includes('Named_Snaps'))).toHaveLength(1)
-    expect(calls.filter((u) => !u.includes('Named_Snaps'))).toEqual([])
   })
 })
 

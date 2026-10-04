@@ -34,6 +34,8 @@ interface ActiveSession {
   power?: PowerState
   /** Capturing the plan and switching to the in-game mode, done after the emulator started; the restore waits for it. */
   boosting: Promise<void>
+  /** `boosting` has settled. */
+  boosted?: boolean
   quitTimer?: NodeJS.Timeout
   exited: boolean
   /** Serialises overlay pause/resume work. */
@@ -213,6 +215,7 @@ export async function launchGame(gameId: string): Promise<LaunchResult> {
         await enterPerformanceMode(mode, power)
       })
       .catch((e) => console.warn('[launch] could not apply performance mode', e))
+      .finally(() => (session.boosted = true))
     focusHelper.prewarm(FOCUS_HELPER_DELAY_MS)
     emitSession(publicInfo())
     showOverlay()
@@ -407,11 +410,11 @@ function unregisterShortcut(): void {
 }
 
 /** Best-effort synchronous power-plan restore if the app quits mid-game. */
-function restorePowerSync(p: PowerState): void {
+function restorePowerSync(p: PowerState, keepRecord = false): void {
   try {
     if (p.scheme) spawnSync('powercfg', ['/setactive', p.scheme], { windowsHide: true, timeout: 4000 })
     if (p.overlay) spawnSync('powercfg', ['/overlaysetactive', p.overlay], { windowsHide: true, timeout: 4000 })
-    forgetPowerState()
+    if (!keepRecord) forgetPowerState()
   } catch {
     /* ignore */
   }
@@ -462,7 +465,9 @@ export function initLaunch(): void {
   app.on('will-quit', () => {
     unregisterShortcut()
     focusHelper.stop()
-    if (active?.power) restorePowerSync(active.power)
+    // A switch to the performance mode still in flight could land after this restore: keep the record so the next
+    // start puts the plan back again.
+    if (active?.power) restorePowerSync(active.power, !active.boosted)
   })
 }
 

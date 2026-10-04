@@ -595,7 +595,11 @@ async function discoverRetroArchStable(signal?: AbortSignal, cacheDir?: string):
     // Settles only when the buildbot fails; a buildbot answer leaves GitHub waiting until it is called off.
     await Promise.race([sleep(GITHUB_HEAD_START_MS, sig), buildbot.then(() => new Promise<never>(() => undefined), () => undefined)])
     const rel = await fetchJsonCached<{ tag_name: string }>('https://api.github.com/repos/libretro/RetroArch/releases/latest', { headers: GITHUB_API_HEADERS, signal: sig, cacheDir })
-    return tagToVersion(rel.tag_name)
+    const version = tagToVersion(rel.tag_name)
+    // GitHub can tag a release before the buildbot folder RetroArch is downloaded from exists.
+    const head = await fetch(retroArchUrl(version), { method: 'HEAD', headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.any([sig, AbortSignal.timeout(10_000)]) })
+    if (!head.ok) throw new HttpError(head.status, retroArchUrl(version))
+    return version
   })()
   try {
     return await Promise.any([buildbot, github])

@@ -129,4 +129,27 @@ describe('importing', () => {
     expect(titles).toContain('Kirby')
     expect(titles).not.toContain('Not Yet Scanned')
   })
+
+  it('still runs a full scan that was asked for during the import scan', async () => {
+    const src = join(env.root, 'Downloads', 'Metroid Fusion (USA).gba')
+    writeFile(src, rom(4096, 7))
+    scanSpy.mockClear()
+    // Hold the import's scan open until the full scan has been asked for.
+    const real = scanSpy.getMockImplementation()!
+    let release = (): void => undefined
+    const gate = new Promise<void>((r) => (release = r))
+    scanSpy.mockImplementationOnce(async (...args: Parameters<typeof real>) => {
+      await gate
+      return real(...args)
+    })
+    const importing = lib.libraryHandlers.importFiles([src])
+    await vi.waitFor(() => expect(scanSpy).toHaveBeenCalledTimes(1), { timeout: 3000, interval: 10 })
+    const full = lib.libraryHandlers.scan()
+    release()
+    await importing
+    await full
+    expect(scanSpy).toHaveBeenCalledTimes(2)
+    expect(scanSpy.mock.calls[1]![0].roots).toContainEqual({ path: roms })
+    expect((await lib.libraryHandlers.getGames()).map((g) => g.title)).toContain('Not Yet Scanned')
+  })
 })

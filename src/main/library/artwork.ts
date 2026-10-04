@@ -542,7 +542,8 @@ async function libretroArtwork(game: Game, { opts, index, misses, res, download 
           media[j.kind] = j.dest
           res.downloaded++
           if (j.miss) misses.delete(j.miss.key)
-        } else if (j.miss) misses.add(j.miss.key, j.miss.version)
+        }
+        // A listed name that fails to download (403, cut-off body) is not remembered as a miss: it may work next run.
       } catch (e) {
         res.failed++
         res.errors.push(`${game.title} (${j.kind}): ${errMsg(e)}`)

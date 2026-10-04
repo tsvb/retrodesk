@@ -321,12 +321,12 @@ describe('retroArchLatestStable', () => {
     vi.unstubAllGlobals()
     rmSync(cacheDir, { recursive: true, force: true })
   })
-  const stub = (handlers: { buildbot: () => Promise<Response>; github: () => Promise<Response> }) => {
+  const stub = (handlers: { buildbot: () => Promise<Response>; github: () => Promise<Response>; head?: () => Promise<Response> }) => {
     const calls: string[] = []
-    vi.stubGlobal('fetch', async (url: string) => {
-      const which = url.includes('buildbot') ? 'buildbot' : 'github'
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      const which = init?.method === 'HEAD' ? 'head' : url.includes('buildbot') ? 'buildbot' : 'github'
       calls.push(which)
-      return handlers[which]()
+      return (handlers[which] ?? (async () => new Response(null)))()
     })
     clearRetroArchVersionMemo()
     return calls
@@ -350,6 +350,11 @@ describe('retroArchLatestStable', () => {
     clearRetroArchVersionMemo()
     expect(await retroArchLatestStable(undefined, cacheDir)).toBe('1.23.0')
     expect(calls.filter((c) => c === 'github')).toHaveLength(1)
+  })
+
+  it("ignores a GitHub release the buildbot doesn't have yet", async () => {
+    stub({ buildbot: async () => Promise.reject(new TypeError('fetch failed')), github: async () => new Response('{"tag_name":"v1.24.0"}'), head: async () => new Response(null, { status: 404 }) })
+    expect(await retroArchLatestStable()).toBe(RETROARCH_FALLBACK_VERSION)
   })
 
   it('falls back to the pinned version when nothing answers', async () => {

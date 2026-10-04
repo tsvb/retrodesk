@@ -29,6 +29,8 @@ let steamDetectDone: Promise<void> | null = null
 let romFolderBiosFiles: string[] = []
 let arcadeNames: Map<string, string> | undefined
 let scanPromise: Promise<ScanResult> | null = null
+/** The running scan only covers some folders. */
+let scanScoped = false
 /**
  * Set after the first full scan of this session. Later scans reuse the sizes the library already has instead of
  * measuring every file again, so a ROM replaced by one of another size shows its new size after the next restart.
@@ -348,13 +350,19 @@ async function runScan(scope?: string[]): Promise<ScanResult> {
   }
 }
 
-/** Start a scan unless one is running, in which case that one's result is returned. */
+/**
+ * Start a scan unless one is running, in which case that one's result is returned. A full scan asked for while a
+ * partial one (an import) runs is started after it instead, or new folders and deleted games would be missed.
+ */
 function startScan(scope?: string[]): Promise<ScanResult> {
-  if (!scanPromise) {
-    scanPromise = runScan(scope).finally(() => {
-      scanPromise = null
-    })
+  if (scanPromise) {
+    if (!scope && scanScoped) return scanPromise.catch(() => undefined).then(() => startScan())
+    return scanPromise
   }
+  scanScoped = !!scope
+  scanPromise = runScan(scope).finally(() => {
+    scanPromise = null
+  })
   return scanPromise
 }
 
