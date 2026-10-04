@@ -48,21 +48,27 @@ export class RaCommandClient {
 
   private socket(): Promise<dgram.Socket> {
     if (this.ready) return this.ready
-    this.ready = new Promise((resolve, reject) => {
+    const ready = new Promise<dgram.Socket>((resolve, reject) => {
       const s = dgram.createSocket('udp4')
       s.on('message', (msg) => this.onMessage(msg.toString('utf8')))
-      // ICMP port-unreachable surfaces as an error on Windows (ECONNRESET); it just means "nobody listening".
       s.on('error', (e) => {
         if (!this.sock) reject(e)
         else console.warn('[racommand] socket error', (e as NodeJS.ErrnoException).code ?? e.message)
       })
       s.bind(0, '127.0.0.1', () => {
         s.unref()
+        // close() was called while binding: don't leave this socket behind.
+        if (this.ready !== ready) {
+          s.close()
+          reject(new Error('RetroArch command client closed'))
+          return
+        }
         this.sock = s
         resolve(s)
       })
     })
-    return this.ready
+    this.ready = ready
+    return ready
   }
 
   private onMessage(text: string): void {
@@ -87,7 +93,8 @@ export class RaCommandClient {
    */
   async request(cmd: string, opts: { timeoutMs?: number; prefix?: string | null } = {}): Promise<string | null> {
     const prefix = opts.prefix === undefined ? cmd.split(' ')[0] : (opts.prefix ?? undefined)
-    const s = await this.socket()
+    const s = await this.socket().catch(() => null)
+    if (!s) return null
     return new Promise<string | null>((resolve) => {
       const entry: Pending = {
         prefix,

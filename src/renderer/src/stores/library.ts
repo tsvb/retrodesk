@@ -11,10 +11,12 @@ interface LibraryState {
   emulators: EmulatorStatus[]
   /** Bumped whenever the backend says the library changed; screens holding their own lists refetch. */
   version: number
-  /** Latest copy of games changed from this window (favourite, override), keyed by id. */
+  /** Latest copy of games changed since the last refresh (favourite, override from this window; artwork), keyed by id. */
   patches: Record<string, Game>
   refresh(): Promise<void>
   refreshEmulators(): Promise<void>
+  /** Games whose artwork changed: patch them in place, without a refresh. */
+  applyMedia(games: Game[]): void
   setFavorite(game: Game, favorite: boolean): Promise<Game>
   setOverride(game: Game, emulator: string | null): Promise<Game>
   setHidden(game: Game, hidden: boolean): Promise<Game>
@@ -35,6 +37,7 @@ export const useLibrary = create<LibraryState>((set, get) => ({
     if (refreshing) return refreshing
     refreshing = (async () => {
       try {
+        const before = get().patches
         const [systems, recent, favorites, recentlyAdded, emulators] = await Promise.all([
           api.library.getSystems(),
           api.library.getRecent(16),
@@ -42,7 +45,9 @@ export const useLibrary = create<LibraryState>((set, get) => ({
           api.library.getGames({ sort: 'added', limit: 16 }),
           api.emulators.list()
         ])
-        set((s) => ({ loaded: true, systems, recent, favorites, recentlyAdded, emulators, version: s.version + 1, patches: {} }))
+        // Patches that arrived while loading may be newer than what was loaded: keep those.
+        const patches = Object.fromEntries(Object.entries(get().patches).filter(([id, g]) => before[id] !== g))
+        set((s) => ({ loaded: true, systems, recent, favorites, recentlyAdded, emulators, version: s.version + 1, patches }))
       } finally {
         refreshing = null
       }
@@ -52,6 +57,17 @@ export const useLibrary = create<LibraryState>((set, get) => ({
   async refreshEmulators() {
     const [emulators, systems] = await Promise.all([api.emulators.list(), api.library.getSystems()])
     set({ emulators, systems })
+  },
+  applyMedia(games) {
+    if (!games.length) return
+    const byId = new Map(games.map((g) => [g.id, g]))
+    const swap = (list: Game[]): Game[] => (list.some((g) => byId.has(g.id)) ? list.map((g) => byId.get(g.id) ?? g) : list)
+    set((s) => ({
+      patches: { ...s.patches, ...Object.fromEntries(byId) },
+      recent: swap(s.recent),
+      favorites: swap(s.favorites),
+      recentlyAdded: swap(s.recentlyAdded)
+    }))
   },
   async setFavorite(game, favorite) {
     const updated = await api.library.setFavorite(game.id, favorite)
@@ -76,6 +92,26 @@ export const useLibrary = create<LibraryState>((set, get) => ({
     return updated
   }
 }))
+
+/**
+ * Keep the store in step with the backend's libraryChanged events: artwork-only changes are patched in at once,
+ * anything else refreshes (debounced, bursts arrive during scans). Returns the unsubscribe function.
+ */
+export function followLibraryChanges(): () => void {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const off = api.on.libraryChanged((change) => {
+    if (change && change.media) {
+      useLibrary.getState().applyMedia(change.media)
+      return
+    }
+    clearTimeout(timer)
+    timer = setTimeout(() => void useLibrary.getState().refresh(), 250)
+  })
+  return () => {
+    off()
+    clearTimeout(timer)
+  }
+}
 
 /** Apply locally-known patches to a game from a cached list. */
 export function usePatched(game: Game): Game

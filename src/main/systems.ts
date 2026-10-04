@@ -12,6 +12,7 @@ import systemsData from './data/systems.json'
  */
 const SYSTEMS: readonly SystemDef[] = systemsData as SystemDef[]
 const BY_ID = new Map<string, SystemDef>(SYSTEMS.map((s) => [s.id, s]))
+const ORDER = new Map<string, number>(SYSTEMS.map((s, i) => [s.id, i]))
 
 /**
  * Extensions that are too generic to identify a system on their own (shared, or used by unrelated
@@ -36,8 +37,7 @@ export function getSystemDef(id: string): SystemDef | undefined {
 
 /** Position of a system in the catalogue (used for sorting by system). Unknown ids sort last. */
 export function systemOrder(id: string): number {
-  const i = SYSTEMS.findIndex((s) => s.id === id)
-  return i < 0 ? SYSTEMS.length : i
+  return ORDER.get(id) ?? SYSTEMS.length
 }
 
 /** Normalise a folder name for alias matching: lower-case, no diacritics, alphanumerics only. */

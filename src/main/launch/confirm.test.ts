@@ -22,6 +22,19 @@ describe('fileWrittenSince', () => {
     expect(await fileWrittenSince(dir, since, /\.state\d*$/, 2000, 50)).toBe(true)
   })
 
+  it('resolves as soon as a new file appears, not at the timeout', async () => {
+    const since = Date.now()
+    setTimeout(() => writeFileSync(join(dir, 'new.state3'), 'z'), 50)
+    expect(await fileWrittenSince(dir, since, /\.state3$/, 5000, 50)).toBe(true)
+    expect(Date.now() - since).toBeLessThan(2500)
+  })
+
+  it('sees a write that landed before it started looking', async () => {
+    const since = Date.now()
+    writeFileSync(join(dir, 'early.state5'), 'z')
+    expect(await fileWrittenSince(dir, since, /\.state5$/, 1000, 50)).toBe(true)
+  })
+
   it('only counts files matching the pattern', async () => {
     const since = Date.now()
     writeFileSync(join(dir, 'game.state1.png'), 'thumb')

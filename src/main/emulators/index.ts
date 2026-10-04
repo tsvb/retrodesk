@@ -200,7 +200,7 @@ async function doInstall(id: string): Promise<EmulatorStatus> {
       const r = await installCore(core, paths, task)
       invalidateCores()
       recordInstall({ id, version: r.version, installedAt: Date.now(), exePath: r.exePath, sizeBytes: r.sizeBytes })
-      task.done(retroArchExe() ? r.version : `${r.version} (RetroArch not installed yet)`)
+      task.done(retroArchExe() || inflight.has(RA_ID) ? r.version : `${r.version} (RetroArch not installed yet)`)
     } catch (e) {
       task.fail(e)
       throw e
@@ -264,14 +264,24 @@ export async function installForSystem(systemId: string): Promise<void> {
   const task = createTask(`Setting up ${sys.name}`, { kind: 'system', id: systemId })
   try {
     if (ref.type === 'retroarch') {
-      if (!retroArchExe()) {
-        task.update(0, 'Installing RetroArch')
-        await installEmulator(RA_ID)
-      }
-      if (!isCoreInstalled(ref.core)) {
-        task.update(0.9, `Installing ${coreDisplayName(ref.core)}`)
-        await installEmulator(`core:${ref.core}`)
-      }
+      // RetroArch and the core install side by side (retroarch.ts serialises their moves into the RetroArch folder).
+      const jobs = [
+        ...(retroArchExe() ? [] : [{ name: 'RetroArch', id: RA_ID }]),
+        ...(isCoreInstalled(ref.core) ? [] : [{ name: coreDisplayName(ref.core), id: `core:${ref.core}` }])
+      ]
+      const pending = new Set(jobs.map((j) => j.name))
+      const report = () => task.update((jobs.length - pending.size) / jobs.length, `Installing ${[...pending].join(' and ')}`)
+      report()
+      const results = await Promise.allSettled(
+        jobs.map((j) =>
+          installEmulator(j.id).then(() => {
+            pending.delete(j.name)
+            if (pending.size) report()
+          })
+        )
+      )
+      const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected')
+      if (failed) throw failed.reason
     } else {
       task.update(-1, `Installing ${getStandaloneDef(ref.id)?.name ?? ref.id}`)
       await installEmulator(ref.id)

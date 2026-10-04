@@ -4,7 +4,7 @@ import { Power } from 'lucide-react'
 import type { Game, SessionInfo } from '@shared/types'
 import { api } from '../api'
 import { Button } from '../components/Button'
-import { GameCover } from '../components/GameCover'
+import { COVER_THUMB, GameCover } from '../components/GameCover'
 import { KeyCap, PadButton } from '../components/Glyph'
 import { ConfirmDialog } from '../components/Modal'
 import { Motif, motifFor } from '../components/Motif'
@@ -32,7 +32,7 @@ export function NowPlaying({ session }: { session: SessionInfo }) {
     void api.library.getGame(session.gameId).then(setGame)
   }, [session.gameId])
 
-  const art = mediaUrl(game?.media.snap ?? game?.media.boxart)
+  const art = mediaUrl(game?.media.snap ?? game?.media.boxart, { w: COVER_THUMB.backdrop })
   const combo = settings.hotkeys.quickMenuCombo
   const accel = settings.hotkeys.quickMenu.split('+').map((k) => (k === 'Control' ? 'Ctrl' : k))
 

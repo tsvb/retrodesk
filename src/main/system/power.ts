@@ -58,7 +58,7 @@ export async function getActiveOverlay(source: 'ac' | 'dc'): Promise<string | un
 }
 
 let sourceProvider: () => Promise<'ac' | 'dc'> = async () => 'ac'
-/** stats.ts registers a battery-backed provider (avoids an import cycle). */
+/** system/index.ts registers the real provider (avoids an import cycle). */
 export function setPowerSourceProvider(fn: () => Promise<'ac' | 'dc'>): void {
   sourceProvider = fn
 }
@@ -74,10 +74,11 @@ async function powercfg(...args: string[]): Promise<boolean> {
   return r.code === 0
 }
 
-export async function applyPerformanceMode(mode: PerformanceMode): Promise<void> {
+/** `current`: a state captured just before (the launcher's), which saves looking up the active scheme again. */
+export async function applyPerformanceMode(mode: PerformanceMode, current?: PowerState): Promise<void> {
   if (mode === 'unchanged') return
-  const scheme = await getActiveScheme()
-  const onBalanced = !scheme || scheme.guid === SCHEMES.balanced
+  const scheme = current ? current.scheme : (await getActiveScheme())?.guid
+  const onBalanced = !scheme || scheme === SCHEMES.balanced
   if (onBalanced && (await powercfg('/overlaysetactive', OVERLAYS[mode]))) return
   // Classic schemes (desktops / machines with custom plans).
   if (await powercfg('/setactive', SCHEMES[mode])) return
@@ -88,12 +89,11 @@ export async function applyPerformanceMode(mode: PerformanceMode): Promise<void>
 }
 
 export async function restorePowerState(s: PowerState): Promise<void> {
-  const now = await getActiveScheme()
-  if (s.scheme && now?.guid !== s.scheme) await powercfg('/setactive', s.scheme)
-  if (s.overlay) {
-    const current = await getActiveOverlay(s.source)
-    if (current !== s.overlay) await powercfg('/overlaysetactive', s.overlay)
-  }
+  const [now, overlay] = await Promise.all([getActiveScheme(), s.overlay ? getActiveOverlay(s.source) : undefined])
+  const switched = !!s.scheme && now?.guid !== s.scheme
+  if (switched) await powercfg('/setactive', s.scheme!)
+  // Switching schemes can reset the overlay, so the overlay read above only counts if the scheme stayed put.
+  if (s.overlay && (switched || overlay !== s.overlay)) await powercfg('/overlaysetactive', s.overlay)
 }
 
 /** Human readable plan name for SystemStats.powerPlan. */

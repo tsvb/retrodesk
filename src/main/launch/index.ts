@@ -6,13 +6,13 @@ import { app, globalShortcut, shell } from 'electron'
 import type { RetroDeskApi } from '../../shared/api'
 import { QUICK_ACTIONS, type QuickActionDef } from '../../shared/quickActions'
 import type { Game, LaunchResult, QuickAction, SessionInfo } from '../../shared/types'
-import { createTask, emitSession } from '../events'
+import { createTask, emitSession, type TaskHandle } from '../events'
 import { getGameById, recordPlaySession } from '../library'
 import { getPaths } from '../paths'
 import { getSettings, onSettingsChanged } from '../settings'
 import { getSystemDef } from '../systems'
 import { readJson, writeJsonAtomic } from '../util/json'
-import { capturePowerState, restorePowerState, setPerformanceMode, type PowerState } from '../system'
+import { capturePowerState, enterPerformanceMode, restorePowerState, type PowerState } from '../system'
 import { destroyOverlay, focusMainWindow, isOverlayActive, onOverlayActiveChanged, setOverlayActive, showOverlay } from '../windows'
 import { isRefInstalled, refKey, refStatusId, resolveGameRef, retroArchExe, standaloneExe } from '../emulators'
 import type { EmuRef } from '../emulators/keys'
@@ -32,6 +32,10 @@ interface ActiveSession {
   /** We paused RetroArch when the overlay opened (so we unpause on close). */
   pausedByUs: boolean
   power?: PowerState
+  /** Capturing the plan and switching to the in-game mode, done after the emulator started; the restore waits for it. */
+  boosting: Promise<void>
+  /** `boosting` has settled. */
+  boosted?: boolean
   quitTimer?: NodeJS.Timeout
   exited: boolean
   /** Serialises overlay pause/resume work. */
@@ -43,7 +47,9 @@ let launching = false
 /** The power-plan restore in flight, if any. */
 let restoring: Promise<void> = Promise.resolve()
 let registeredAccelerator: string | null = null
-const focusHelper = new FocusHelper()
+const focusHelper = new FocusHelper({ cacheDir: () => app.getPath('userData') })
+/** The focus helper is only needed once the quick menu closes: keep its start-up away from the emulator's. */
+const FOCUS_HELPER_DELAY_MS = 5000
 
 // ---------------------------------------------------------------------------------------------
 // Command building (exported for tests / integration)
@@ -76,12 +82,18 @@ export async function planLaunch(game: Game): Promise<PlanResult> {
   }
   if (!existsSync(game.path)) return { ok: false, error: `Game file not found: ${game.path}` }
 
-  // Core asset packs (PPSSPP, blueMSX) are fetched automatically.
+  // Core asset packs (PPSSPP, blueMSX) are fetched automatically, shown as a task so the launch doesn't look hung.
   const assetCore = autoFetchableCore(ref)
   if (assetCore) {
+    // Only created once there is something to download.
+    let task: TaskHandle | undefined
     try {
-      await ensureCoreSystemAssets(assetCore, paths)
+      await ensureCoreSystemAssets(assetCore, paths, {
+        update: (progress, detail) => (task ??= createTask(`Setting up ${emuName}`, { kind: 'system', id: system.id })).update(progress, detail)
+      })
+      task?.done(`${emuName} is ready`)
     } catch (e) {
+      task?.fail(e)
       console.warn('[launch] asset pack download failed', e)
     }
   }
@@ -134,6 +146,8 @@ export async function launchGame(gameId: string): Promise<LaunchResult> {
   }
   if (launching) return { ok: false, error: 'A game is already starting.' }
   launching = true
+  /** The command client, until a RetroArch session takes it over; closed on the way out otherwise. */
+  let ra: RaCommandClient | null = null
   try {
     const game = await getGameById(gameId)
     if (!game) return { ok: false, error: 'Game not found.' }
@@ -147,40 +161,32 @@ export async function launchGame(gameId: string): Promise<LaunchResult> {
       return { ok: true, session: { gameId: game.id, title: game.title, systemId: game.systemId, emulatorId: 'steam', supportsCommands: false, startedAt, stateSlot: 0 } }
     }
 
+    // These checks don't depend on the plan, so they run while it is made (and are dropped if the launch stops).
+    // Another RetroArch (e.g. opened from Settings) would own the command port and receive our commands. Nothing
+    // answers when none is open, so this check costs its whole timeout: overlapping it is what keeps it cheap.
+    ra = new RaCommandClient(RA_NETWORK_PORT)
+    const raOpen = ra.getStatus(200)
+    const settings = getSettings()
+    const mode = settings.performance.inGameMode
+    // Let the previous session finish putting its plan back, or we would capture the boosted one as "original".
+    const capturing: Promise<PowerState | undefined> =
+      mode === 'unchanged'
+        ? Promise.resolve(undefined)
+        : restoring.then(capturePowerState).catch((e) => {
+            console.warn('[launch] could not read the power plan', e)
+            return undefined
+          })
+
     const planned = await planLaunch(game)
     if (!planned.ok) return planned
     const { plan } = planned
-
-    let ra: RaCommandClient | null = null
-    if (plan.ref.type === 'retroarch') {
-      ra = new RaCommandClient(RA_NETWORK_PORT)
-      // Another RetroArch (e.g. opened from Settings) would own the command port and receive our commands.
-      if (await ra.getStatus(200)) {
-        ra.close()
-        return { ok: false, error: 'RetroArch is already open. Close it and try again.' }
-      }
-    }
-
-    const settings = getSettings()
-    let power: PowerState | undefined
-    if (settings.performance.inGameMode !== 'unchanged') {
-      try {
-        // Let the previous session finish putting its plan back, or we would capture the boosted one as "original".
-        await restoring
-        power = await capturePowerState()
-        rememberPowerState(power)
-        await setPerformanceMode(settings.performance.inGameMode)
-      } catch (e) {
-        console.warn('[launch] could not apply performance mode', e)
-      }
-    }
+    const isRetroArch = plan.ref.type === 'retroarch'
+    if (isRetroArch && (await raOpen)) return { ok: false, error: 'RetroArch is already open. Close it and try again.' }
 
     let child: ChildProcess
     try {
       child = await startProcess(plan)
     } catch (e) {
-      ra?.close()
-      if (power) await restorePower(power)
       return { ok: false, error: `Could not start the emulator: ${e instanceof Error ? e.message : String(e)}` }
     }
 
@@ -195,15 +201,28 @@ export async function launchGame(gameId: string): Promise<LaunchResult> {
       stateSlot: 0,
       ...(plan.supportsCommands ? { paused: false, fastForward: false } : {})
     }
-    const session: ActiveSession = { info, child, ra, pausedByUs: false, power, exited: false, chain: Promise.resolve() }
+    const session: ActiveSession = { info, child, ra: isRetroArch ? ra : null, pausedByUs: false, boosting: Promise.resolve(), exited: false, chain: Promise.resolve() }
+    if (isRetroArch) ra = null // the session owns it now
     active = session
     child.once('exit', (code) => void endSession(session, code))
-    void focusHelper.start()
+    // The power mode is switched once the emulator is on its way rather than holding up its start. The plan being
+    // replaced goes to disk before anything changes, so a crash mid-game can still put it back.
+    session.boosting = capturing
+      .then(async (power) => {
+        if (!power || session.exited) return
+        session.power = power
+        rememberPowerState(power)
+        await enterPerformanceMode(mode, power)
+      })
+      .catch((e) => console.warn('[launch] could not apply performance mode', e))
+      .finally(() => (session.boosted = true))
+    focusHelper.prewarm(FOCUS_HELPER_DELAY_MS)
     emitSession(publicInfo())
     showOverlay()
     registerShortcut()
     return { ok: true, session: { ...info } }
   } finally {
+    ra?.close()
     launching = false
   }
 }
@@ -223,17 +242,17 @@ async function endSession(s: ActiveSession, code: number | null): Promise<void> 
     console.warn('[launch] destroyOverlay failed', e)
   }
   emitSession(null)
+  // Back to the frontend first (unless another game is already in front); the power plan and play time are
+  // tidied up behind it.
+  if (!active) focusMainWindow()
+  // Once the mode switch (if still going) is done. The next launch waits for this before capturing its own
+  // "original" plan.
+  restoring = Promise.all([restoring, s.boosting]).then(() => (s.power ? restorePower(s.power) : undefined))
   try {
     await recordPlaySession(s.info.gameId, s.info.startedAt, seconds)
   } catch (e) {
     console.warn('[launch] recordPlaySession failed', e)
   }
-  if (s.power) {
-    restoring = restorePower(s.power)
-    await restoring
-  }
-  // A new game may already have started while the plan was being restored: leave it in front.
-  if (!active) focusMainWindow()
   // A quick non-zero exit almost always means the emulator failed to boot the game.
   if (code && code !== 0 && seconds < 10 && !s.quitTimer) {
     const hint = s.info.supportsCommands ? ` See ${join(raDir(getPaths()), 'logs', 'retroarch.log')}.` : ''
@@ -317,11 +336,12 @@ async function sendCommand(s: ActiveSession, ra: RaCommandClient, def: QuickActi
   if (!(await ra.getStatus(400))) throw new Error('RetroArch is not responding.')
   const since = Date.now()
   await ra.send(def.command)
+  // Only files RetroArch changes are looked at (see fileWrittenSince), so these patterns needn't name the game.
   if (def.writes === 'states') {
     const file = new RegExp(`\\.state${s.info.stateSlot || ''}$`)
     if (!(await fileWrittenSince(getPaths().states, since, file))) throw new Error('RetroArch did not write a save state. This core may not support them.')
   } else if (def.writes === 'screenshots') {
-    if (!(await fileWrittenSince(getPaths().screenshots, since))) throw new Error('RetroArch did not save a screenshot.')
+    if (!(await fileWrittenSince(getPaths().screenshots, since, /\.(png|bmp|tga)$/i))) throw new Error('RetroArch did not save a screenshot.')
   }
 }
 
@@ -390,11 +410,11 @@ function unregisterShortcut(): void {
 }
 
 /** Best-effort synchronous power-plan restore if the app quits mid-game. */
-function restorePowerSync(p: PowerState): void {
+function restorePowerSync(p: PowerState, keepRecord = false): void {
   try {
     if (p.scheme) spawnSync('powercfg', ['/setactive', p.scheme], { windowsHide: true, timeout: 4000 })
     if (p.overlay) spawnSync('powercfg', ['/overlaysetactive', p.overlay], { windowsHide: true, timeout: 4000 })
-    forgetPowerState()
+    if (!keepRecord) forgetPowerState()
   } catch {
     /* ignore */
   }
@@ -445,7 +465,9 @@ export function initLaunch(): void {
   app.on('will-quit', () => {
     unregisterShortcut()
     focusHelper.stop()
-    if (active?.power) restorePowerSync(active.power)
+    // A switch to the performance mode still in flight could land after this restore: keep the record so the next
+    // start puts the plan back again.
+    if (active?.power) restorePowerSync(active.power, !active.boosted)
   })
 }
 

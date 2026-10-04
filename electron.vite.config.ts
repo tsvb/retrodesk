@@ -15,6 +15,8 @@ export default defineConfig({
     resolve: {
       alias: { ...shared, '@renderer': resolve('src/renderer/src') }
     },
-    plugins: [react()]
+    plugins: [react()],
+    // electron-vite leaves the renderer unminified by default; minifying roughly halves what each window parses.
+    build: { minify: 'esbuild', cssMinify: 'esbuild' }
   }
 })

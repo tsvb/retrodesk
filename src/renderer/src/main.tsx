@@ -7,9 +7,8 @@ import './styles/base.css'
 import './styles/components.css'
 import './styles/screens.css'
 import './styles/overlay.css'
-import { bridgeMissing } from './api'
-import { App } from './App'
-import { OverlayApp } from './overlay/OverlayApp'
+import { api, bridgeMissing } from './api'
+import { setLocale } from './lib/format'
 
 const isOverlay = location.hash.startsWith('#/overlay')
 if (isOverlay) document.documentElement.classList.add('is-overlay')
@@ -25,4 +24,11 @@ function BridgeMissing() {
 
 const root = document.getElementById('root')
 if (!root) throw new Error('#root missing')
-createRoot(root).render(bridgeMissing ? isOverlay ? null : <BridgeMissing /> : isOverlay ? <OverlayApp /> : <App />)
+const reactRoot = createRoot(root)
+// Each window loads only its own UI: the overlay never parses the front end's screens, and vice versa.
+if (bridgeMissing) reactRoot.render(isOverlay ? null : <BridgeMissing />)
+else {
+  const locale = api.system.getLocale().then(setLocale, () => undefined)
+  if (isOverlay) void Promise.all([import('./overlay/OverlayApp'), locale]).then(([{ OverlayApp }]) => reactRoot.render(<OverlayApp />))
+  else void Promise.all([import('./App'), locale]).then(([{ App }]) => reactRoot.render(<App />))
+}

@@ -45,6 +45,7 @@ vi.mock('../events', () => ({
   emitLibraryChanged: () => {
     env.changed++
   },
+  broadcast: () => undefined,
   createTask: (label: string, subject?: { kind: string }) => {
     const t: { label: string; state: string; detail?: string; kind?: string } = { label, state: 'running', kind: subject?.kind }
     env.tasks.push(t)

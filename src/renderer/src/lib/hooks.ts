@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 /** Re-renders on every minute boundary (or every `ms`). */
 export function useNow(ms = 60_000): Date {
@@ -57,16 +57,23 @@ export function useBattery(): BatteryInfo | null {
   return info
 }
 
-/** Poll an async function at an interval while mounted. */
-export function usePoll<T>(fn: () => Promise<T>, ms: number, deps: unknown[] = []): T | null {
+/**
+ * Poll an async function at an interval while mounted. While `skip()` returns true the call (and the re-render it
+ * causes) is left out, but the timer keeps ticking so polling picks up again by itself.
+ */
+export function usePoll<T>(fn: () => Promise<T>, ms: number, deps: unknown[] = [], skip?: () => boolean): T | null {
   const [value, setValue] = useState<T | null>(null)
+  const skipRef = useRef(skip)
+  skipRef.current = skip
   useEffect(() => {
     let alive = true
     let t: ReturnType<typeof setTimeout>
     const run = async () => {
       try {
-        const v = await fn()
-        if (alive) setValue(v)
+        if (!skipRef.current?.()) {
+          const v = await fn()
+          if (alive) setValue(v)
+        }
       } catch {
         /* keep last value */
       }

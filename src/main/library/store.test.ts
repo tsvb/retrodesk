@@ -3,7 +3,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterAll, describe, expect, it } from 'vitest'
 import type { Game } from '../../shared/types'
-import { GameStore, sanitizeGame } from './store'
+import { firstSorted, GameStore, sanitizeGame } from './store'
 import { gameIdForPath } from './util'
 
 const tmp = mkdtempSync(join(tmpdir(), 'rd-store-'))
@@ -80,6 +80,12 @@ describe('GameStore', () => {
     s3.load()
     expect(s3.all()[0]?.playCount).toBe(3)
     expect(existsSync(`${file}.tmp`)).toBe(false)
+    const s4 = new GameStore(file)
+    await s4.loadAsync()
+    expect(s4.all()[0]?.playCount).toBe(3)
+    const empty = new GameStore(join(tmp, 'missing.json'))
+    await empty.loadAsync()
+    expect(empty.size).toBe(0)
   })
 
   it('debounces saves', async () => {
@@ -89,6 +95,34 @@ describe('GameStore', () => {
     expect(existsSync(file)).toBe(false)
     await new Promise((r) => setTimeout(r, 120))
     expect(existsSync(file)).toBe(true)
+  })
+
+  it('saves at least every maxWait while changes keep coming', async () => {
+    const file = join(tmp, 'maxwait.json')
+    const s = new GameStore(file, 50, 120)
+    const g = game('Busy')
+    s.put(g)
+    // A change every 20 ms never leaves the 50 ms quiet gap the debounce waits for.
+    let savedWhileBusy = false
+    for (let i = 0; i < 20 && !savedWhileBusy; i++) {
+      await new Promise((r) => setTimeout(r, 20))
+      s.update(g.id, (x) => (x.playCount = i))
+      savedWhileBusy = existsSync(file)
+    }
+    expect(savedWhileBusy).toBe(true)
+    await s.flush()
+  })
+
+  it('picks the first of a sort order without sorting everything, like sort + slice', () => {
+    const rnd = (() => {
+      let x = 7
+      return () => (x = (x * 1103515245 + 12345) >>> 0) % 50
+    })()
+    const items = Array.from({ length: 500 }, (_, i) => ({ i, v: rnd() }))
+    const cmp = (a: { v: number }, b: { v: number }): number => a.v - b.v
+    for (const k of [0, 1, 16, 30, 499, 500, 900]) {
+      expect(firstSorted(items, k, cmp)).toEqual(items.slice().sort(cmp).slice(0, k))
+    }
   })
 
   it('moves a corrupt file aside and repairs bad entries', () => {

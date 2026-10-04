@@ -7,6 +7,11 @@ import type { Action, Direction } from './types'
  * face/shoulder buttons fire on press. In the main window input is ignored while the window is not
  * focused (XInput is global and a game is running on top). The overlay window instead watches for the
  * quick-menu combo while inactive.
+ *
+ * Chromium's background throttling is off for both windows (so the overlay can watch the pad over a fullscreen
+ * game), which means nothing slows this loop down for us. The main window polls every frame only while it has
+ * focus and drops to a slow timer otherwise; the overlay polls on a ~60 Hz timer (a 400 ms hold needs no vsync,
+ * and rAF stops when the compositor stops drawing the parked overlay window).
  */
 
 const REPEAT_DELAY = 350
@@ -14,6 +19,10 @@ const REPEAT_RATE = 80
 const STICK_ON = 0.55
 const STICK_OFF = 0.35
 const COMBO_HOLD_MS = 400
+/** Overlay poll interval. */
+const OVERLAY_POLL_MS = 16
+/** Main-window poll interval while unfocused: enough to notice pads connecting and focus coming back. */
+const IDLE_POLL_MS = 250
 export const GUIDE_BUTTON = 16
 
 type Logical = Direction | 'b0' | 'b1' | 'b2' | 'b3' | 'b4' | 'b5' | 'b6' | 'b7' | 'b8' | 'b9' | 'b16'
@@ -36,10 +45,17 @@ export interface GamepadOptions {
 }
 
 const REPEATING = new Set<Logical>(['up', 'down', 'left', 'right', 'b6', 'b7'])
+const BUTTONS: { key: Logical; index: number }[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => ({ key: `b${i}` as Logical, index: i }))
 
 export function installGamepad(opts: GamepadOptions): () => void {
   const states = new Map<Logical, KeyState>()
   let raf = 0
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let stopped = false
+  /** Set when the main window regains focus: buttons already held then must not fire. */
+  let refocused = false
+  /** Connected pads this tick (reused to avoid per-frame garbage). */
+  const pads: Gamepad[] = []
   let comboSince = 0
   let comboFired = false
   let guideWasDown = false
@@ -82,35 +98,56 @@ export function installGamepad(opts: GamepadOptions): () => void {
     if (action) emitAction(action, 'pad')
   }
 
-  const tick = (now: number) => {
+  const schedule = () => {
+    if (stopped) return
+    if (opts.mode === 'overlay') timer = setTimeout(() => tick(performance.now()), OVERLAY_POLL_MS)
+    else if (document.hasFocus()) raf = requestAnimationFrame(tick)
+    else timer = setTimeout(() => tick(performance.now()), IDLE_POLL_MS)
+  }
+  const onFocus = () => {
+    if (opts.mode !== 'main' || stopped) return
+    // Back from the slow idle poll straight away.
+    clearTimeout(timer)
+    cancelAnimationFrame(raf)
+    refocused = true
     raf = requestAnimationFrame(tick)
+  }
+  window.addEventListener('focus', onFocus)
+
+  const pressed = (i: number): boolean => {
+    for (const p of pads) {
+      const b = p.buttons[i]
+      if (b && (b.pressed || b.value > 0.5)) return true
+    }
+    return false
+  }
+  const axis = (i: number): number => {
+    let v = 0
+    for (const p of pads) {
+      const a = p.axes[i] ?? 0
+      if (Math.abs(a) > Math.abs(v)) v = a
+    }
+    return v
+  }
+
+  const tick = (now: number) => {
+    schedule()
     if (now - lastPadsCheck > 1000) {
       lastPadsCheck = now
       refreshPads()
     }
-    const pads = navigator.getGamepads().filter((g): g is Gamepad => !!g && g.connected)
+    pads.length = 0
+    for (const g of navigator.getGamepads()) if (g && g.connected) pads.push(g)
     if (!pads.length) {
       states.clear()
       return
     }
 
-    const pressed = (i: number) => pads.some((p) => {
-      const b = p.buttons[i]
-      return !!b && (b.pressed || b.value > 0.5)
-    })
-    const axis = (i: number) => {
-      let v = 0
-      for (const p of pads) {
-        const a = p.axes[i] ?? 0
-        if (Math.abs(a) > Math.abs(v)) v = a
-      }
-      return v
-    }
-
     // --- quick-menu combo / Guide (overlay always; harmless elsewhere) ---
     if (opts.onCombo) {
       const combo = opts.getCombo?.() ?? [8, 9]
-      const comboDown = combo.length > 0 && combo.every((i) => pressed(i))
+      let comboDown = combo.length > 0
+      for (const i of combo) if (!pressed(i)) comboDown = false
       if (comboDown) {
         if (!comboSince) comboSince = now
         if (!comboFired && now - comboSince >= COMBO_HOLD_MS) {
@@ -130,7 +167,12 @@ export function installGamepad(opts: GamepadOptions): () => void {
       guideWasDown = guide
     }
 
-    const accepting = opts.mode === 'main' ? document.hasFocus() : (opts.isActive?.() ?? false)
+    let accepting = opts.mode === 'main' ? document.hasFocus() : (opts.isActive?.() ?? false)
+    if (refocused) {
+      // The idle poll may have missed a press made just before focus returned (e.g. the button that quit the game).
+      refocused = false
+      accepting = false
+    }
 
     const stickX = axis(0)
     const stickY = axis(1)
@@ -139,26 +181,10 @@ export function installGamepad(opts: GamepadOptions): () => void {
       const s = stick * sign
       return pressed(btn) || (prev ? s > STICK_OFF : s > STICK_ON)
     }
-    const current: [Logical, boolean][] = [
-      ['up', dirHeld('up', 12, stickY, -1)],
-      ['down', dirHeld('down', 13, stickY, 1)],
-      ['left', dirHeld('left', 14, stickX, -1)],
-      ['right', dirHeld('right', 15, stickX, 1)],
-      ['b0', pressed(0)],
-      ['b1', pressed(1)],
-      ['b2', pressed(2)],
-      ['b3', pressed(3)],
-      ['b4', pressed(4)],
-      ['b5', pressed(5)],
-      ['b6', pressed(6)],
-      ['b7', pressed(7)],
-      ['b8', pressed(8)],
-      ['b9', pressed(9)]
-    ]
     // While the combo is being held, Back/Start must not act on their own.
     const comboHeld = comboSince > 0
 
-    for (const [key, down] of current) {
+    const update = (key: Logical, down: boolean) => {
       let st = states.get(key)
       if (!st) {
         st = { down: false, since: 0, lastFire: 0, consumed: false }
@@ -171,7 +197,7 @@ export function installGamepad(opts: GamepadOptions): () => void {
         }
         st.down = false
         st.consumed = false
-        continue
+        return
       }
       if (!st.down) {
         st.down = true
@@ -179,18 +205,23 @@ export function installGamepad(opts: GamepadOptions): () => void {
         st.lastFire = now
         st.consumed = !accepting
         if (!st.consumed && key !== 'b8' && key !== 'b9') fire(key)
-        continue
+        return
       }
       if (!accepting) {
         st.consumed = true
-        continue
+        return
       }
-      if (st.consumed || !REPEATING.has(key)) continue
+      if (st.consumed || !REPEATING.has(key)) return
       if (now - st.since >= REPEAT_DELAY && now - st.lastFire >= REPEAT_RATE) {
         st.lastFire = now
         fire(key)
       }
     }
+    update('up', dirHeld('up', 12, stickY, -1))
+    update('down', dirHeld('down', 13, stickY, 1))
+    update('left', dirHeld('left', 14, stickX, -1))
+    update('right', dirHeld('right', 15, stickX, 1))
+    for (const b of BUTTONS) update(b.key, pressed(b.index))
     if (comboHeld) {
       const b8 = states.get('b8')
       const b9 = states.get('b9')
@@ -204,9 +235,12 @@ export function installGamepad(opts: GamepadOptions): () => void {
   }
 
   refreshPads()
-  raf = requestAnimationFrame(tick)
+  schedule()
   return () => {
+    stopped = true
     cancelAnimationFrame(raf)
+    clearTimeout(timer)
+    window.removeEventListener('focus', onFocus)
     window.removeEventListener('gamepadconnected', onConnect)
     window.removeEventListener('gamepaddisconnected', refreshPads)
   }

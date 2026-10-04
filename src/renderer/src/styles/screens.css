@@ -222,6 +222,8 @@
   padding-left: 0;
   padding-right: 0;
   padding-bottom: 0;
+  /* Nothing scrolls under the bars here: the grid fades itself (below), so skip the screen-wide mask. */
+  mask-image: none;
 }
 .gl-head {
   flex: none;
@@ -282,7 +284,7 @@
   flex: 1;
   padding-bottom: calc(var(--hintbar-h) + 1rem);
   padding-right: calc(var(--gutter) + 1.2rem);
-  mask-image: linear-gradient(to bottom, transparent, #000 1.2rem, #000 calc(100% - var(--hintbar-h)), transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 1.2rem, #000 calc(100% - var(--hintbar-h) - 0.5rem), transparent calc(100% - var(--hintbar-h) * 0.4));
 }
 .letter-rail {
   position: absolute;

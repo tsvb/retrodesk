@@ -5,6 +5,7 @@ import { existsSync } from 'fs'
 import { mkdir, readdir, rename, rm, stat } from 'fs/promises'
 import { join } from 'path'
 import sevenBin from '7zip-bin'
+import { createLimiter } from './limit'
 
 /** 7za.exe path; inside a packaged app it lives in app.asar.unpacked (see electron-builder asarUnpack). */
 export function sevenZipPath(): string {
@@ -22,13 +23,27 @@ export function parse7zProgress(chunk: string): number | undefined {
 
 export interface ExtractOptions {
   onProgress?: (fraction: number) => void
+  /** Called when the extraction has to wait for a free slot (see MAX_CONCURRENT_EXTRACTIONS). */
+  onQueued?: () => void
   signal?: AbortSignal
 }
+
+/** 7za processes at once; extraction is disk-bound, so more in parallel only makes each one slower. */
+export const MAX_CONCURRENT_EXTRACTIONS = 2
+const extractSlots = createLimiter(MAX_CONCURRENT_EXTRACTIONS)
 
 /** `7za x -y -bsp1 -o<dest> <archive>`. Resolves when done; rejects on fatal error or abort. */
 export async function extractArchive(archive: string, dest: string, opts: ExtractOptions = {}): Promise<void> {
   await mkdir(dest, { recursive: true })
-  await new Promise<void>((resolve, reject) => {
+  await extractSlots(() => run7za(archive, dest, opts), { signal: opts.signal, onQueued: opts.onQueued }).catch((e: unknown) => {
+    // Cancelled while queued: same error as cancelled while running.
+    throw opts.signal?.aborted ? new Error('Extraction cancelled') : e
+  })
+  opts.onProgress?.(1)
+}
+
+function run7za(archive: string, dest: string, opts: ExtractOptions): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
     if (opts.signal?.aborted) return reject(new Error('Extraction cancelled'))
     const child = spawn(sevenZipPath(), ['x', '-y', '-bsp1', '-bb0', `-o${dest}`, archive], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     let stderr = ''
@@ -55,7 +70,6 @@ export async function extractArchive(archive: string, dest: string, opts: Extrac
       else reject(new Error(`7-Zip failed (exit ${code}): ${stderr.trim().split(/\r?\n/).slice(-3).join(' ') || 'unknown error'}`))
     })
   })
-  opts.onProgress?.(1)
 }
 
 /** If `dir` contains exactly one entry and it is a directory, return that directory; else `dir`. */
@@ -102,20 +116,28 @@ export async function removeExcept(dir: string, keep: string[]): Promise<boolean
   return kept
 }
 
+/**
+ * Total size of the files below `p` (or of `p` itself). A RetroArch install has thousands of files, so entries
+ * are read and stat'ed up to 32 at a time rather than one by one. Symlinks/junctions are not followed.
+ */
 export async function dirSize(p: string): Promise<number> {
-  let total = 0
-  try {
-    const st = await stat(p)
-    if (!st.isDirectory()) return st.size
-    for (const e of await readdir(p, { withFileTypes: true })) {
-      const full = join(p, e.name)
-      if (e.isDirectory()) total += await dirSize(full)
-      else if (e.isFile()) total += (await stat(full).catch(() => ({ size: 0 }))).size
-    }
-  } catch {
-    /* missing */
+  const st = await stat(p).catch(() => null)
+  if (!st) return 0
+  if (!st.isDirectory()) return st.size
+  const io = createLimiter(32)
+  const walk = async (dir: string): Promise<number> => {
+    const entries = await io(() => readdir(dir, { withFileTypes: true })).catch(() => [])
+    const sizes = await Promise.all(
+      entries.map((e) => {
+        const full = join(dir, e.name)
+        if (e.isDirectory()) return walk(full)
+        if (e.isFile()) return io(() => stat(full)).then((s) => s.size, () => 0)
+        return 0
+      })
+    )
+    return sizes.reduce((a, b) => a + b, 0)
   }
-  return total
+  return walk(p)
 }
 
 /** Breadth-first search for a file name (case-insensitive) below `root`, max `depth` levels. */

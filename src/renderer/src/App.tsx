@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { memo, useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { Upload } from 'lucide-react'
 import { api, pathForFile } from './api'
 import { HintBar } from './components/HintBar'
@@ -8,7 +8,7 @@ import { installGamepad } from './input/gamepad'
 import { FocusScope, useActions } from './input/hooks'
 import { installKeyboard } from './input/keyboard'
 import { importPaths } from './lib/libraryActions'
-import { primeAudioOnGesture } from './lib/sound'
+import { primeAudioOnGesture, suspendAudio } from './lib/sound'
 import { GameDetailScreen } from './screens/GameDetail'
 import { GameListScreen } from './screens/GameList'
 import { HomeScreen } from './screens/Home'
@@ -17,9 +17,9 @@ import { Onboarding } from './screens/Onboarding'
 import { SearchScreen } from './screens/Search'
 import { SettingsScreen } from './screens/settings/Settings'
 import { SystemsScreen } from './screens/Systems'
-import { useLibrary } from './stores/library'
+import { followLibraryChanges, useLibrary } from './stores/library'
 import { currentTab, useNav, type Route, type StackEntry } from './stores/nav'
-import { useSession, useTasks } from './stores/session'
+import { followGameIdle, useSession, useTasks } from './stores/session'
 import { followSettingsChanges, useSettings } from './stores/settings'
 import { useUi } from './stores/ui'
 
@@ -35,19 +35,18 @@ async function syncFullscreen(): Promise<void> {
 function useBoot(): boolean {
   const [ready, setReady] = useState(false)
   useEffect(() => {
-    let libTimer: ReturnType<typeof setTimeout> | undefined
     const offs = [
       api.on.task((t) => useTasks.getState().upsert(t)),
       api.on.session((s) => {
         const had = useSession.getState().session
         useSession.getState().set(s)
+        // The game has the speakers now; let go of the audio device until our next UI sound.
+        if (s && !had) suspendAudio()
         if (had && !s) void useLibrary.getState().refresh()
       }),
       followSettingsChanges(),
-      api.on.libraryChanged(() => {
-        clearTimeout(libTimer)
-        libTimer = setTimeout(() => void useLibrary.getState().refresh(), 250)
-      }),
+      followGameIdle(),
+      followLibraryChanges(),
       installKeyboard({
         onFullscreen: () => void api.window.toggleFullscreen().then((f) => useUi.getState().setFullscreen(f))
       }),
@@ -72,7 +71,6 @@ function useBoot(): boolean {
     return () => {
       offs.forEach((off) => off())
       window.removeEventListener('resize', onResize)
-      clearTimeout(libTimer)
     }
   }, [])
   return ready
@@ -82,7 +80,6 @@ export function App() {
   const ready = useBoot()
   const settings = useSettings((s) => s.settings)
   const session = useSession((s) => s.session)
-  const ambient = useUi((s) => s.ambient)
 
   if (!ready || !settings)
     return (
@@ -92,8 +89,8 @@ export function App() {
     )
 
   return (
-    <div className="app" style={{ '--ambient': ambient ?? 'var(--accent)' } as CSSProperties}>
-      <div className="ambient" aria-hidden="true" />
+    <div className="app">
+      <Ambient />
       {!settings.onboarded ? (
         <Onboarding />
       ) : (
@@ -114,6 +111,15 @@ export function App() {
       <DropZone />
     </div>
   )
+}
+
+/**
+ * Background light tinted by the focused system/game. The colour lives on this element only, so focusing a card
+ * from another system restyles one div instead of re-rendering the app and every mounted screen.
+ */
+function Ambient() {
+  const ambient = useUi((s) => s.ambient)
+  return <div className="ambient" aria-hidden="true" style={{ '--ambient': ambient ?? 'var(--accent)' } as CSSProperties} />
 }
 
 /** Root-scope bindings available on every screen (screens can override them). */
@@ -153,8 +159,11 @@ function screenFor(route: Route): ReactNode {
   }
 }
 
-/** Every stack entry stays mounted (scroll + focus survive); only the top one is visible and navigable. */
-function ScreenStack() {
+/**
+ * Every stack entry stays mounted (scroll + focus survive); only the top one is visible and navigable.
+ * Memoised: App re-renders when a game starts or settings change, and the screens subscribe to what they need.
+ */
+const ScreenStack = memo(function ScreenStack() {
   const stack = useNav((s) => s.stack)
   return (
     <div className="stack">
@@ -168,7 +177,7 @@ function ScreenStack() {
       ))}
     </div>
   )
-}
+})
 
 /** Labels the back hint on pushed screens. */
 function ScreenBack() {

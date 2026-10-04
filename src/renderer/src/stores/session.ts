@@ -11,6 +11,26 @@ export const useSession = create<SessionState>((set) => ({
   set: (session) => set({ session })
 }))
 
+/**
+ * Keep `html.game-idle` on while a game runs and this window is in the background. The window sits behind the game
+ * but is never "hidden" to Chromium (see main/index.ts), so CSS animations would keep running; base.css pauses
+ * them under this class. Gated on focus too, so anything that starts while the game runs (Now Playing's fade-in)
+ * still plays once the window is brought back.
+ */
+export function followGameIdle(): () => void {
+  const sync = () => document.documentElement.classList.toggle('game-idle', !!useSession.getState().session && !document.hasFocus())
+  sync()
+  const off = useSession.subscribe(sync)
+  window.addEventListener('focus', sync)
+  window.addEventListener('blur', sync)
+  return () => {
+    off()
+    window.removeEventListener('focus', sync)
+    window.removeEventListener('blur', sync)
+    document.documentElement.classList.remove('game-idle')
+  }
+}
+
 export interface TrackedTask extends TaskProgress {
   updatedAt: number
 }

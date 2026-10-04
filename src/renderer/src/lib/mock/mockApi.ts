@@ -409,6 +409,9 @@ export function createMockApi(): RetroDeskApi {
       },
       async getVersion() {
         return '0.1.0-preview'
+      },
+      async getLocale() {
+        return navigator.language
       }
     },
     window: {
@@ -426,7 +429,8 @@ export function createMockApi(): RetroDeskApi {
       },
       async setOverlayActive(active) {
         listeners.overlay.forEach((l) => l(active))
-      }
+      },
+      async setOverlayHold() {}
     },
     on: {
       task: (cb) => sub(listeners.task, cb),

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type UIEvent } from 'react'
 import { focusManager } from '../input/focus'
 import { useFocusable } from '../input/hooks'
 import type { ActionMap, Direction, InputSource } from '../input/types'
@@ -85,8 +85,20 @@ export function VirtualGrid<T>(props: VirtualGridProps<T>) {
   const rows = Math.ceil(items.length / geo.cols)
   const padTop = remPx * 1.2
   const totalH = rows * geo.rowH + padTop * 2
-  const firstRow = Math.max(0, Math.floor((scrollTop - padTop) / geo.rowH) - OVERSCAN_ROWS)
-  const lastRow = Math.min(rows - 1, Math.ceil((scrollTop + size.h) / geo.rowH) + OVERSCAN_ROWS)
+  // Rendered row range. Scroll events only update state when this range changes, not on every pixel.
+  const firstRowAt = (top: number) => Math.max(0, Math.floor((top - padTop) / geo.rowH) - OVERSCAN_ROWS)
+  const lastRowAt = (top: number) => Math.ceil((top + size.h) / geo.rowH) + OVERSCAN_ROWS
+  const firstRow = firstRowAt(scrollTop)
+  const lastRow = Math.min(rows - 1, lastRowAt(scrollTop))
+  const onScroll = (e: UIEvent<HTMLDivElement>) => {
+    const top = e.currentTarget.scrollTop
+    if (firstRowAt(top) !== firstRow || lastRowAt(top) !== lastRowAt(scrollTop)) setScrollTop(top)
+  }
+  // The geometry changed (resize, density): re-read the real scroll position for the new rows.
+  useLayoutEffect(() => {
+    const el = scrollerRef.current
+    if (el) setScrollTop(el.scrollTop)
+  }, [geo])
 
   const lastEnsure = useRef(0)
   const idx = Math.min(Math.max(0, index), Math.max(0, items.length - 1))
@@ -239,7 +251,7 @@ export function VirtualGrid<T>(props: VirtualGridProps<T>) {
           <div
             key={getKey(item)}
             className={`vgrid__cell ${isFocused ? 'is-focused' : ''} ${i === idx ? 'is-current' : ''}`}
-            style={{ transform: `translate3d(${x}px, ${y}px, 0)`, width: geo.cellW, height: geo.cellH }}
+            style={{ transform: `translate(${x}px, ${y}px)`, width: geo.cellW, height: geo.cellH }}
             onPointerMove={(e) => {
               if (e.pointerType !== 'mouse') return
               if (e.movementX === 0 && e.movementY === 0) return
@@ -264,7 +276,7 @@ export function VirtualGrid<T>(props: VirtualGridProps<T>) {
     <div
       ref={setRefs}
       className={`vgrid vgrid--${layout} ${className}`}
-      onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+      onScroll={onScroll}
       data-focusable=""
     >
       <div className="vgrid__inner" style={{ height: totalH }}>

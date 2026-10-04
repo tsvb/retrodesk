@@ -70,6 +70,8 @@ export interface RetroDeskApi {
     openExternal(url: string): Promise<void>
     getPaths(): Promise<{ dataRoot: string; roms: string; bios: string; saves: string; states: string; screenshots: string; emulators: string; media: string }>
     getVersion(): Promise<string>
+    /** The OS regional format (e.g. en-GB). Only the en-US Chromium locale ships, so the UI's own locale is always en-US. */
+    getLocale(): Promise<string>
   }
   window: {
     toggleFullscreen(): Promise<boolean>
@@ -82,6 +84,8 @@ export interface RetroDeskApi {
      * and pauses RetroArch; active=false makes it click-through again and returns focus to the game.
      */
     setOverlayActive(active: boolean): Promise<void>
+    /** The closed overlay is showing toasts: keep it on the display (click-through) until released. */
+    setOverlayHold(hold: boolean): Promise<void>
   }
   /** Event subscriptions. Each returns an unsubscribe function. */
   on: { [K in EventName]: (cb: (payload: ApiEvents[K]) => void) => () => void }
@@ -91,11 +95,18 @@ export interface RetroDeskApi {
 export interface ApiEvents {
   task: TaskProgress
   session: SessionInfo | null
-  libraryChanged: void
+  /** No payload: anything may have changed, reload. With one: only what it lists changed. */
+  libraryChanged: LibraryChange | void
   /** Overlay window: main asks the overlay to show (true) or hide (false). */
   overlay: boolean
   /** Settings changed (from any window). */
   settingsChanged: Settings
+}
+
+/** A libraryChanged event that is cheaper to apply than a reload. */
+export interface LibraryChange {
+  /** Games whose artwork changed, as they are now. Nothing else about the library changed. */
+  media: Game[]
 }
 
 export type EventName = keyof ApiEvents
@@ -119,8 +130,8 @@ export const API_SHAPE = {
   bios: ['check', 'importFiles'],
   game: ['launch', 'getSession', 'quickAction'],
   settings: ['get', 'set'],
-  system: ['getStats', 'setPerformanceMode', 'pickFolder', 'pickFiles', 'openPath', 'openExternal', 'getPaths', 'getVersion'],
-  window: ['toggleFullscreen', 'isFullscreen', 'minimize', 'quit', 'setOverlayActive']
+  system: ['getStats', 'setPerformanceMode', 'pickFolder', 'pickFiles', 'openPath', 'openExternal', 'getPaths', 'getVersion', 'getLocale'],
+  window: ['toggleFullscreen', 'isFullscreen', 'minimize', 'quit', 'setOverlayActive', 'setOverlayHold']
 } as const satisfies { [K in Exclude<keyof RetroDeskApi, 'on'>]: readonly (keyof RetroDeskApi[K])[] }
 
 export type ApiNamespace = keyof typeof API_SHAPE

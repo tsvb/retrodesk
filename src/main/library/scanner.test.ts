@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { detectFileSystem, scanFolders, type ScanOutput, type ScannedGame } from './scanner'
 import { sniffSystem } from './sniff'
 import { buildSfo, fakeGameCubeIso, fakeIso, rom, writeFile } from './testutil'
+import { normPath } from './util'
 
 let tmp: string
 let out: ScanOutput
@@ -144,6 +145,27 @@ describe('scanFolders', () => {
   it('reports bios sets and unreachable roots', () => {
     expect(out.biosFiles.some((f) => f.endsWith('neogeo.zip'))).toBe(true)
     expect(out.unreachableRoots).toEqual([join(tmp, 'does-not-exist')])
+  })
+
+  it('reuses what earlier scans found', async () => {
+    const dir = join(tmp, 'rescan', 'stuff')
+    const iso = join(dir, 'Disc (USA).iso')
+    const sfc = join(dir, 'Cart (USA).sfc')
+    writeFile(iso, fakeIso('PSP GAME'))
+    writeFile(sfc, rom(4096))
+    const isoSize = fakeIso('PSP GAME').length
+    const scan = async (known: Map<string, { sizeBytes: number; systemId: string }>, trustKnownSizes = false) => {
+      const r = await scanFolders({ roots: [{ path: dir }], known, trustKnownSizes })
+      return Object.fromEntries(r.games.map((g) => [g.fileName, `${g.systemId}:${g.sizeBytes}`]))
+    }
+    // A known system with a matching size is taken as is (the header says PSP: no sniff happened).
+    expect(await scan(new Map([[normPath(iso), { sizeBytes: isoSize, systemId: 'ps2' }]]))).toMatchObject({ 'Disc (USA).iso': `ps2:${isoSize}` })
+    // The file changed size: sniff again.
+    expect(await scan(new Map([[normPath(iso), { sizeBytes: 1, systemId: 'ps2' }]]))).toMatchObject({ 'Disc (USA).iso': `psp:${isoSize}` })
+    // Known sizes are measured again unless trusted.
+    const known = new Map([[normPath(sfc), { sizeBytes: 123, systemId: 'snes' }]])
+    expect(await scan(known)).toMatchObject({ 'Cart (USA).sfc': 'snes:4096' })
+    expect(await scan(known, true)).toMatchObject({ 'Cart (USA).sfc': 'snes:123' })
   })
 
   it('scans 20k files quickly', async () => {

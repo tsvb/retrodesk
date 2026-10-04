@@ -48,6 +48,8 @@ export function ControllerTester({ onClose }: { onClose: () => void }) {
     const backIndex = buttonForAction('back', layout)
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick)
+      // Background throttling is off app-wide: don't re-render the tester every frame for an unfocused window.
+      if (!document.hasFocus()) return
       const gp = navigator.getGamepads().find((g): g is Gamepad => !!g && g.connected)
       if (!gp) {
         setSnap(null)
