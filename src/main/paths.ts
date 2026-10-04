@@ -62,7 +62,7 @@ export function isManagedPath(p: string): boolean {
   return managedPathPredicate()(p)
 }
 
-/** isManagedPath with the roots normalised once, for checking many paths (e.g. every game's artwork). */
+/** isManagedPath with the roots normalized once, for checking many paths (e.g. every game's artwork). */
 export function managedPathPredicate(): (p: string) => boolean {
   const s = getSettings()
   const roots = [s.dataRoot, ...s.romFolders.map((f) => f.path)].filter((r) => !!r && isAbsolute(r)).map(normPath)

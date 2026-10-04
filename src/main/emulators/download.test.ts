@@ -288,7 +288,7 @@ describe('downloadFile', () => {
 })
 
 describe('download slots', () => {
-  it('limits concurrency and lets queued work be cancelled', async () => {
+  it('limits concurrency and lets queued work be canceled', async () => {
     const limit = createLimiter(2)
     let running = 0
     let peak = 0

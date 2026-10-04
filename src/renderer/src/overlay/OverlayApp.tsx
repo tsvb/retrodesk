@@ -90,7 +90,7 @@ function ActionButton({ id, session, running, onRun, iconOnly, ...button }: { id
 export function OverlayApp() {
   const [active, setActive] = useState(false)
   const [session, setSession] = useState<SessionInfo | null>(null)
-  // Only the running game's system (name and colour) is shown here, so skip the full library load.
+  // Only the running game's system (name and color) is shown here, so skip the full library load.
   const [systems, setSystems] = useState<SystemSummary[]>([])
   const activeRef = useRef(false)
   activeRef.current = active

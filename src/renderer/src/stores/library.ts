@@ -11,7 +11,7 @@ interface LibraryState {
   emulators: EmulatorStatus[]
   /** Bumped whenever the backend says the library changed; screens holding their own lists refetch. */
   version: number
-  /** Latest copy of games changed since the last refresh (favourite, override from this window; artwork), keyed by id. */
+  /** Latest copy of games changed since the last refresh (favorite, override from this window; artwork), keyed by id. */
   patches: Record<string, Game>
   refresh(): Promise<void>
   refreshEmulators(): Promise<void>

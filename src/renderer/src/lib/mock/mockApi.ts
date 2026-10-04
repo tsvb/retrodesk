@@ -409,9 +409,6 @@ export function createMockApi(): RetroDeskApi {
       },
       async getVersion() {
         return '0.1.0-preview'
-      },
-      async getLocale() {
-        return navigator.language
       }
     },
     window: {
