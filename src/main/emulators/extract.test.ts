@@ -51,6 +51,37 @@ describe('extractArchive + install helpers', () => {
     expect(existsSync(install)).toBe(false)
   })
 
+  it('sizes a wide, deep tree', async () => {
+    const root = join(dir, 'tree')
+    let expected = 0
+    for (let a = 0; a < 5; a++) {
+      for (let b = 0; b < 5; b++) {
+        const d = join(root, `a${a}`, `b${b}`)
+        mkdirSync(d, { recursive: true })
+        for (let f = 0; f < 10; f++) {
+          writeFileSync(join(d, `f${f}.bin`), 'x'.repeat(a + b + f))
+          expected += a + b + f
+        }
+      }
+    }
+    writeFileSync(join(root, 'top.txt'), 'top')
+    expect(await dirSize(root)).toBe(expected + 3)
+    expect(await dirSize(join(root, 'top.txt'))).toBe(3)
+    expect(await dirSize(join(root, 'missing'))).toBe(0)
+  })
+
+  it('runs several extractions at once without losing any', async () => {
+    const src = join(dir, 'many-src')
+    mkdirSync(src, { recursive: true })
+    writeFileSync(join(src, 'a.txt'), 'a')
+    const archive = join(dir, 'many.7z')
+    execFileSync(sevenZipPath(), ['a', '-bd', archive, join(src, 'a.txt')], { windowsHide: true })
+    let queued = 0
+    await Promise.all([0, 1, 2, 3].map((i) => extractArchive(archive, join(dir, `many-${i}`), { onQueued: () => queued++ })))
+    expect(queued).toBe(2)
+    for (const i of [0, 1, 2, 3]) expect(readFileSync(join(dir, `many-${i}`, 'a.txt'), 'utf8')).toBe('a')
+  })
+
   it('rejects corrupt archives', async () => {
     const bad = join(dir, 'bad.7z')
     writeFileSync(bad, 'not an archive')

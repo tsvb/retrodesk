@@ -6,8 +6,9 @@ import { prettifyCore } from '../../shared/emulators'
 import { hotkeyBindings, XI } from '../../shared/quickActions'
 import { retroArchCfgFromSettings, settingOptions } from '../../shared/settingsSchema'
 import type { Settings } from '../../shared/types'
-import { coreUrl, downloadTrusted, fetchText, fileSize, lastModifiedToVersion, retroArchLatestStable, retroArchUrl, USER_AGENT } from './download'
+import { coreUrl, downloadTrusted, fetchText, fileSize, lastModifiedToVersion, releaseCacheDir, retroArchLatestStable, retroArchUrl } from './download'
 import { extractArchive, findFile, moveMerge, singleTopFolder } from './extract'
+import { createLimiter } from './limit'
 
 export const RA_ID = 'retroarch'
 export const RA_NETWORK_PORT = 55355
@@ -109,27 +110,44 @@ export function downloadDetail(received: number, total: number): string {
   return total ? `Downloading ${mb(received)} / ${mb(total)}` : `Downloading ${mb(received)}`
 }
 
+/** onQueued callbacks for downloadTrusted / extractArchive: say why nothing is happening yet. */
+export const waitingFor = (task: ProgressSink | undefined, what: 'download' | 'extract') => (): void =>
+  task?.update(-1, what === 'download' ? 'Waiting for other downloads' : 'Waiting for other installs')
+
+/**
+ * RetroArch and its cores download and extract side by side; only their moves into <retroarch> take turns, so a
+ * core landing in cores/ can't race RetroArch's merge of the same folders.
+ */
+const raDirLock = createLimiter(1)
+
 /** Install (or update) portable RetroArch into <emulators>/retroarch, preserving cores/ and user config. */
 export async function installRetroArch(paths: RaPaths, task: ProgressSink, signal?: AbortSignal): Promise<{ version: string; exePath: string }> {
   task.update(-1, 'Finding latest RetroArch')
-  const version = await retroArchLatestStable(signal)
+  const version = await retroArchLatestStable(signal, releaseCacheDir(paths.downloads))
   const archive = join(paths.downloads, `RetroArch-${version}.7z`)
   await downloadTrusted(retroArchUrl(version), archive, {
     signal,
+    onQueued: waitingFor(task, 'download'),
     onProgress: (r, t) => task.update(t ? (r / t) * 0.8 : -1, downloadDetail(r, t))
   })
   const staging = join(paths.emulators, `.staging-retroarch-${Date.now()}`)
   try {
     task.update(0.8, 'Extracting')
-    await extractArchive(archive, staging, { signal, onProgress: (f) => task.update(0.8 + f * 0.18, `Extracting ${Math.round(f * 100)}%`) })
+    await extractArchive(archive, staging, {
+      signal,
+      onQueued: waitingFor(task, 'extract'),
+      onProgress: (f) => task.update(0.8 + f * 0.18, `Extracting ${Math.round(f * 100)}%`)
+    })
     const root = await singleTopFolder(staging)
     task.update(0.98, 'Installing')
-    await moveMerge(root, raDir(paths))
+    await raDirLock(async () => {
+      await moveMerge(root, raDir(paths))
+      await mkdir(raCoresDir(paths), { recursive: true })
+    })
   } finally {
     await rm(staging, { recursive: true, force: true }).catch(() => undefined)
     await rm(archive, { force: true }).catch(() => undefined)
   }
-  await mkdir(raCoresDir(paths), { recursive: true })
   const exePath = raExe(paths)
   if (!existsSync(exePath)) throw new Error('retroarch.exe not found after extraction')
   return { version, exePath }
@@ -139,44 +157,47 @@ export async function installRetroArch(paths: RaPaths, task: ProgressSink, signa
 export async function installCore(core: string, paths: RaPaths, task: ProgressSink, signal?: AbortSignal): Promise<{ version: string; exePath: string; sizeBytes: number }> {
   const base = coreFileBase(core)
   const zip = join(paths.downloads, `${base}.dll.zip`)
-  let version: string | undefined
   task.update(-1, `Downloading ${base}`)
-  // Last-Modified doubles as the "version" for nightly cores.
-  try {
-    const head = await fetch(coreUrl(base), { method: 'HEAD', headers: { 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(15_000) })
-    version = lastModifiedToVersion(head.headers.get('last-modified'))
-  } catch {
-    /* non-fatal */
-  }
-  await downloadTrusted(coreUrl(base), zip, { signal, onProgress: (r, t) => task.update(t ? (r / t) * 0.85 : -1, downloadDetail(r, t)) })
+  // Core info file (display name, system id for GET_STATUS, firmware list), fetched alongside the core. Best effort.
+  const infoDir = join(raDir(paths), 'info')
+  const infoFile = join(infoDir, `${base}.info`)
+  const info = existsSync(infoFile)
+    ? Promise.resolve(undefined)
+    : fetchText(`https://raw.githubusercontent.com/libretro/libretro-core-info/master/${base}.info`, { signal, retries: 2 }).catch((e: unknown) => {
+        console.warn(`[retroarch] no core info for ${base}`, e)
+        return undefined
+      })
+  const dl = await downloadTrusted(coreUrl(base), zip, {
+    signal,
+    onQueued: waitingFor(task, 'download'),
+    onProgress: (r, t) => task.update(t ? (r / t) * 0.85 : -1, downloadDetail(r, t))
+  })
   const staging = join(paths.emulators, `.staging-${base}-${Date.now()}`)
   const dest = coreDllPath(paths, base)
   try {
     task.update(0.88, 'Extracting')
-    await extractArchive(zip, staging, { signal })
+    await extractArchive(zip, staging, { signal, onQueued: waitingFor(task, 'extract') })
     const dll = await findFile(staging, `${base}.dll`, 2)
     if (!dll) throw new Error(`${base}.dll not found in core archive`)
-    await mkdir(raCoresDir(paths), { recursive: true })
-    await rm(dest, { force: true })
-    await rename(dll, dest)
+    await raDirLock(async () => {
+      await mkdir(raCoresDir(paths), { recursive: true })
+      await rm(dest, { force: true })
+      await rename(dll, dest)
+    })
   } finally {
     await rm(staging, { recursive: true, force: true }).catch(() => undefined)
     await rm(zip, { force: true }).catch(() => undefined)
   }
-  // Core info file (display name, system id for GET_STATUS, firmware list). Best effort.
-  const infoDir = join(raDir(paths), 'info')
-  const infoFile = join(infoDir, `${base}.info`)
-  if (!existsSync(infoFile)) {
-    try {
-      const info = await fetchText(`https://raw.githubusercontent.com/libretro/libretro-core-info/master/${base}.info`, { signal, retries: 2 })
+  const infoText = await info
+  if (infoText !== undefined) {
+    await raDirLock(async () => {
       await mkdir(infoDir, { recursive: true })
-      await writeFile(infoFile, info)
-    } catch (e) {
-      console.warn(`[retroarch] no core info for ${base}`, e)
-    }
+      await writeFile(infoFile, infoText)
+    }).catch((e: unknown) => console.warn(`[retroarch] could not write core info for ${base}`, e))
   }
   await ensureCoreSystemAssets(base, paths, task, signal)
-  return { version: version ?? new Date().toISOString().slice(0, 10), exePath: dest, sizeBytes: await fileSize(dest) }
+  // Last-Modified doubles as the "version" for nightly cores.
+  return { version: lastModifiedToVersion(dl.lastModified) ?? new Date().toISOString().slice(0, 10), exePath: dest, sizeBytes: await fileSize(dest) }
 }
 
 /** Download + extract asset packs (PPSSPP.zip, blueMSX.zip) into the BIOS/system dir if missing. */
@@ -187,9 +208,9 @@ export async function ensureCoreSystemAssets(core: string, paths: Pick<RaPaths, 
   const zip = join(paths.downloads, name)
   task?.update(-1, `Downloading ${name}`)
   try {
-    await downloadTrusted(asset.url, zip, { signal, onProgress: (r, t) => task?.update(t ? r / t : -1, downloadDetail(r, t)) })
+    await downloadTrusted(asset.url, zip, { signal, onQueued: waitingFor(task, 'download'), onProgress: (r, t) => task?.update(t ? r / t : -1, downloadDetail(r, t)) })
     task?.update(-1, `Extracting ${name}`)
-    await extractArchive(zip, paths.bios, { signal })
+    await extractArchive(zip, paths.bios, { signal, onQueued: waitingFor(task, 'extract') })
   } finally {
     await rm(zip, { force: true }).catch(() => undefined)
   }
