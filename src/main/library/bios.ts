@@ -1,7 +1,7 @@
-import { copyFile, cp, mkdir, readdir, stat } from 'fs/promises'
+import { copyFile, cp, mkdir, readdir, readFile, rename, stat, writeFile } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import type { BiosDef, BiosStatus, SystemDef } from '../../shared/types'
-import { errMsg, md5File } from './util'
+import { errMsg, mapLimit, md5File } from './util'
 
 /**
  * BIOS / firmware checks against getPaths().bios. See systems.ts for the `file` conventions
@@ -9,7 +9,53 @@ import { errMsg, md5File } from './util'
  */
 
 const MAX_HASH_BYTES = 64 * 1024 * 1024
-const md5Cache = new Map<string, { mtimeMs: number; size: number; md5: string }>()
+/** BIOS entries checked at once (each may hash a file). */
+const CHECK_CONCURRENCY = 4
+/** Entries kept in the persisted md5 cache (oldest dropped first). */
+const MAX_CACHED = 5000
+
+interface Md5Entry {
+  mtimeMs: number
+  size: number
+  md5: string
+}
+const md5Cache = new Map<string, Md5Entry>()
+const hashing = new Map<string, Promise<string>>()
+let cacheFile: string | undefined
+let cacheLoad: Promise<void> = Promise.resolve()
+let cacheDirty = false
+
+/** Where checkBios keeps md5s between runs: with the other caches in the data root (biosDir is <data root>/bios). */
+export function defaultMd5CacheFile(biosDir: string): string {
+  return join(dirname(biosDir), 'media', '_index', 'bios-md5.json')
+}
+
+/** Merge the md5s saved in `file` into the in-memory cache (once per file). */
+function loadMd5Cache(file: string): Promise<void> {
+  if (cacheFile === file) return cacheLoad
+  cacheFile = file
+  cacheLoad = readFile(file, 'utf8')
+    .then((txt) => {
+      for (const [k, e] of Object.entries(JSON.parse(txt) as Record<string, Md5Entry>)) {
+        if (!md5Cache.has(k) && typeof e?.md5 === 'string' && typeof e.mtimeMs === 'number' && typeof e.size === 'number') md5Cache.set(k, { mtimeMs: e.mtimeMs, size: e.size, md5: e.md5 })
+      }
+    })
+    .catch(() => undefined)
+  return cacheLoad
+}
+
+async function saveMd5Cache(): Promise<void> {
+  if (!cacheDirty || !cacheFile) return
+  cacheDirty = false
+  for (const k of md5Cache.keys()) {
+    if (md5Cache.size <= MAX_CACHED) break
+    md5Cache.delete(k)
+  }
+  await mkdir(dirname(cacheFile), { recursive: true })
+  const tmp = `${cacheFile}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`
+  await writeFile(tmp, JSON.stringify(Object.fromEntries(md5Cache)))
+  await rename(tmp, cacheFile)
+}
 
 /** md5 of a file, cached by path + mtime + size. Undefined if missing/unreadable or too big to be a known BIOS. */
 export async function cachedMd5(p: string): Promise<string | undefined> {
@@ -19,8 +65,17 @@ export async function cachedMd5(p: string): Promise<string | undefined> {
     const key = p.toLowerCase()
     const c = md5Cache.get(key)
     if (c && c.mtimeMs === s.mtimeMs && c.size === s.size) return c.md5
-    const md5 = await md5File(p)
+    // The same file can back several entries (e.g. an arcade set): hash it once.
+    const job = `${key}|${s.size}|${s.mtimeMs}`
+    let pending = hashing.get(job)
+    if (!pending) {
+      pending = md5File(p).finally(() => hashing.delete(job))
+      hashing.set(job, pending)
+    }
+    const md5 = await pending
+    md5Cache.delete(key) // re-insert as the newest entry
     md5Cache.set(key, { mtimeMs: s.mtimeMs, size: s.size, md5 })
+    cacheDirty = true
     return md5
   } catch {
     return undefined
@@ -65,7 +120,7 @@ async function checkEntry(def: BiosDef, biosDir: string, extraFiles: string[]): 
     const matches = (await listFiles(dir)).filter((f) => re.test(f))
     if (!matches.length) return { present: false, valid: false }
     if (!def.md5) return { present: true, valid: true }
-    for (const m of matches) if ((await cachedMd5(join(dir, m))) === def.md5) return { present: true, valid: true }
+    for (const m of matches) if ((await cachedMd5(join(dir, m))) === def.md5.toLowerCase()) return { present: true, valid: true }
     return { present: true, valid: false }
   }
   const candidates = [join(biosDir, rel)]
@@ -84,14 +139,16 @@ async function checkEntry(def: BiosDef, biosDir: string, extraFiles: string[]): 
   return { present, valid: false }
 }
 
-export async function checkBios(systems: SystemDef[], biosDir: string, extraFiles: string[] = []): Promise<BiosStatus[]> {
-  const out: BiosStatus[] = []
-  for (const s of systems) {
-    for (const b of s.bios) {
-      const r = await checkEntry(b, biosDir, extraFiles)
-      out.push({ systemId: s.id, file: b.file, description: b.description, required: b.required, present: r.present, valid: r.valid })
-    }
-  }
+/** Status of every BIOS entry, in system order. md5s are cached in `cacheFile` so unchanged files are not re-hashed. */
+export async function checkBios(systems: SystemDef[], biosDir: string, extraFiles: string[] = [], cacheFile = defaultMd5CacheFile(biosDir)): Promise<BiosStatus[]> {
+  await loadMd5Cache(cacheFile)
+  const entries = systems.flatMap((s) => s.bios.map((b) => ({ s, b })))
+  const out = await mapLimit(entries, CHECK_CONCURRENCY, async ({ s, b }): Promise<BiosStatus> => {
+    const r = await checkEntry(b, biosDir, extraFiles)
+    return { systemId: s.id, file: b.file, description: b.description, required: b.required, present: r.present, valid: r.valid }
+  })
+  // Losing the cache only costs re-hashing next time.
+  await saveMd5Cache().catch(() => undefined)
   return out
 }
 
