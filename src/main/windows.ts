@@ -77,6 +77,8 @@ const PARK_MARGIN = 200
 let overlayDisplayId: number | undefined
 let parkTimer: NodeJS.Timeout | undefined
 let displayListeners = false
+/** The overlay renderer has toasts on screen (e.g. "State saved" just after the menu closed): stay on the display. */
+let overlayHeld = false
 
 /** Up and to the left of the union of all displays (which may have negative coordinates; the primary one is at 0,0). Never -32000 (minimized). */
 function parkedBounds(): Electron.Rectangle {
@@ -106,7 +108,25 @@ function moveOverlay(win: BrowserWindow, bounds: Electron.Rectangle): void {
 function parkOverlay(win: BrowserWindow): void {
   clearTimeout(parkTimer)
   parkTimer = undefined
-  if (!win.isDestroyed()) moveOverlay(win, parkedBounds())
+  if (win.isDestroyed()) return
+  // Held while toasts show: stay over the game, still click-through, until they are gone.
+  moveOverlay(win, overlayHeld ? overlayDisplayBounds() : parkedBounds())
+}
+
+function parkOverlaySoon(win: BrowserWindow): void {
+  clearTimeout(parkTimer)
+  parkTimer = setTimeout(() => {
+    if (!overlayActive) parkOverlay(win)
+  }, PARK_DELAY_MS)
+}
+
+/** Keep the closed overlay on the display while it shows toasts; park it again once they are gone. */
+export function setOverlayHold(hold: boolean): void {
+  overlayHeld = hold
+  const win = overlayWindow
+  if (!win || win.isDestroyed() || overlayActive) return
+  if (hold) parkOverlay(win)
+  else parkOverlaySoon(win)
 }
 
 /** Re-place the overlay when monitors are added, removed or rearranged. */
@@ -173,6 +193,7 @@ export function hideOverlay(): void {
 
 export function destroyOverlay(): void {
   overlayActive = false
+  overlayHeld = false
   clearTimeout(parkTimer)
   parkTimer = undefined
   overlayWindow?.destroy()
@@ -201,10 +222,7 @@ export function setOverlayActive(active: boolean): void {
     win.setIgnoreMouseEvents(true)
     win.setFocusable(false)
     win.blur()
-    clearTimeout(parkTimer)
-    parkTimer = setTimeout(() => {
-      if (!overlayActive) parkOverlay(win)
-    }, PARK_DELAY_MS)
+    parkOverlaySoon(win)
   }
   sendEvent(win, 'overlay', active)
   for (const l of overlayListeners) l(active)

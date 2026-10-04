@@ -84,6 +84,8 @@ export interface RetroDeskApi {
      * and pauses RetroArch; active=false makes it click-through again and returns focus to the game.
      */
     setOverlayActive(active: boolean): Promise<void>
+    /** The closed overlay is showing toasts: keep it on the display (click-through) until released. */
+    setOverlayHold(hold: boolean): Promise<void>
   }
   /** Event subscriptions. Each returns an unsubscribe function. */
   on: { [K in EventName]: (cb: (payload: ApiEvents[K]) => void) => () => void }
@@ -129,7 +131,7 @@ export const API_SHAPE = {
   game: ['launch', 'getSession', 'quickAction'],
   settings: ['get', 'set'],
   system: ['getStats', 'setPerformanceMode', 'pickFolder', 'pickFiles', 'openPath', 'openExternal', 'getPaths', 'getVersion', 'getLocale'],
-  window: ['toggleFullscreen', 'isFullscreen', 'minimize', 'quit', 'setOverlayActive']
+  window: ['toggleFullscreen', 'isFullscreen', 'minimize', 'quit', 'setOverlayActive', 'setOverlayHold']
 } as const satisfies { [K in Exclude<keyof RetroDeskApi, 'on'>]: readonly (keyof RetroDeskApi[K])[] }
 
 export type ApiNamespace = keyof typeof API_SHAPE

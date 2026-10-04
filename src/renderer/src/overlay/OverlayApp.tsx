@@ -19,7 +19,7 @@ import { feedback } from '../lib/feedback'
 import { primeAudioOnGesture } from '../lib/sound'
 import { systemColor } from '../lib/color'
 import { useInputStore } from '../stores/input'
-import { toast } from '../stores/session'
+import { toast, useToasts } from '../stores/session'
 import { followSettingsChanges, useSettings } from '../stores/settings'
 
 /** Does a KeyboardEvent match an Electron accelerator like "Control+Alt+Home"? */
@@ -105,9 +105,9 @@ export function OverlayApp() {
   const open = useCallback(() => {
     if (activeRef.current) return
     activeRef.current = true
-    setActive(true)
     feedback('open')
-    void api.window.setOverlayActive(true)
+    // Render the menu once the window is back on the display, so its slide-in isn't spent in the parked window.
+    void api.window.setOverlayActive(true).finally(() => setActive(activeRef.current))
     void api.game.getSession().then(setSession)
     loadSystems()
   }, [loadSystems])
@@ -132,6 +132,10 @@ export function OverlayApp() {
     void api.game.getSession().then(setSession)
     const offs = [
       followSettingsChanges(),
+      // While closed the window is parked off-screen; toasts (e.g. "State saved" right after closing) keep it on the display.
+      useToasts.subscribe((s, prev) => {
+        if (!s.toasts.length !== !prev.toasts.length) void api.window.setOverlayHold(s.toasts.length > 0)
+      }),
       api.on.overlay((v) => {
         activeRef.current = v
         setActive(v)

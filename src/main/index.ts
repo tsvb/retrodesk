@@ -6,7 +6,7 @@ import { API_SHAPE, type RetroDeskApi } from '../shared/api'
 import { MEDIA_SCHEME, pathFromMediaUrl } from '../shared/media'
 import { defaultSettings, getSettings, portableDataDir, updateSettings } from './settings'
 import { getPaths, isManagedPath } from './paths'
-import { createMainWindow, focusMainWindow, getMainWindow, setOverlayActive } from './windows'
+import { createMainWindow, focusMainWindow, getMainWindow, setOverlayActive, setOverlayHold } from './windows'
 import { initLibrary, libraryHandlers, biosHandlers } from './library'
 import { ThumbCache, thumbWidth } from './library/thumbs'
 import { initEmulators, emulatorsHandlers } from './emulators'
@@ -88,6 +88,9 @@ const windowHandlers: RetroDeskApi['window'] = {
   },
   async setOverlayActive(active) {
     setOverlayActive(active)
+  },
+  async setOverlayHold(hold) {
+    setOverlayHold(hold)
   }
 }
 

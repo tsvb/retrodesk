@@ -429,7 +429,8 @@ export function createMockApi(): RetroDeskApi {
       },
       async setOverlayActive(active) {
         listeners.overlay.forEach((l) => l(active))
-      }
+      },
+      async setOverlayHold() {}
     },
     on: {
       task: (cb) => sub(listeners.task, cb),
