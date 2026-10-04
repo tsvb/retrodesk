@@ -1,10 +1,10 @@
-import { useEffect, type CSSProperties } from 'react'
+import { useCallback, useEffect, type CSSProperties } from 'react'
 import { mediaUrl } from '@shared/media'
 import { FolderPlus, Heart, Info, Play, Upload, Wand2 } from 'lucide-react'
 import type { Game, SystemSummary } from '@shared/types'
 import { Button } from '../components/Button'
 import { GameCard, toggleFavorite } from '../components/GameCard'
-import { GameCover } from '../components/GameCover'
+import { COVER_THUMB, GameCover } from '../components/GameCover'
 import { useLauncher } from '../components/LaunchFlow'
 import { Motif, motifFor } from '../components/Motif'
 import { Row } from '../components/Row'
@@ -37,10 +37,11 @@ export function HomeScreen() {
     setAmbient(heroSystem ? systemColor(heroSystem) : null)
   }, [heroSystem, setAmbient])
 
-  const openGame = (g: Game) => push({ name: 'game', gameId: g.id })
-  const openSystem = (s: SystemSummary) => push({ name: 'games', systemId: s.id })
-  const focusGame = (g: Game) => setAmbient(systemColor(systemById(systems, g.systemId) ?? { id: g.systemId }))
-  const focusSystem = (s: SystemSummary) => setAmbient(systemColor(s))
+  // Stable handlers, so the memoised cards skip re-rendering when Home does.
+  const openGame = useCallback((g: Game) => push({ name: 'game', gameId: g.id }), [push])
+  const openSystem = useCallback((s: SystemSummary) => push({ name: 'games', systemId: s.id }), [push])
+  const focusGame = useCallback((g: Game) => setAmbient(systemColor(systemById(systems, g.systemId) ?? { id: g.systemId })), [systems, setAmbient])
+  const focusSystem = useCallback((s: SystemSummary) => setAmbient(systemColor(s)), [setAmbient])
 
   if (!loaded) return <div className="screen screen--home is-loading" />
   if (total === 0) return <EmptyLibrary />
@@ -82,7 +83,7 @@ export function HomeScreen() {
 
 function Hero({ game: raw, system, isRecent, busy, onPlay, onDetails }: { game: Game; system?: SystemSummary; isRecent: boolean; busy: boolean; onPlay: () => void; onDetails: () => void }) {
   const game = usePatched(raw)
-  const art = mediaUrl(game.media.snap ?? game.media.boxart)
+  const art = mediaUrl(game.media.snap ?? game.media.boxart, { w: COVER_THUMB.backdrop })
   const setAmbient = useUi((s) => s.setAmbient)
   const focusHero = () => setAmbient(systemColor(system ?? { id: game.systemId }))
   return (

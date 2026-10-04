@@ -6,7 +6,7 @@ import { api } from '../api'
 import { Button } from '../components/Button'
 import { PickerModal, type Option } from '../components/Controls'
 import { toggleFavorite } from '../components/GameCard'
-import { GameCover } from '../components/GameCover'
+import { COVER_THUMB, GameCover } from '../components/GameCover'
 import { useLauncher } from '../components/LaunchFlow'
 import { ConfirmDialog } from '../components/Modal'
 import { Motif, motifFor } from '../components/Motif'
@@ -67,7 +67,7 @@ export function GameDetailScreen({ gameId }: { gameId: string }) {
       </div>
     )
 
-  const art = mediaUrl(game.media.snap ?? game.media.title ?? game.media.boxart)
+  const art = mediaUrl(game.media.snap ?? game.media.title ?? game.media.boxart, { w: COVER_THUMB.backdrop })
   const sysDefault = system ? defaultKeyForSystem(system, systemEmulator) : undefined
   const effective = game.emulatorOverride ?? sysDefault
   const emuName = effective ? keyLabel(effective, emulators) : 'No emulator'

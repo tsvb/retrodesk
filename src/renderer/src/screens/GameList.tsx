@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDownUp, Download, Heart, LayoutGrid, List } from 'lucide-react'
 import type { Game, SortKey, SystemSummary } from '@shared/types'
 import { api } from '../api'
 import { Button } from '../components/Button'
 import { toggleFavorite } from '../components/GameCard'
-import { GameCover } from '../components/GameCover'
+import { COVER_THUMB, GameCover } from '../components/GameCover'
 import { systemStyle } from '../components/SystemCard'
 import { VirtualGrid, type VirtualGridApi } from '../components/VirtualGrid'
 import { useActions, useFocusGroup } from '../input/hooks'
@@ -124,6 +124,18 @@ export function GameListScreen({ systemId }: { systemId: string }) {
     gridApi.current = a
   }, [])
 
+  // Stable grid callbacks: moving focus re-renders this screen, and the memoised cells should not follow.
+  const getKey = useCallback((g: Game) => g.id, [])
+  const onActivate = useCallback((g: Game) => push({ name: 'game', gameId: g.id }), [push])
+  const itemActions = useCallback((g: Game) => ({ favorite: { label: g.favorite ? 'Unfavourite' : 'Favourite', run: () => void toggleFavorite(g) } }), [])
+  const renderCell = useCallback(
+    (g: Game, focused: boolean) => {
+      if (!system) return null
+      return view === 'grid' ? <GridCell game={g} system={system} focused={focused} /> : <ListCell game={g} system={system} focused={focused} />
+    },
+    [view, system]
+  )
+
   if (!system) return <div className="screen screen--games"><p className="muted">This system isn't in your library.</p></div>
 
   const sortLabel = SORTS.find((s) => s.key === sort)?.label ?? 'Title'
@@ -163,7 +175,7 @@ export function GameListScreen({ systemId }: { systemId: string }) {
         <VirtualGrid
           key={view}
           items={games}
-          getKey={(g) => g.id}
+          getKey={getKey}
           layout={view}
           minCellRem={density === 'compact' ? 8.2 : 10.5}
           cellAspect={4 / 3}
@@ -171,16 +183,16 @@ export function GameListScreen({ systemId }: { systemId: string }) {
           gapRem={density === 'compact' ? 1.1 : 1.5}
           index={index}
           onIndexChange={setIndex}
-          onActivate={(g) => push({ name: 'game', gameId: g.id })}
+          onActivate={onActivate}
           autoFocus
           onReady={onReady}
-          itemActions={(g) => ({ favorite: { label: g.favorite ? 'Unfavourite' : 'Favourite', run: () => void toggleFavorite(g) } })}
+          itemActions={itemActions}
           pageActions={
             sort === 'title' && letters.length > 1
               ? { pageUp: { label: 'Jump letter', run: () => jumpLetter(-1) }, pageDown: { label: 'Jump letter', run: () => jumpLetter(1) } }
               : undefined
           }
-          renderCell={(g, focused) => (view === 'grid' ? <GridCell game={g} system={system} focused={focused} /> : <ListCell game={g} system={system} focused={focused} />)}
+          renderCell={renderCell}
         />
       )}
       {sort === 'title' && letters.length > 1 && (
@@ -201,11 +213,11 @@ export function GameListScreen({ systemId }: { systemId: string }) {
   )
 }
 
-function GridCell({ game, system, focused }: { game: Game; system: SystemSummary; focused: boolean }) {
+const GridCell = memo(function GridCell({ game, system, focused }: { game: Game; system: SystemSummary; focused: boolean }) {
   return (
     <div className={`game-card game-card--grid ${focused ? 'is-focused' : ''}`}>
       <div className="game-card__frame">
-        <GameCover game={game} system={system} />
+        <GameCover game={game} system={system} thumb={COVER_THUMB.tile} />
         {game.favorite && (
           <span className="game-card__fav">
             <Heart size="1em" fill="currentColor" strokeWidth={0} />
@@ -217,13 +229,13 @@ function GridCell({ game, system, focused }: { game: Game; system: SystemSummary
       </div>
     </div>
   )
-}
+})
 
-function ListCell({ game, system, focused }: { game: Game; system: SystemSummary; focused: boolean }) {
+const ListCell = memo(function ListCell({ game, system, focused }: { game: Game; system: SystemSummary; focused: boolean }) {
   return (
     <div className={`list-item ${focused ? 'is-focused' : ''}`}>
       <div className="list-item__thumb">
-        <GameCover game={game} system={system} />
+        <GameCover game={game} system={system} thumb={COVER_THUMB.list} />
       </div>
       <div className="list-item__main">
         <span className="list-item__title">
@@ -242,7 +254,7 @@ function ListCell({ game, system, focused }: { game: Game; system: SystemSummary
       <span className="list-item__stat list-item__stat--dim">{game.lastPlayedAt ? formatRelative(game.lastPlayedAt) : 'Never played'}</span>
     </div>
   )
-}
+})
 
 function EmptySystem({ system, favOnly }: { system: SystemSummary; favOnly: boolean }) {
   const dataRoot = useSettings((s) => s.settings?.dataRoot ?? '')
