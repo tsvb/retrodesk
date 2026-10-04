@@ -20,8 +20,19 @@ export interface DataPaths {
   downloads: string
 }
 
+/** How long a successful folder check is trusted. After that the folders are made again, so one deleted mid-session comes back. */
+const RECHECK_MS = 30_000
+let cached: { paths: DataPaths; checkedAt: number } | null = null
+
+/**
+ * The data folders, created for the current data root. Called on hot paths (every system's "playable" check), so
+ * the folders are only made again when the data root changes or the last check is older than RECHECK_MS.
+ * Throws while the data root cannot be created (drive not connected).
+ */
 export function getPaths(): DataPaths {
   const root = getSettings().dataRoot
+  const now = Date.now()
+  if (cached && cached.paths.dataRoot === root && now - cached.checkedAt < RECHECK_MS) return cached.paths
   const p: DataPaths = {
     dataRoot: root,
     roms: join(root, 'roms'),
@@ -34,7 +45,13 @@ export function getPaths(): DataPaths {
     downloads: join(root, 'downloads')
   }
   for (const dir of Object.values(p)) mkdirSync(dir, { recursive: true })
-  return p
+  cached = { paths: Object.freeze(p), checkedAt: now }
+  return cached.paths
+}
+
+/** Forget the last folder check: the next getPaths() creates the folders again. */
+export function invalidatePaths(): void {
+  cached = null
 }
 
 /**
