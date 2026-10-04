@@ -1,8 +1,8 @@
 import { createHash } from 'crypto'
-import { existsSync, mkdtempSync, rmSync } from 'fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 import type { SystemDef } from '../../shared/types'
 import { checkBios, globToRegExp, importBiosFiles } from './bios'
 import { rom, writeFile } from './testutil'
@@ -106,6 +106,29 @@ describe('bios', () => {
     writeFile(z, rom(4096))
     const st = await checkBios(defs, biosDir, [z])
     expect(st.find((s) => s.file === 'neogeo.zip')).toMatchObject({ present: true, valid: true })
+  })
+
+  it('keeps md5s across restarts and re-hashes files that changed', async () => {
+    const dir = join(tmp, 'bios-cache')
+    const cacheFile = join(tmp, 'cache', 'bios-md5.json')
+    const bin = join(dir, 'scph5501.bin')
+    writeFile(bin, good)
+    expect((await checkBios(defs, dir, [], cacheFile))[0]).toMatchObject({ present: true, valid: true })
+    const saved = JSON.parse(readFileSync(cacheFile, 'utf8')) as Record<string, { md5: string }>
+    expect(saved[bin.toLowerCase()]?.md5).toBe(goodMd5)
+
+    // A fresh module (next app run) trusts the saved md5 for the unchanged file: no re-hash.
+    saved[bin.toLowerCase()]!.md5 = 'ffffffffffffffffffffffffffffffff'
+    writeFileSync(cacheFile, JSON.stringify(saved))
+    vi.resetModules()
+    const fresh = await import('./bios')
+    const st = await fresh.checkBios(defs, dir, [], cacheFile)
+    expect(st.find((s) => s.file === 'scph5501.bin')).toMatchObject({ present: true, valid: false })
+    expect(st.find((s) => s.file === 'scph5502.bin')).toMatchObject({ present: false })
+
+    // Once the file changes (here only its mtime), it is hashed again.
+    utimesSync(bin, new Date(), new Date(Date.now() + 5000))
+    expect((await fresh.checkBios(defs, dir, [], cacheFile))[0]).toMatchObject({ present: true, valid: true })
   })
 
   it('glob helper', () => {

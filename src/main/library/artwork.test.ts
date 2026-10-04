@@ -3,7 +3,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterAll, describe, expect, it } from 'vitest'
 import type { Game } from '../../shared/types'
-import { buildThumbIndex, fetchArtworkForGames, LibretroIndexCache, matchThumbnail, parseFbneoDat, parseListing, pickBest, thumbnailUrl } from './artwork'
+import { ArtworkMissCache, buildThumbIndex, fetchArtworkForGames, LibretroIndexCache, listingVersion, matchThumbnail, parseFbneoDat, parseListing, pickBest, thumbnailUrl } from './artwork'
 import { writeFile } from './testutil'
 
 const tmp = mkdtempSync(join(tmpdir(), 'rd-art-'))
@@ -46,6 +46,64 @@ describe('fetchArtworkForGames', () => {
     const res = await fetchArtworkForGames([game], { mediaDir, isServable: () => true })
     expect(res.updates.size).toBe(0)
     expect(res.downloaded).toBe(0)
+  })
+
+  const SNES = 'Nintendo - Super Nintendo Entertainment System'
+  const listings = (snaps: string): ((url: string) => Promise<string>) => async (url) => (url.includes('Named_Snaps') ? snaps : LISTING)
+
+  it("downloads a game's images in parallel, snap and title following the boxart's match", async () => {
+    const mediaDir = join(tmp, 'parallel', 'media')
+    const index = new LibretroIndexCache(join(mediaDir, '_index'), listings(LISTING))
+    const urls: string[] = []
+    let active = 0
+    let peak = 0
+    const download = async (url: string, dest: string): Promise<boolean> => {
+      urls.push(decodeURIComponent(url))
+      active++
+      peak = Math.max(peak, active)
+      await new Promise((r) => setTimeout(r, 5))
+      active--
+      writeFile(dest, 'png')
+      return true
+    }
+    const game = { id: 'g3', systemId: 'snes', path: 'C:\\roms\\Super Mario World.sfc', rawName: 'Super Mario World', title: 'Super Mario World', regions: [], tags: [], media: {} } as unknown as Game
+    const res = await fetchArtworkForGames([game], { mediaDir, index, download, preferredRegion: 'Europe' })
+    expect(res.downloaded).toBe(3)
+    expect(peak).toBe(3)
+    expect(urls.every((u) => u.endsWith('/Super Mario World (Europe) (Rev 1).png'))).toBe(true)
+    expect(res.updates.get('g3')?.title).toBe(join(mediaDir, 'snes', 'title', 'Super Mario World.png'))
+  })
+
+  it('remembers artwork libretro does not have until the listing changes', async () => {
+    const mediaDir = join(tmp, 'misses', 'media')
+    const game = { id: 'g4', systemId: 'snes', path: 'C:\\roms\\Super Mario World (USA).sfc', rawName: 'Super Mario World (USA)', title: 'Super Mario World', regions: ['USA'], tags: [], media: {} } as unknown as Game
+    const calls: string[] = []
+    // Listed but every download is a 404 (or, for snaps, not listed at all).
+    const download = async (url: string): Promise<boolean> => {
+      calls.push(url)
+      return false
+    }
+    const run = (snaps: string, force = false) => fetchArtworkForGames([game], { mediaDir, index: new LibretroIndexCache(join(mediaDir, '_index'), listings(snaps)), download, force })
+
+    const first = await run('<a href="Other%20Game%20(USA).png">')
+    expect(first.notFound).toBe(1)
+    expect(calls).toHaveLength(2) // boxart + title; the snap had no match
+    const saved = JSON.parse(readFileSync(join(mediaDir, '_index', 'misses.json'), 'utf8')) as Record<string, unknown>
+    expect(Object.keys(saved)).toHaveLength(3)
+
+    calls.length = 0
+    await run('<a href="Other%20Game%20(USA).png">')
+    expect(calls).toEqual([])
+    // An explicit refresh searches again.
+    await run('<a href="Other%20Game%20(USA).png">', true)
+    expect(calls).toHaveLength(2)
+    // So does a run after the listings were refreshed with new content (the cached ones are still within 24h here,
+    // so drop them to simulate the refresh).
+    calls.length = 0
+    rmSync(join(mediaDir, '_index', `${SNES}.json`))
+    await run('<a href="Super%20Mario%20World%20(USA).png">')
+    expect(calls.filter((u) => u.includes('Named_Snaps'))).toHaveLength(1)
+    expect(calls.filter((u) => !u.includes('Named_Snaps'))).toEqual([])
   })
 })
 
@@ -125,6 +183,57 @@ describe('LibretroIndexCache', () => {
     expect((await c2.get('Nintendo - Super Nintendo Entertainment System', 'boxart'))?.names).toHaveLength(10)
     expect(await c2.get('Sega - Saturn', 'boxart')).toBeUndefined()
     expect(c2.errors[0]).toMatch(/offline/)
+  })
+
+  it('stores the match keys and reuses them on the next run', async () => {
+    const dir = join(tmp, '_index_keys')
+    const folder = 'Nintendo - Super Nintendo Entertainment System'
+    const fresh = await new LibretroIndexCache(dir, async () => LISTING).get(folder, 'boxart')
+    const onDisk = JSON.parse(readFileSync(join(dir, `${folder}.json`), 'utf8')) as { v: number; keys: Record<string, string[]>; versions: Record<string, string> }
+    expect(onDisk.v).toBe(2)
+    expect(onDisk.keys['Named_Boxarts']).toEqual(fresh?.keys)
+    expect(onDisk.versions['Named_Boxarts']).toBe(listingVersion(parseListing(LISTING)))
+    // Cached keys are used as they are (not recomputed).
+    onDisk.keys['Named_Boxarts'] = onDisk.keys['Named_Boxarts']!.map(() => 'samekey')
+    writeFile(join(dir, `${folder}.json`), JSON.stringify(onDisk))
+    const reread = await new LibretroIndexCache(dir, async () => '').get(folder, 'boxart')
+    expect(reread?.byKey.get('samekey')).toHaveLength(10)
+  })
+
+  it('upgrades a cache written by an older version without going to the network', async () => {
+    const dir = join(tmp, '_index_v1')
+    const folder = 'Nintendo - Super Nintendo Entertainment System'
+    writeFile(join(dir, `${folder}.json`), JSON.stringify({ fetchedAt: Date.now(), kinds: { Named_Boxarts: parseListing(LISTING), Named_Snaps: ['Super Mario World (USA)'] } }))
+    const c = new LibretroIndexCache(dir, async () => {
+      throw new Error('no network expected')
+    })
+    const idx = await c.get(folder, 'boxart')
+    expect(idx?.byKey.get('supermarioworld')).toHaveLength(3)
+    expect(c.errors).toEqual([])
+    const onDisk = JSON.parse(readFileSync(join(dir, `${folder}.json`), 'utf8')) as { v: number; kinds: Record<string, string[]>; keys: Record<string, string[]> }
+    expect(onDisk.v).toBe(2)
+    expect(onDisk.keys['Named_Boxarts']).toHaveLength(10)
+    // The other kind keeps its names and is upgraded when it is next used.
+    expect(onDisk.kinds['Named_Snaps']).toEqual(['Super Mario World (USA)'])
+    expect((await c.get(folder, 'snap'))?.names).toEqual(['Super Mario World (USA)'])
+  })
+})
+
+describe('ArtworkMissCache', () => {
+  it('expires entries when the listing version changes and persists across runs', async () => {
+    const file = join(tmp, 'misses-unit', 'misses.json')
+    const k = ArtworkMissCache.key('Sega - Saturn', 'boxart', ['Game (USA)'], 'Game')
+    expect(ArtworkMissCache.key('Sega - Saturn', 'boxart', ['Game (USA)', 'Other'], 'Game')).not.toBe(k)
+    const a = new ArtworkMissCache(file)
+    a.add(k, 'v1')
+    expect(a.has(k, 'v1')).toBe(true)
+    expect(a.has(k, 'v2')).toBe(false)
+    await a.save()
+    const b = new ArtworkMissCache(file)
+    await b.load()
+    expect(b.has(k, 'v1')).toBe(true)
+    b.delete(k)
+    expect(b.has(k, 'v1')).toBe(false)
   })
 })
 

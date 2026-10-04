@@ -8,6 +8,7 @@ import { defaultSettings, getSettings, portableDataDir, updateSettings } from '.
 import { getPaths, isManagedPath } from './paths'
 import { createMainWindow, focusMainWindow, getMainWindow, setOverlayActive } from './windows'
 import { initLibrary, libraryHandlers, biosHandlers } from './library'
+import { ThumbCache, thumbWidth } from './library/thumbs'
 import { initEmulators, emulatorsHandlers } from './emulators'
 import { initLaunch, gameHandlers } from './launch'
 import { getStats, setPerformanceMode } from './system'
@@ -125,11 +126,15 @@ function registerIpc(): void {
 }
 
 function registerMediaProtocol(): void {
+  // Grid covers ask for ?w=<px> and get a cached downscaled copy. The folder is getPaths().media/.thumbs, built
+  // from the data root directly because getPaths() creates every data folder on each call.
+  const thumbs = new ThumbCache(() => join(getSettings().dataRoot, 'media', '.thumbs'))
   protocol.handle(MEDIA_SCHEME, async (req) => {
     const p = pathFromMediaUrl(req.url)
     if (!isManagedPath(p)) return new Response('Forbidden', { status: 403 })
     try {
-      return await net.fetch(pathToFileURL(p).toString())
+      const w = thumbWidth(req.url)
+      return await net.fetch(pathToFileURL(w ? await thumbs.file(p, w) : p).toString())
     } catch {
       return new Response('Not found', { status: 404 })
     }
