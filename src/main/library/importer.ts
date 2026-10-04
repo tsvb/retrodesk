@@ -1,4 +1,4 @@
-import { copyFile, cp, mkdir, readdir, stat } from 'fs/promises'
+import { copyFile, cp, mkdir, readdir, readFile, stat } from 'fs/promises'
 import { basename, dirname, extname, join, relative } from 'path'
 import { ENTRY_POINT_EXTENSIONS } from '../systems'
 import { referencedFiles } from './formats'
@@ -8,7 +8,8 @@ import { errMsg, isUnder, normPath } from './util'
 /**
  * Import ROMs picked by the user (file picker / drag & drop): detect the system of each file and copy it,
  * with its companion files (cue -> bins, m3u -> discs, gdi -> tracks, ccd -> img/sub), into <roms>/<systemId>/.
- * Directory-format games (PS3, Wii U) are copied as folders. Unknown files are skipped.
+ * A multi-file game whose file names are already taken by another game goes into <roms>/<systemId>/<name>/.
+ * Directory-format games (PS3, Wii U) are copied as folders. Unknown files are skipped. Nothing is overwritten.
  */
 
 export interface RomImportResult {
@@ -78,12 +79,40 @@ async function withCompanions(entry: string): Promise<string[]> {
   return out
 }
 
-async function sameSizeExists(dest: string, size: number): Promise<boolean> {
-  try {
-    return (await stat(dest)).size === size
-  } catch {
-    return false
+interface PlannedCopy {
+  src: string
+  dest: string
+  /** What is at `dest` now: nothing, a file of the same size, or some other file. */
+  state: 'missing' | 'same' | 'different'
+}
+
+async function planCopies(sources: string[], baseDir: string, destDir: string): Promise<PlannedCopy[]> {
+  const plan: PlannedCopy[] = []
+  for (const src of sources) {
+    const dest = join(destDir, relative(baseDir, src))
+    const { size } = await stat(src)
+    let state: PlannedCopy['state'] = 'missing'
+    try {
+      state = (await stat(dest)).size === size ? 'same' : 'different'
+    } catch {
+      /* nothing there yet */
+    }
+    plan.push({ src, dest, state })
   }
+  return plan
+}
+
+/**
+ * Can a multi-file game go straight into <roms>/<system>/? Only when nothing of it is there yet, or the very
+ * same game is (a repeated or interrupted import). Otherwise another game owns those file names: discs
+ * routinely share names like disc.gdi or track01.bin, and mixing two games' tracks corrupts both.
+ */
+async function fitsBesideOthers(plan: PlannedCopy[]): Promise<boolean> {
+  if (plan.every((p) => p.state === 'missing')) return true
+  const entry = plan[0]
+  if (!entry || entry.state !== 'same' || plan.some((p) => p.state === 'different')) return false
+  const [a, b] = await Promise.all([readFile(entry.src), readFile(entry.dest)])
+  return a.equals(b)
 }
 
 export async function importRomFiles(paths: string[], romsDir: string, onProgress?: (done: number, total: number, name: string) => void): Promise<RomImportResult> {
@@ -128,17 +157,27 @@ export async function importRomFiles(paths: string[], romsDir: string, onProgres
         continue
       }
       const baseDir = dirname(f)
-      for (const src of await withCompanions(f)) {
-        const rel = isUnder(src, baseDir) ? relative(baseDir, src) : basename(src)
-        const dest = join(sysDir, rel)
-        const { size } = await stat(src)
-        if (await sameSizeExists(dest, size)) {
-          res.skipped.push(src)
+      const sources = await withCompanions(f)
+      let plan = await planCopies(sources, baseDir, sysDir)
+      if (sources.length > 1 && !(await fitsBesideOthers(plan))) {
+        // Give the game a folder of its own, named after its entry file.
+        const own = basename(f, extname(f)).replace(/[. ]+$/, '') || 'game'
+        plan = await planCopies(sources, baseDir, join(sysDir, own))
+      }
+      // Never overwrite a different file that is already in the library.
+      const clash = plan.find((p) => p.state === 'different')
+      if (clash) {
+        res.errors.push(`${f}: a different file named ${basename(clash.dest)} is already in ${dirname(clash.dest)}`)
+        continue
+      }
+      for (const p of plan) {
+        if (p.state === 'same') {
+          res.skipped.push(p.src)
           continue
         }
-        await mkdir(dirname(dest), { recursive: true })
-        await copyFile(src, dest)
-        res.copied.push(dest)
+        await mkdir(dirname(p.dest), { recursive: true })
+        await copyFile(p.src, p.dest)
+        res.copied.push(p.dest)
       }
     } catch (e) {
       res.errors.push(`${f}: ${errMsg(e)}`)

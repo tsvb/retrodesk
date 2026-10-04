@@ -1,10 +1,24 @@
+import { createHash } from 'crypto'
 import { createServer, type Server } from 'http'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs'
 import type { AddressInfo } from 'net'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { downloadFile, HttpError, parseBuildbotStableListing, parseDolphinUpdate, pickAsset, semverCompare, tagToVersion } from './download'
+import standaloneEmulators from '../data/standalone-emulators.json'
+import {
+  downloadFile,
+  downloadTrusted,
+  HttpError,
+  isTrustedDownloadUrl,
+  parseBuildbotStableListing,
+  parseDolphinUpdate,
+  pickAsset,
+  semverCompare,
+  tagToVersion,
+  UntrustedDownloadError,
+  verifyDownload
+} from './download'
 
 const LISTING = `<html><body><table>
 <tr><td><a href="/stable/1.10.0/">1.10.0/</a></td></tr>
@@ -127,5 +141,50 @@ describe('downloadFile', () => {
   it('aborts stalled transfers', async () => {
     const dest = join(dir, 'e.bin')
     await expect(downloadFile(`${base}/slow`, dest, { retries: 1, stallTimeoutMs: 200 })).rejects.toThrow(/stalled/)
+  })
+
+  it('refuses plain HTTP when httpsOnly is set, without retrying', async () => {
+    const dest = join(dir, 'f.bin')
+    await expect(downloadFile(`${base}/file`, dest, { httpsOnly: true, retries: 3 })).rejects.toBeInstanceOf(UntrustedDownloadError)
+    expect(existsSync(dest) || existsSync(`${dest}.part`)).toBe(false)
+  })
+
+  it('checks a finished download against the published size and SHA-256', async () => {
+    const dest = join(dir, 'g.bin')
+    await downloadFile(`${base}/file`, dest)
+    const sha256 = createHash('sha256').update(body).digest('hex')
+    await expect(verifyDownload(dest, { size: body.length, sha256: sha256.toUpperCase() })).resolves.toBeUndefined()
+    await expect(verifyDownload(dest, {})).resolves.toBeUndefined()
+    await expect(verifyDownload(dest, { size: body.length + 1 })).rejects.toBeInstanceOf(UntrustedDownloadError)
+    await expect(verifyDownload(dest, { sha256: '0'.repeat(64) })).rejects.toBeInstanceOf(UntrustedDownloadError)
+  })
+
+  it('refuses untrusted locations before any request is made', async () => {
+    await expect(downloadTrusted(`${base}/file`, join(dir, 'h.bin'))).rejects.toBeInstanceOf(UntrustedDownloadError)
+    await expect(downloadTrusted('https://example.com/emulator.7z', join(dir, 'i.bin'))).rejects.toBeInstanceOf(UntrustedDownloadError)
+  })
+})
+
+describe('isTrustedDownloadUrl', () => {
+  it('accepts the hosts RetroDesk installs from, over HTTPS only', () => {
+    expect(isTrustedDownloadUrl('https://buildbot.libretro.com/stable/1.22.2/windows/x86_64/RetroArch.7z')).toBe(true)
+    expect(isTrustedDownloadUrl('https://github.com/PCSX2/pcsx2/releases/download/v2.8.2/pcsx2-v2.8.2-windows-x64-Qt.7z')).toBe(true)
+    expect(isTrustedDownloadUrl('https://dl.dolphin-emu.org/releases/2609/dolphin-2609-x64.7z')).toBe(true)
+    expect(isTrustedDownloadUrl('https://stable.eden-emu.dev/v0.2.1/Eden-Windows-v0.2.1-amd64-msvc-standard.zip')).toBe(true)
+    expect(isTrustedDownloadUrl('http://github.com/PCSX2/pcsx2/releases/download/v2.8.2/x.7z')).toBe(false)
+  })
+
+  it('rejects other hosts, including look-alikes', () => {
+    expect(isTrustedDownloadUrl('https://example.com/dolphin-2609-x64.7z')).toBe(false)
+    expect(isTrustedDownloadUrl('https://github.com.evil.example/x.7z')).toBe(false)
+    expect(isTrustedDownloadUrl('https://notgithub.com/x.7z')).toBe(false)
+    expect(isTrustedDownloadUrl('file:///C:/x.7z')).toBe(false)
+    expect(isTrustedDownloadUrl('not a url')).toBe(false)
+  })
+
+  it('covers every pinned fallback URL in the emulator catalogue', () => {
+    for (const def of standaloneEmulators) {
+      if (def.fallback) expect(isTrustedDownloadUrl(def.fallback.url), def.id).toBe(true)
+    }
   })
 })

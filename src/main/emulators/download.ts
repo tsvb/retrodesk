@@ -1,8 +1,9 @@
 // Streaming downloads + release discovery helpers (GitHub, Forgejo, Dolphin, libretro buildbot).
 // Node built-ins only: global fetch (undici), fs streams.
-import { createWriteStream } from 'fs'
+import { createHash } from 'crypto'
+import { createReadStream, createWriteStream } from 'fs'
 import { mkdir, rename, rm, stat } from 'fs/promises'
-import { dirname } from 'path'
+import { basename, dirname } from 'path'
 
 export const USER_AGENT = 'RetroDesk/0.1 (+https://github.com/retrodesk)'
 
@@ -15,6 +16,8 @@ export interface DownloadOptions {
   headers?: Record<string, string>
   /** Inactivity timeout per attempt; aborts if no bytes arrive for this long (default 60s). */
   stallTimeoutMs?: number
+  /** Refuse plain HTTP, on the URL itself and on every redirect hop. */
+  httpsOnly?: boolean
 }
 
 export class HttpError extends Error {
@@ -25,6 +28,32 @@ export class HttpError extends Error {
     super(`HTTP ${status} for ${url}`)
     this.name = 'HttpError'
   }
+}
+
+/** The download was refused or failed verification. Never retried. */
+export class UntrustedDownloadError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'UntrustedDownloadError'
+  }
+}
+
+/**
+ * Hosts RetroDesk installs executables from. URLs handed to us by a release feed (GitHub / Forgejo / Dolphin)
+ * must point at one of these, so a tampered feed cannot send the download somewhere else.
+ */
+const TRUSTED_DOWNLOAD_HOSTS = ['buildbot.libretro.com', 'github.com', 'dolphin-emu.org', 'eden-emu.dev']
+
+export function isTrustedDownloadUrl(url: string): boolean {
+  let u: URL
+  try {
+    u = new URL(url)
+  } catch {
+    return false
+  }
+  if (u.protocol !== 'https:') return false
+  const host = u.hostname.toLowerCase()
+  return TRUSTED_DOWNLOAD_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))
 }
 
 const sleep = (ms: number, signal?: AbortSignal) =>
@@ -52,8 +81,25 @@ function abortError(signal?: AbortSignal): Error {
 /** 4xx (except 408/429) are permanent; everything else (network, 5xx, stalls) is worth retrying. */
 function isRetryable(err: unknown): boolean {
   if (err instanceof HttpError) return err.status >= 500 || err.status === 408 || err.status === 429
+  if (err instanceof UntrustedDownloadError) return false
   if (err instanceof Error && err.name === 'AbortError') return false
   return true
+}
+
+const MAX_REDIRECTS = 10
+
+/** fetch() that follows redirects itself so every hop can be checked for HTTPS. */
+async function fetchHttpsOnly(url: string, init: RequestInit): Promise<Response> {
+  let current = url
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    if (new URL(current).protocol !== 'https:') throw new UntrustedDownloadError(`Refusing a download that is not HTTPS: ${current}`)
+    const res = await fetch(current, { ...init, redirect: 'manual' })
+    const location = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null
+    if (!location) return res
+    await res.body?.cancel().catch(() => undefined)
+    current = new URL(location, current).toString()
+  }
+  throw new UntrustedDownloadError(`Too many redirects for ${url}`)
 }
 
 /**
@@ -102,7 +148,8 @@ async function downloadOnce(url: string, part: string, opts: DownloadOptions): P
   outDone.catch(() => undefined) // handled below; avoid unhandled rejection noise
   const outClosed = new Promise<void>((resolve) => out.on('close', resolve))
   try {
-    const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT, ...opts.headers }, redirect: 'follow', signal: ctrl.signal })
+    const init: RequestInit = { headers: { 'User-Agent': USER_AGENT, ...opts.headers }, redirect: 'follow', signal: ctrl.signal }
+    const res = opts.httpsOnly ? await fetchHttpsOnly(url, init) : await fetch(url, init)
     if (!res.ok || !res.body) throw new HttpError(res.status, url)
     const total = Number(res.headers.get('content-length') ?? 0) || 0
     let received = 0
@@ -113,7 +160,8 @@ async function downloadOnce(url: string, part: string, opts: DownloadOptions): P
       if (done) break
       armStall()
       received += value.byteLength
-      if (!out.write(value)) await new Promise<void>((r) => out.once('drain', r))
+      // A failed write (disk full, drive removed) never emits 'drain'; outDone rejects instead.
+      if (!out.write(value)) await Promise.race([new Promise<void>((r) => out.once('drain', r)), outDone])
       opts.onProgress?.(received, total)
     }
     out.end()
@@ -131,6 +179,43 @@ async function downloadOnce(url: string, part: string, opts: DownloadOptions): P
     clearTimeout(stallTimer)
     opts.signal?.removeEventListener('abort', onOuterAbort)
   }
+}
+
+function sha256File(file: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const h = createHash('sha256')
+    const s = createReadStream(file)
+    s.on('data', (d) => h.update(d))
+    s.on('error', reject)
+    s.on('end', () => resolve(h.digest('hex')))
+  })
+}
+
+/** Check a finished download against what the release feed said about it. Throws on mismatch. */
+export async function verifyDownload(file: string, expected: { size?: number; sha256?: string }): Promise<void> {
+  if (expected.size !== undefined) {
+    const { size } = await stat(file)
+    if (size !== expected.size) throw new UntrustedDownloadError(`${basename(file)} is ${size} bytes, expected ${expected.size}`)
+  }
+  if (expected.sha256 && (await sha256File(file)) !== expected.sha256.toLowerCase()) {
+    throw new UntrustedDownloadError(`${basename(file)} does not match its published SHA-256`)
+  }
+}
+
+/**
+ * downloadFile for anything RetroDesk will go on to execute: the URL must be on a trusted host, every redirect
+ * hop must be HTTPS, and the result is checked against the size / SHA-256 the release feed published, if any.
+ */
+export async function downloadTrusted(url: string, dest: string, opts: DownloadOptions & { size?: number; sha256?: string } = {}): Promise<{ bytes: number }> {
+  if (!isTrustedDownloadUrl(url)) throw new UntrustedDownloadError(`Refusing to download from an untrusted location: ${url}`)
+  const r = await downloadFile(url, dest, { ...opts, httpsOnly: true })
+  try {
+    await verifyDownload(dest, opts)
+  } catch (e) {
+    await rm(dest, { force: true }).catch(() => undefined)
+    throw e
+  }
+  return r
 }
 
 export async function fetchText(url: string, init: { headers?: Record<string, string>; signal?: AbortSignal; retries?: number } = {}): Promise<string> {
@@ -172,6 +257,8 @@ export interface ReleaseAsset {
   name: string
   url: string
   size?: number
+  /** Lower-case hex SHA-256, when the release feed publishes one. */
+  sha256?: string
 }
 
 export interface ResolvedRelease {
@@ -182,8 +269,11 @@ export interface ResolvedRelease {
 interface GhRelease {
   tag_name: string
   published_at?: string
-  assets: { name: string; browser_download_url: string; size: number }[]
+  /** GitHub publishes `digest: "sha256:<hex>"` per asset; Forgejo does not. */
+  assets: { name: string; browser_download_url: string; size: number; digest?: string | null }[]
 }
+
+const digestToSha256 = (digest?: string | null): string | undefined => /^sha256:([0-9a-f]{64})$/i.exec(digest ?? '')?.[1]?.toLowerCase()
 
 /** Strip a leading "v" from tags like "v1.20.4". */
 export const tagToVersion = (tag: string): string => tag.replace(/^v(?=\d)/i, '')
@@ -199,7 +289,7 @@ export function pickAsset(assets: ReleaseAsset[], pattern: RegExp): ReleaseAsset
 export async function githubRelease(repo: string, assetPattern: RegExp, tag?: string, signal?: AbortSignal): Promise<ResolvedRelease> {
   const url = tag ? `https://api.github.com/repos/${repo}/releases/tags/${encodeURIComponent(tag)}` : `https://api.github.com/repos/${repo}/releases/latest`
   const rel = await fetchJson<GhRelease>(url, { headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }, signal })
-  const assets = rel.assets.map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size }))
+  const assets = rel.assets.map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size, sha256: digestToSha256(a.digest) }))
   const asset = pickAsset(assets, assetPattern)
   if (!asset) throw new Error(`No asset matching ${assetPattern} in ${repo} ${rel.tag_name}`)
   const version = tag ? (rel.published_at ?? '').slice(0, 10) || tag : tagToVersion(rel.tag_name)

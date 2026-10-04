@@ -24,12 +24,23 @@ Other features: BIOS checker with MD5 validation and import, drag-and-drop ROM i
 
 ## Using it
 
-1. Run `RetroDesk-Setup-x.y.z.exe` (or the portable exe) from `dist/`.
+1. Run `RetroDesk-Setup-x.y.z.exe`, or the portable exe. The installer is not code-signed, so Windows SmartScreen warns the first time: choose **More info**, then **Run anyway**. Requires 64-bit Windows 10 or 11.
 2. The setup wizard asks for:
    - **A data folder** (default `%USERPROFILE%\RetroDesk`). Emulators, BIOS, saves, states, screenshots and artwork live here.
    - **Your ROM folders.** Sub-folders are matched to systems by common names (`snes`, `psx`, `Nintendo 64`, `Sega - Mega Drive`, …). You can also assign a folder to a system. ROMs in an unrecognised folder are still found if their extension, or for disc images their header, identifies the system.
 3. RetroDesk scans your ROMs and offers to install emulators for the systems it found, then downloads artwork.
 4. Put BIOS files in `<data>\bios` or import them from Settings → BIOS. They are checked automatically.
+
+### Where your data lives
+
+| | Installed | Portable exe |
+|---|---|---|
+| Settings and the library database | `%APPDATA%\RetroDesk` | `RetroDesk-data\app` next to the exe |
+| Data folder (emulators, BIOS, saves, states, screenshots, artwork) | `%USERPROFILE%\RetroDesk` unless you chose another | `RetroDesk-data` next to the exe unless you chose another |
+
+Uninstalling RetroDesk leaves both folders in place. Delete them yourself if you no longer want your saves and settings.
+
+RetroDesk goes online only to download the emulators you install (from the libretro buildbot, GitHub, dolphin-emu.org and eden-emu.dev) and artwork (from thumbnails.libretro.com and Steam). It sends no usage data and does not update itself.
 
 ### Controls
 
@@ -39,12 +50,12 @@ Other features: BIOS checker with MD5 validation and import, drag-and-drop ROM i
 | Select / back | A / B (swapped on the Nintendo layout) | Enter / Esc |
 | Favourite | X | F |
 | Search | Y | `/` or Ctrl+F |
-| Switch section | LB / RB | Q / E |
-| Page / letter jump | LT / RT | PgUp / PgDn |
+| Switch section | LB / RB | Q / E or PgUp / PgDn |
+| Page / letter jump | LT / RT | Z / C |
 | Quick menu in game | Back + Start (hold) or Guide | Ctrl+Alt+Home |
 | Fullscreen | — | F11 |
 
-The first time RetroArch starts, Windows Firewall may ask about network access. RetroDesk drives RetroArch over a local UDP port, which works whichever button you choose. You'll see a one-time notice about this before that first launch.
+The first time RetroArch starts, Windows Firewall may ask about network access. Choose **Cancel**: RetroDesk drives RetroArch over a UDP port on this PC only, which works either way, and allowing access would let other devices on your network send RetroArch commands while you play. You'll see a one-time notice about this before that first launch.
 
 ## Development
 
@@ -60,8 +71,8 @@ npm run dev
 | `npm run dev` | Electron + Vite with hot reload |
 | `npm run typecheck` | `tsc` for main/preload and renderer |
 | `npm test` | Vitest unit tests (library, scanner, titles, artwork, emulators, launcher, UDP client, system) |
-| `npm run e2e` | Builds, launches the real app on a throwaway data folder with fake ROMs, screenshots every screen into `out/e2e` |
-| `npm run e2e:play -- <dir>` | Real play session: installs RetroArch + Gambatte, runs a zlib-licensed homebrew Game Boy ROM, exercises save state, the overlay, pause/resume and quit, and checks play time was recorded. `<dir>` caches the ~200 MB download |
+| `npm run e2e` | Builds, launches the real app on a throwaway data folder with fake ROMs, screenshots every screen into `.e2e/smoke` |
+| `npm run e2e:play -- <dir>` | Real play session: installs RetroArch + Gambatte, runs a zlib-licensed homebrew Game Boy ROM, exercises save state, the overlay, pause/resume and quit, and checks play time was recorded. `<dir>` (default `.e2e/play`) caches the ~200 MB download |
 | `npm run dist` | Production build + NSIS installer + portable exe in `dist/` |
 
 Set `RETRODESK_USER_DATA` and `RETRODESK_DATA_ROOT` to run against an isolated profile.
@@ -93,3 +104,14 @@ docs/research/   Retroid Pocket 6 feature research and the verified emulator tec
 - **Firmware and keys** for Switch, PS3 and PS2 must come from your own console. RetroDesk checks for them and copies them into place.
 - **The Guide button** is often taken by Xbox Game Bar, which is why Back + Start is the default quick-menu combo.
 - **RetroAchievements credentials** are stored in plain text in RetroDesk's settings and RetroArch's appended config.
+- **Changing the data folder** copies artwork across but nothing else. Emulators, BIOS files and saves stay in the old folder, and games stored in its `roms` folder leave the library on the next scan.
+
+## Legal
+
+RetroDesk does not include or download games, console BIOS files, firmware or keys. Use only software you are legally entitled to use.
+
+Emulators and libretro cores are downloaded from their own projects, under their own licences, when you choose to install them. They are not part of RetroDesk.
+
+RetroDesk is an independent project. It is not affiliated with or endorsed by Retroid, Nintendo, Sony, Microsoft, Sega, Valve, or the RetroArch and libretro projects. Product names are trademarks of their owners and are used here only to describe compatibility.
+
+RetroDesk is released under the MIT licence (see [LICENSE](LICENSE)). The components it bundles are listed in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt).

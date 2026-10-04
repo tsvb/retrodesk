@@ -1,5 +1,6 @@
 import { readFile, open } from 'fs/promises'
 import { basename, dirname, extname, join, resolve } from 'path'
+import { isUnder } from './util'
 
 /**
  * Parsers for multi-file disc formats and directory-format game metadata.
@@ -72,7 +73,9 @@ export async function referencedFiles(entryPath: string): Promise<string[]> {
   else if (ext === '.gdi') rel = parseGdiText(text)
   else if (ext === '.m3u') rel = parseM3uText(text)
   else rel = []
-  return rel.map((r) => resolve(dir, r.replace(/[\\/]/g, '/')))
+  // Keep references inside the entry file's own folder. An absolute or UNC path in a downloaded .cue would
+  // otherwise make a scan touch arbitrary files, or authenticate to someone else's file server.
+  return rel.map((r) => resolve(dir, r.replace(/[\\/]/g, '/'))).filter((p) => isUnder(p, dir))
 }
 
 /** Minimal PARAM.SFO reader (PS3/PSP/Vita). Returns string/int fields such as TITLE and TITLE_ID. */

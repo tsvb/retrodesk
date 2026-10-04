@@ -100,6 +100,11 @@ describe('buildRetroArchConfig', () => {
   it('UI mode lets RetroArch persist menu changes', () => {
     expect(buildRetroArchConfig({ settings: settings(), paths, uiMode: true }).config_save_on_exit).toBe('true')
   })
+
+  it('UI mode does not leave the command port enabled in the saved config', () => {
+    expect(buildRetroArchConfig({ settings: settings(), paths, uiMode: true }).network_cmd_enable).toBe('false')
+    expect(buildRetroArchConfig({ settings: settings(), paths }).network_cmd_enable).toBe('true')
+  })
 })
 
 describe('launch args', () => {

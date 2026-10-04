@@ -9,7 +9,8 @@ import { createRequire } from 'module'
 
 const require = createRequire(import.meta.url)
 const root = resolve(import.meta.dirname, '..')
-const outDir = resolve(process.argv[2] ?? join(root, 'out', 'e2e'))
+// Not under out/: electron-builder packages that folder.
+const outDir = resolve(process.argv[2] ?? join(root, '.e2e', 'smoke'))
 const work = join(tmpdir(), `retrodesk-e2e-${Date.now()}`)
 const roms = join(work, 'roms')
 mkdirSync(outDir, { recursive: true })

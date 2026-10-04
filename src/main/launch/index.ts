@@ -1,6 +1,6 @@
 // Game launcher + session tracking + Game Assist quick actions.
 import { spawn, spawnSync, type ChildProcess } from 'child_process'
-import { existsSync } from 'fs'
+import { existsSync, rmSync } from 'fs'
 import { dirname, join } from 'path'
 import { app, globalShortcut, shell } from 'electron'
 import type { RetroDeskApi } from '../../shared/api'
@@ -10,6 +10,7 @@ import { getGameById, recordPlaySession } from '../library'
 import { getPaths } from '../paths'
 import { getSettings, onSettingsChanged } from '../settings'
 import { getSystemDef } from '../systems'
+import { readJson, writeJsonAtomic } from '../util/json'
 import { capturePowerState, restorePowerState, setPerformanceMode, type PowerState } from '../system'
 import { destroyOverlay, focusMainWindow, isOverlayActive, onOverlayActiveChanged, setOverlayActive, showOverlay } from '../windows'
 import { isRefInstalled, refKey, refStatusId, resolveGameRef, retroArchExe, standaloneExe } from '../emulators'
@@ -37,6 +38,8 @@ interface ActiveSession {
 
 let active: ActiveSession | null = null
 let launching = false
+/** The power-plan restore in flight, if any. */
+let restoring: Promise<void> = Promise.resolve()
 let registeredAccelerator: string | null = null
 const focusHelper = new FocusHelper()
 
@@ -134,6 +137,8 @@ export async function launchGame(gameId: string): Promise<LaunchResult> {
     if (!game) return { ok: false, error: 'Game not found.' }
 
     if (game.systemId === 'steam') {
+      // The path comes from library.json; only ever hand a real Steam launch URL to the shell.
+      if (!/^steam:\/\/rungameid\/\d+$/.test(game.path)) return { ok: false, error: 'This Steam entry is not valid. Rescan your library.' }
       const startedAt = Date.now()
       await shell.openExternal(game.path)
       await Promise.resolve(recordPlaySession(game.id, startedAt, 0)).catch((e) => console.warn('[launch] recordPlaySession failed', e))
@@ -158,7 +163,10 @@ export async function launchGame(gameId: string): Promise<LaunchResult> {
     let power: PowerState | undefined
     if (settings.performance.inGameMode !== 'unchanged') {
       try {
+        // Let the previous session finish putting its plan back, or we would capture the boosted one as "original".
+        await restoring
         power = await capturePowerState()
+        rememberPowerState(power)
         await setPerformanceMode(settings.performance.inGameMode)
       } catch (e) {
         console.warn('[launch] could not apply performance mode', e)
@@ -170,7 +178,7 @@ export async function launchGame(gameId: string): Promise<LaunchResult> {
       child = await startProcess(plan)
     } catch (e) {
       ra?.close()
-      if (power) await restorePowerState(power).catch(() => undefined)
+      if (power) await restorePower(power)
       return { ok: false, error: `Could not start the emulator: ${e instanceof Error ? e.message : String(e)}` }
     }
 
@@ -218,8 +226,12 @@ async function endSession(s: ActiveSession, code: number | null): Promise<void> 
   } catch (e) {
     console.warn('[launch] recordPlaySession failed', e)
   }
-  if (s.power) await restorePowerState(s.power).catch((e) => console.warn('[launch] power plan restore failed', e))
-  focusMainWindow()
+  if (s.power) {
+    restoring = restorePower(s.power)
+    await restoring
+  }
+  // A new game may already have started while the plan was being restored: leave it in front.
+  if (!active) focusMainWindow()
   // A quick non-zero exit almost always means the emulator failed to boot the game.
   if (code && code !== 0 && seconds < 10 && !s.quitTimer) {
     const hint = s.info.supportsCommands ? ` See ${join(raDir(getPaths()), 'logs', 'retroarch.log')}.` : ''
@@ -391,9 +403,45 @@ function restorePowerSync(p: PowerState): void {
   try {
     if (p.scheme) spawnSync('powercfg', ['/setactive', p.scheme], { windowsHide: true, timeout: 4000 })
     if (p.overlay) spawnSync('powercfg', ['/overlaysetactive', p.overlay], { windowsHide: true, timeout: 4000 })
+    forgetPowerState()
   } catch {
     /* ignore */
   }
+}
+
+// The plan we replaced is kept on disk until it has been put back: after a crash, a kill or a Windows shutdown
+// mid-game nothing else would remember it, and the machine would stay on the boosted plan for good.
+const powerRestoreFile = (): string => join(app.getPath('userData'), 'power-restore.json')
+const GUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i
+
+function rememberPowerState(p: PowerState): void {
+  try {
+    writeJsonAtomic(powerRestoreFile(), p)
+  } catch (e) {
+    console.warn('[launch] could not record the power plan to restore', e)
+  }
+}
+
+function forgetPowerState(): void {
+  rmSync(powerRestoreFile(), { force: true })
+}
+
+/** Put a captured plan back and drop the on-disk record. Never rejects. */
+async function restorePower(p: PowerState): Promise<void> {
+  try {
+    await restorePowerState(p)
+    forgetPowerState()
+  } catch (e) {
+    console.warn('[launch] power plan restore failed', e)
+  }
+}
+
+/** A record left behind by a session that never ended cleanly. */
+function leftoverPowerState(): PowerState | undefined {
+  const p = readJson<Partial<PowerState> | null>(powerRestoreFile(), null)
+  if (!p || (p.source !== 'ac' && p.source !== 'dc')) return undefined
+  const guid = (v: unknown): string | undefined => (typeof v === 'string' && GUID.test(v) ? v : undefined)
+  return { scheme: guid(p.scheme), overlay: guid(p.overlay), source: p.source }
 }
 
 export function initLaunch(): void {
@@ -401,6 +449,8 @@ export function initLaunch(): void {
   onSettingsChanged((s, prev) => {
     if (s.hotkeys.quickMenu !== prev.hotkeys.quickMenu && active && !active.exited) registerShortcut()
   })
+  const leftover = leftoverPowerState()
+  if (leftover) restoring = restorePower(leftover)
   app.on('will-quit', () => {
     unregisterShortcut()
     focusHelper.stop()

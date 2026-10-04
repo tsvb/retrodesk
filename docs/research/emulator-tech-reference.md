@@ -1,6 +1,6 @@
 # RetroDesk: Emulator Technical Reference
 
-Researched 2026-10-03. Every URL marked **[verified]** returned HTTP 200 on that date (curl HEAD/GET). CLI flags marked **[src]** were checked against the emulator's current source code. The machine-readable companions are `systems.json` (40 systems) and `standalone-emulators.json` (RetroArch plus 10 standalone emulators).
+Researched 2026-10-03. Every URL marked **[verified]** returned HTTP 200 on that date (curl HEAD/GET). CLI flags marked **[src]** were checked against the emulator's current source code. The machine-readable data the app ships lives in `src/main/data/systems.json` and `src/main/data/standalone-emulators.json`.
 
 ---
 

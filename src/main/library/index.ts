@@ -6,7 +6,7 @@ import type { BiosStatus, Game, MediaKind, ScanResult, SystemSummary } from '../
 import { isSystemPlayable } from '../emulators'
 import { createTask, emitLibraryChanged } from '../events'
 import { getPaths } from '../paths'
-import { getSettings } from '../settings'
+import { getSettings, onSettingsChanged } from '../settings'
 import { getSystemDefs } from '../systems'
 import { fetchArtworkForGames, loadArcadeNames } from './artwork'
 import { checkBios, importBiosFiles } from './bios'
@@ -89,6 +89,10 @@ export async function initLibrary(): Promise<void> {
   if (!quitHookInstalled) {
     quitHookInstalled = true
     app.on('before-quit', () => store?.flushSync())
+    // After a data-folder switch the recorded artwork still points into the old folder: bring it across.
+    onSettingsChanged((now, prev) => {
+      if (now.dataRoot !== prev.dataRoot) void fetchArtwork().catch((e: unknown) => console.warn('[library] artwork repair failed', e))
+    })
   }
   void detectSteam()
   void loadArcadeNames(indexDir(), false)
@@ -192,7 +196,7 @@ async function runScan(): Promise<ScanResult> {
             ? task.update(-1, `${p.dirs.toLocaleString()} folders, ${p.files.toLocaleString()} files`)
             : task.update(p.total ? (p.done ?? 0) / p.total : -1, `Reading ${(p.done ?? 0).toLocaleString()} of ${(p.total ?? 0).toLocaleString()} games`)
       }),
-      listSteamGames().catch(() => ({ steamPath: undefined, apps: [] as SteamApp[] }))
+      listSteamGames().catch(() => ({ steamPath: undefined, apps: [] as SteamApp[], complete: false }))
     ])
     steamPath = steam.steamPath
     steamDetected = !!steam.steamPath
@@ -232,10 +236,13 @@ async function runScan(): Promise<ScanResult> {
       })
     }
 
+    // Removing a game also drops its play time, favourite flag and artwork links, so only do it when the scan
+    // actually looked where the game lives and did not find it.
+    const notLookedAt = [...out.unreachableRoots, ...out.unreadableDirs]
     let removed = 0
     for (const g of lib.all()) {
       if (seen.has(g.id)) continue
-      if (g.systemId !== 'steam' && out.unreachableRoots.some((r) => isUnder(g.path, r))) continue // offline drive: keep
+      if (g.systemId === 'steam' ? !steam.complete : notLookedAt.some((r) => isUnder(g.path, r))) continue
       lib.remove(g.id)
       removed++
     }
@@ -281,8 +288,10 @@ export function scan(): Promise<ScanResult> {
 
 function needsArtwork(g: Game): boolean {
   if (g.hidden) return false
-  if (g.systemId === 'steam') return !g.media.boxart || !g.media.snap
-  return !g.media.boxart || !g.media.snap || !g.media.title
+  // An image recorded under a previous data folder can no longer be shown, so it counts as missing.
+  const has = (p?: string): boolean => !!p && isServable(p)
+  if (g.systemId === 'steam') return !has(g.media.boxart) || !has(g.media.snap)
+  return !has(g.media.boxart) || !has(g.media.snap) || !has(g.media.title)
 }
 
 async function runArtwork(games: Game[], force: boolean): Promise<void> {
@@ -307,6 +316,7 @@ async function runArtwork(games: Game[], force: boolean): Promise<void> {
       force,
       steamPath,
       arcadeNames,
+      isServable,
       onProgress: (done, total, title) => task.update(done / total, `${done.toLocaleString()} of ${total.toLocaleString()}: ${title}`),
       onUpdate: (id, media) => {
         lib.update(id, (g) => (g.media = media))

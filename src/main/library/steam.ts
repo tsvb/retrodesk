@@ -99,7 +99,8 @@ export function parseAppManifest(text: string, libraryPath: string): SteamApp | 
   const st: VdfObject | undefined = getObject(vdf, 'AppState')
   const appid = getString(st, 'appid')
   const name = getString(st, 'name')
-  if (!st || !appid || !name) return undefined
+  // appid ends up in file names and in the steam:// URL handed to the shell: digits only.
+  if (!st || !appid || !/^\d{1,10}$/.test(appid) || !name) return undefined
   const flags = Number(getString(st, 'StateFlags') ?? '4')
   if (Number.isFinite(flags) && (flags & 4) === 0) return undefined // not fully installed
   const lastPlayed = Number(getString(st, 'LastPlayed') ?? '0')
@@ -113,17 +114,23 @@ export function parseAppManifest(text: string, libraryPath: string): SteamApp | 
   }
 }
 
-/** All installed Steam games (excluding tools/redistributables). Never throws. */
-export async function listSteamGames(steamPath?: string): Promise<{ steamPath?: string; apps: SteamApp[] }> {
+/**
+ * All installed Steam games (excluding tools/redistributables). Never throws.
+ * `complete` is false when Steam was not found or a library folder could not be read (unplugged drive), in
+ * which case a game missing from `apps` is not known to be uninstalled.
+ */
+export async function listSteamGames(steamPath?: string): Promise<{ steamPath?: string; apps: SteamApp[]; complete: boolean }> {
   const sp = steamPath ?? (await findSteamPath())
-  if (!sp) return { apps: [] }
+  if (!sp) return { apps: [], complete: false }
   const apps = new Map<string, SteamApp>()
+  let complete = true
   for (const lib of await listLibraryFolders(sp)) {
     const dir = join(lib, 'steamapps')
     let names: string[]
     try {
       names = (await readdir(dir)).filter((n) => /^appmanifest_\d+\.acf$/i.test(n))
     } catch {
+      complete = false
       continue
     }
     await mapLimit(names, 8, async (n) => {
@@ -135,7 +142,7 @@ export async function listSteamGames(steamPath?: string): Promise<{ steamPath?: 
       }
     })
   }
-  return { steamPath: sp, apps: [...apps.values()].sort((a, b) => a.name.localeCompare(b.name)) }
+  return { steamPath: sp, apps: [...apps.values()].sort((a, b) => a.name.localeCompare(b.name)), complete }
 }
 
 /** Artwork Steam already cached locally: appcache/librarycache/<appid>/... (new) or <appid>_<name>.jpg (old). */
