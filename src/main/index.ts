@@ -64,6 +64,9 @@ const systemHandlers: RetroDeskApi['system'] = {
   },
   async getVersion() {
     return app.getVersion()
+  },
+  async getLocale() {
+    return app.getSystemLocale()
   }
 }
 

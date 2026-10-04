@@ -17,7 +17,7 @@ import { Onboarding } from './screens/Onboarding'
 import { SearchScreen } from './screens/Search'
 import { SettingsScreen } from './screens/settings/Settings'
 import { SystemsScreen } from './screens/Systems'
-import { useLibrary } from './stores/library'
+import { followLibraryChanges, useLibrary } from './stores/library'
 import { currentTab, useNav, type Route, type StackEntry } from './stores/nav'
 import { followGameIdle, useSession, useTasks } from './stores/session'
 import { followSettingsChanges, useSettings } from './stores/settings'
@@ -35,7 +35,6 @@ async function syncFullscreen(): Promise<void> {
 function useBoot(): boolean {
   const [ready, setReady] = useState(false)
   useEffect(() => {
-    let libTimer: ReturnType<typeof setTimeout> | undefined
     const offs = [
       api.on.task((t) => useTasks.getState().upsert(t)),
       api.on.session((s) => {
@@ -47,10 +46,7 @@ function useBoot(): boolean {
       }),
       followSettingsChanges(),
       followGameIdle(),
-      api.on.libraryChanged(() => {
-        clearTimeout(libTimer)
-        libTimer = setTimeout(() => void useLibrary.getState().refresh(), 250)
-      }),
+      followLibraryChanges(),
       installKeyboard({
         onFullscreen: () => void api.window.toggleFullscreen().then((f) => useUi.getState().setFullscreen(f))
       }),
@@ -75,7 +71,6 @@ function useBoot(): boolean {
     return () => {
       offs.forEach((off) => off())
       window.removeEventListener('resize', onResize)
-      clearTimeout(libTimer)
     }
   }, [])
   return ready

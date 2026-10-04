@@ -19,7 +19,23 @@ export function formatDuration(ms: number): string {
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`
 }
 
-const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+// Only the en-US Chromium locale ships, so `undefined` would mean en-US for everyone: dates, clock and numbers use
+// the OS regional format instead (setLocale at boot).
+let locale: string | undefined
+let rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+
+export function setLocale(l: string | undefined): void {
+  try {
+    rtf = new Intl.RelativeTimeFormat(l, { numeric: 'auto' })
+    locale = l
+  } catch {
+    /* not a valid locale tag: keep the default */
+  }
+}
+
+export function formatNumber(n: number): string {
+  return n.toLocaleString(locale)
+}
 
 /** "Just now", "5 minutes ago", "yesterday", "3 weeks ago", or a date for older times. */
 export function formatRelative(ts: number | undefined, now = Date.now()): string {
@@ -31,7 +47,7 @@ export function formatRelative(ts: number | undefined, now = Date.now()): string
   if (abs < 86400) return capitalise(rtf.format(Math.round(diff / 3600), 'hour'))
   if (abs < 86400 * 7) return capitalise(rtf.format(Math.round(diff / 86400), 'day'))
   if (abs < 86400 * 35) return capitalise(rtf.format(Math.round(diff / (86400 * 7)), 'week'))
-  return new Date(ts).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+  return new Date(ts).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 export function formatBytes(bytes: number | undefined): string {
@@ -47,7 +63,7 @@ export function formatBytes(bytes: number | undefined): string {
 }
 
 export function formatClock(d: Date): string {
-  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
 }
 
 export function capitalise(s: string): string {
@@ -55,7 +71,7 @@ export function capitalise(s: string): string {
 }
 
 export function plural(n: number, one: string, many = `${one}s`): string {
-  return `${n.toLocaleString()} ${n === 1 ? one : many}`
+  return `${formatNumber(n)} ${n === 1 ? one : many}`
 }
 
 /** First letter used for alphabet jumping; digits and symbols collapse into "#". */

@@ -7,6 +7,7 @@ import { ProgressBar } from '../components/Controls'
 import { Wordmark } from '../components/TopBar'
 import { HintBar } from '../components/HintBar'
 import { FocusScope, useActions, useFocusGroup } from '../input/hooks'
+import { formatNumber } from '../lib/format'
 import { describeScan } from '../lib/libraryActions'
 import { useLibrary } from '../stores/library'
 import { findRunningTask, toast, useTasks } from '../stores/session'
@@ -224,7 +225,7 @@ function ScanStep({ onNext }: { onNext: () => void }) {
 
   return (
     <StepFrame
-      title={scanning || !result ? 'Looking for games' : result.total ? `Found ${result.total.toLocaleString()} games` : 'No games found'}
+      title={scanning || !result ? 'Looking for games' : result.total ? `Found ${formatNumber(result.total)} games` : 'No games found'}
       lead={
         scanning || !result ? (
           <p>Reading {folders.length === 1 ? folders[0]?.path : `${folders.length} folders`}.</p>
@@ -275,7 +276,7 @@ function FoundSystem({ system, state, detail }: { system: SystemSummary; state?:
     <li className={`found__item ${ready ? 'is-ready' : ''}`}>
       <span className="found__dot" style={{ background: system.color }} />
       <span className="found__name">{system.name}</span>
-      <span className="found__count">{system.gameCount.toLocaleString()}</span>
+      <span className="found__count">{formatNumber(system.gameCount)}</span>
       <span className="found__state">
         {state === 'working' ? (
           <ProgressBar value={detail?.progress ?? -1} />
@@ -343,7 +344,7 @@ function DoneStep() {
       title="You're all set"
       lead={
         <>
-          <p>{total ? `${total.toLocaleString()} games are waiting on your shelf.` : 'Add games whenever you are ready; the Home screen shows you how.'}</p>
+          <p>{total ? `${formatNumber(total)} games are waiting on your shelf.` : 'Add games whenever you are ready; the Home screen shows you how.'}</p>
           <p>While playing, hold Back + Start on your controller, or press Ctrl + Alt + Home, to open the quick menu.</p>
         </>
       }

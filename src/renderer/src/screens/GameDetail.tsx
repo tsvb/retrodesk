@@ -14,7 +14,7 @@ import { systemStyle } from '../components/SystemCard'
 import { useActions, useFocusGroup } from '../input/hooks'
 import { systemColor } from '../lib/color'
 import { defaultKeyForSystem, isKeyInstalled, keyLabel, refKey } from '../lib/emulators'
-import { formatBytes, formatPlayTime, formatRelative } from '../lib/format'
+import { formatBytes, formatNumber, formatPlayTime, formatRelative } from '../lib/format'
 import { systemById, useLibrary } from '../stores/library'
 import { useNav } from '../stores/nav'
 import { toast } from '../stores/session'
@@ -134,7 +134,7 @@ export function GameDetailScreen({ gameId }: { gameId: string }) {
             </div>
             <div>
               <dt>Times played</dt>
-              <dd>{game.playCount.toLocaleString()}</dd>
+              <dd>{formatNumber(game.playCount)}</dd>
             </div>
             <div>
               <dt>Last played</dt>

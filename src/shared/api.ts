@@ -70,6 +70,8 @@ export interface RetroDeskApi {
     openExternal(url: string): Promise<void>
     getPaths(): Promise<{ dataRoot: string; roms: string; bios: string; saves: string; states: string; screenshots: string; emulators: string; media: string }>
     getVersion(): Promise<string>
+    /** The OS regional format (e.g. en-GB). Only the en-US Chromium locale ships, so the UI's own locale is always en-US. */
+    getLocale(): Promise<string>
   }
   window: {
     toggleFullscreen(): Promise<boolean>
@@ -126,7 +128,7 @@ export const API_SHAPE = {
   bios: ['check', 'importFiles'],
   game: ['launch', 'getSession', 'quickAction'],
   settings: ['get', 'set'],
-  system: ['getStats', 'setPerformanceMode', 'pickFolder', 'pickFiles', 'openPath', 'openExternal', 'getPaths', 'getVersion'],
+  system: ['getStats', 'setPerformanceMode', 'pickFolder', 'pickFiles', 'openPath', 'openExternal', 'getPaths', 'getVersion', 'getLocale'],
   window: ['toggleFullscreen', 'isFullscreen', 'minimize', 'quit', 'setOverlayActive']
 } as const satisfies { [K in Exclude<keyof RetroDeskApi, 'on'>]: readonly (keyof RetroDeskApi[K])[] }
 

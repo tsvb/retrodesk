@@ -2,7 +2,7 @@ import type { ScanResult } from '@shared/types'
 import { api } from '../api'
 import { useSettings } from '../stores/settings'
 import { toast } from '../stores/session'
-import { plural } from './format'
+import { formatNumber, plural } from './format'
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
@@ -23,8 +23,8 @@ export async function addRomFolder(systemId?: string): Promise<string | null> {
 
 export function describeScan(r: ScanResult): string {
   const parts = [`${plural(r.total, 'game')} in your library`]
-  if (r.added && r.added < r.total) parts.unshift(`${r.added.toLocaleString()} new`)
-  if (r.removed) parts.push(`${r.removed.toLocaleString()} removed`)
+  if (r.added && r.added < r.total) parts.unshift(`${formatNumber(r.added)} new`)
+  if (r.removed) parts.push(`${formatNumber(r.removed)} removed`)
   return parts.join(', ')
 }
 
