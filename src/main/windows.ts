@@ -65,13 +65,75 @@ export function focusMainWindow(): void {
   mainWindow.focus()
 }
 
+// While the quick menu is closed the overlay is parked: still shown, but shrunk and moved off every display.
+// Hiding it would stop the gamepad polling (Chromium only gives gamepad data to visible pages, and with occlusion
+// tracking disabled a shown off-screen window still counts as visible). Leaving it over the game would keep a
+// layered window on top of a fullscreen emulator, which knocks the game out of independent flip (extra latency, no VRR).
+/** Let the menu's fade-out finish before the window jumps away. */
+const PARK_DELAY_MS = 300
+/** Distance from the displays; Windows enforces a minimum window size of a few dozen pixels, so 1x1 isn't kept. */
+const PARK_MARGIN = 200
+/** The display the overlay opens on (picked when the session starts, like the game's). */
+let overlayDisplayId: number | undefined
+let parkTimer: NodeJS.Timeout | undefined
+let displayListeners = false
+
+/** Up and to the left of the union of all displays (which may have negative coordinates; the primary one is at 0,0). Never -32000 (minimized). */
+function parkedBounds(): Electron.Rectangle {
+  const displays = screen.getAllDisplays()
+  const away = (v: number) => (v === -32000 ? v - PARK_MARGIN : v)
+  return {
+    x: away(Math.min(0, ...displays.map((d) => d.bounds.x)) - PARK_MARGIN),
+    y: away(Math.min(0, ...displays.map((d) => d.bounds.y)) - PARK_MARGIN),
+    width: 1,
+    height: 1
+  }
+}
+
+function overlayDisplayBounds(): Electron.Rectangle {
+  const display = screen.getAllDisplays().find((d) => d.id === overlayDisplayId) ?? screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+  overlayDisplayId = display.id
+  return display.bounds
+}
+
+/** setBounds, once more if the first try was resized on the way (moving between displays with different scaling). */
+function moveOverlay(win: BrowserWindow, bounds: Electron.Rectangle): void {
+  win.setBounds(bounds)
+  const b = win.getBounds()
+  if (Math.abs(b.x - bounds.x) > 2 || Math.abs(b.y - bounds.y) > 2 || (bounds.width > 1 && Math.abs(b.width - bounds.width) > 2)) win.setBounds(bounds)
+}
+
+function parkOverlay(win: BrowserWindow): void {
+  clearTimeout(parkTimer)
+  parkTimer = undefined
+  if (!win.isDestroyed()) moveOverlay(win, parkedBounds())
+}
+
+/** Re-place the overlay when monitors are added, removed or rearranged. */
+function followDisplayChanges(): void {
+  if (displayListeners) return
+  displayListeners = true
+  const replace = () => {
+    const win = overlayWindow
+    if (!win || win.isDestroyed()) return
+    if (overlayActive) moveOverlay(win, overlayDisplayBounds())
+    else parkOverlay(win)
+  }
+  screen.on('display-added', replace)
+  screen.on('display-removed', replace)
+  screen.on('display-metrics-changed', replace)
+}
+
 /**
- * The overlay is a transparent, always-on-top, click-through window covering the display while a game runs.
- * Its renderer (route #/overlay) polls gamepads for the quick-menu combo and renders the quick menu.
+ * The overlay is a transparent, always-on-top, click-through window shown while a game runs. Its renderer
+ * (route #/overlay) polls gamepads for the quick-menu combo and renders the quick menu; it only covers the
+ * display while the menu is open and is parked off-screen otherwise (see above).
  */
 export function showOverlay(): void {
+  followDisplayChanges()
   if (!overlayWindow || overlayWindow.isDestroyed()) {
     const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+    overlayDisplayId = display.id
     overlayWindow = new BrowserWindow({
       ...display.bounds,
       transparent: true,
@@ -88,12 +150,18 @@ export function showOverlay(): void {
     overlayWindow.setAlwaysOnTop(true, 'screen-saver')
     overlayWindow.setIgnoreMouseEvents(true)
     lockDown(overlayWindow)
-    overlayWindow.on('closed', () => {
-      overlayWindow = null
+    const win = overlayWindow
+    win.on('closed', () => {
+      if (overlayWindow === win) overlayWindow = null
     })
-    loadRenderer(overlayWindow, '/overlay')
-    overlayWindow.once('ready-to-show', () => overlayWindow?.showInactive())
+    loadRenderer(win, '/overlay')
+    win.once('ready-to-show', () => {
+      if (win.isDestroyed()) return
+      if (!overlayActive) parkOverlay(win)
+      win.showInactive()
+    })
   } else {
+    if (!overlayActive) parkOverlay(overlayWindow)
     overlayWindow.showInactive()
   }
 }
@@ -105,6 +173,8 @@ export function hideOverlay(): void {
 
 export function destroyOverlay(): void {
   overlayActive = false
+  clearTimeout(parkTimer)
+  parkTimer = undefined
   overlayWindow?.destroy()
   overlayWindow = null
 }
@@ -118,6 +188,10 @@ export function setOverlayActive(active: boolean): void {
   }
   overlayActive = active
   if (active) {
+    // Cover the display before the 'overlay' event goes out, so the menu opens at full size.
+    clearTimeout(parkTimer)
+    parkTimer = undefined
+    moveOverlay(win, overlayDisplayBounds())
     win.setIgnoreMouseEvents(false)
     win.setFocusable(true)
     win.showInactive()
@@ -127,6 +201,10 @@ export function setOverlayActive(active: boolean): void {
     win.setIgnoreMouseEvents(true)
     win.setFocusable(false)
     win.blur()
+    clearTimeout(parkTimer)
+    parkTimer = setTimeout(() => {
+      if (!overlayActive) parkOverlay(win)
+    }, PARK_DELAY_MS)
   }
   sendEvent(win, 'overlay', active)
   for (const l of overlayListeners) l(active)
