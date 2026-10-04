@@ -73,6 +73,29 @@ class FocusManager {
   private ensureQueued = false
   private version = 0
   private lastScroll = 0
+  /** Rects measured during one navigation step (candidates() and the spatial search share them). */
+  private rects: Map<FocusNode, DOMRect> | null = null
+
+  // ---------- geometry ----------
+  private rect(n: FocusNode): DOMRect {
+    if (!this.rects) return safeRect(n)
+    let r = this.rects.get(n)
+    if (!r) {
+      r = safeRect(n)
+      this.rects.set(n, r)
+    }
+    return r
+  }
+  /** Run `fn` with every node measured at most once (layout can't change in between: nothing is written). */
+  private measured<T>(fn: () => T): T {
+    if (this.rects) return fn()
+    this.rects = new Map()
+    try {
+      return fn()
+    } finally {
+      this.rects = null
+    }
+  }
 
   // ---------- subscriptions ----------
   subscribe = (l: Listener): (() => void) => {
@@ -199,36 +222,42 @@ class FocusManager {
     const scopeId = this.activeScope
     const current = this.focusedId ? this.nodes.get(this.focusedId) : undefined
     if (current && current.scope === scopeId && current.el.isConnected && !current.opts.current.disabled) return
-    const candidates = this.candidates(scopeId)
-    if (!candidates.length) {
+    const pick = this.measured(() => this.pickInitial(scopeId, nearLastRect))
+    if (!pick) {
       if (current && current.scope !== scopeId) this.setFocused(null)
       return
     }
+    this.focus(pick.id, { source: 'program', scroll: false })
+  }
+
+  private pickInitial(scopeId: string, nearLastRect: boolean): FocusNode | undefined {
+    const candidates = this.candidates(scopeId)
+    if (!candidates.length) return undefined
     const scope = this.scopes.find((s) => s.id === scopeId)
     const remembered = scope?.lastFocused ? candidates.find((c) => c.id === scope.lastFocused) : undefined
     let pick = remembered
     if (!pick && nearLastRect && this.lastRect) {
       const lr = this.lastRect
       pick = minBy(candidates, (c) => {
-        const r = safeRect(c)
+        const r = this.rect(c)
         return Math.hypot(r.left + r.width / 2 - (lr.left + lr.width / 2), r.top + r.height / 2 - (lr.top + lr.height / 2))
       })
     }
     if (!pick) pick = candidates.filter((c) => c.opts.current.autoFocus).pop()
     if (!pick) {
       pick = minBy(candidates, (c) => {
-        const r = safeRect(c)
+        const r = this.rect(c)
         return r.top * 4 + r.left
       })
     }
-    if (pick) this.focus(pick.id, { source: 'program', scroll: false })
+    return pick
   }
 
   private candidates(scopeId: string): FocusNode[] {
     const out: FocusNode[] = []
     for (const n of this.nodes.values()) {
       if (n.scope !== scopeId || n.opts.current.disabled || !n.el.isConnected) continue
-      const r = safeRect(n)
+      const r = this.rect(n)
       if (r.width === 0 && r.height === 0) continue
       out.push(n)
     }
@@ -247,15 +276,15 @@ class FocusManager {
       this.emit()
       return true
     }
-    const from = safeRect(cur)
-    const all = this.candidates(cur.scope).filter((n) => n.id !== cur.id)
     const group = cur.opts.current.group
-
-    // 1. Stay inside the current group when it has a candidate in that direction.
-    let target: FocusNode | undefined
-    if (group) target = nearest(from, all.filter((n) => n.opts.current.group === group), dir)
-    // 2. Otherwise the whole scope.
-    if (!target) target = nearest(from, all, dir)
+    let target = this.measured(() => {
+      const rect = (n: FocusNode) => this.rect(n)
+      const from = rect(cur)
+      const all = this.candidates(cur.scope).filter((n) => n.id !== cur.id)
+      // 1. Stay inside the current group when it has a candidate in that direction.
+      // 2. Otherwise the whole scope.
+      return (group ? nearest(from, all.filter((n) => n.opts.current.group === group), dir, rect) : undefined) ?? nearest(from, all, dir, rect)
+    })
     if (!target) return false
 
     // 3. Entering a remembering group: go to its last focused member.
@@ -366,13 +395,13 @@ function minBy<T>(arr: T[], f: (x: T) => number): T | undefined {
 }
 
 /** Geometric nearest neighbour in a direction. */
-function nearest(from: DOMRect, nodes: FocusNode[], dir: Direction): FocusNode | undefined {
+function nearest(from: DOMRect, nodes: FocusNode[], dir: Direction, rectOf: (n: FocusNode) => DOMRect): FocusNode | undefined {
   const fcx = from.left + from.width / 2
   const fcy = from.top + from.height / 2
   let best: FocusNode | undefined
   let bestScore = Infinity
   for (const n of nodes) {
-    const r = safeRect(n)
+    const r = rectOf(n)
     const cx = r.left + r.width / 2
     const cy = r.top + r.height / 2
     let primary: number

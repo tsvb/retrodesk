@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import type { SystemSummary } from '@shared/types'
 import { SystemCard } from '../components/SystemCard'
 import { useActions } from '../input/hooks'
@@ -27,7 +27,8 @@ export function SystemsScreen() {
     view: { label: hideEmpty ? 'Show all systems' : 'Hide empty systems', run: () => void update({ ui: { hideEmptySystems: !hideEmpty } }) }
   })
 
-  const open = (s: SystemSummary) => push({ name: 'games', systemId: s.id })
+  const open = useCallback((s: SystemSummary) => push({ name: 'games', systemId: s.id }), [push])
+  const focus = useCallback((s: SystemSummary) => setAmbient(systemColor(s)), [setAmbient])
 
   return (
     <div className="screen screen--systems">
@@ -43,7 +44,7 @@ export function SystemsScreen() {
       ) : (
         <div className="cart-grid">
           {shown.map((s, i) => (
-            <SystemCard key={s.id} system={s} group="systems-grid" autoFocus={i === 0} onActivate={open} onFocus={(x) => setAmbient(systemColor(x))} />
+            <SystemCard key={s.id} system={s} group="systems-grid" autoFocus={i === 0} onActivate={open} onFocus={focus} />
           ))}
         </div>
       )}
