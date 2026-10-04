@@ -22,7 +22,7 @@ export function SearchScreen() {
   const setAmbient = useUi((s) => s.setAmbient)
   const total = systems.reduce((n, s) => n + s.gameCount, 0)
   useFocusGroup('search-results', { memory: true })
-  // Stable handlers keep the memoised result cards from re-rendering on every keystroke.
+  // Stable handlers keep the memoized result cards from re-rendering on every keystroke.
   const openGame = useCallback((g: Game) => push({ name: 'game', gameId: g.id }), [push])
   const focusGame = useCallback((g: Game) => setAmbient(systemColor(systemById(systems, g.systemId) ?? { id: g.systemId })), [systems, setAmbient])
 

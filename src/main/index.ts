@@ -64,9 +64,6 @@ const systemHandlers: RetroDeskApi['system'] = {
   },
   async getVersion() {
     return app.getVersion()
-  },
-  async getLocale() {
-    return app.getSystemLocale()
   }
 }
 
@@ -114,7 +111,7 @@ const handlers: Omit<RetroDeskApi, 'on'> = {
 }
 
 /**
- * Settled once the library, emulators and launcher are initialised. The window opens before that, so handlers
+ * Settled once the library, emulators and launcher are initialized. The window opens before that, so handlers
  * that need them wait for it; settings, system and window requests are answered straight away.
  */
 let markReady: () => void = () => undefined

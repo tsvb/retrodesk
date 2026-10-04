@@ -124,7 +124,7 @@ export function GameListScreen({ systemId }: { systemId: string }) {
     gridApi.current = a
   }, [])
 
-  // Stable grid callbacks: moving focus re-renders this screen, and the memoised cells should not follow.
+  // Stable grid callbacks: moving focus re-renders this screen, and the memoized cells should not follow.
   const getKey = useCallback((g: Game) => g.id, [])
   const onActivate = useCallback((g: Game) => push({ name: 'game', gameId: g.id }), [push])
   const itemActions = useCallback((g: Game) => ({ favorite: { label: g.favorite ? 'Unfavourite' : 'Favourite', run: () => void toggleFavorite(g) } }), [])

@@ -114,7 +114,7 @@ export function App() {
 }
 
 /**
- * Background light tinted by the focused system/game. The colour lives on this element only, so focusing a card
+ * Background light tinted by the focused system/game. The color lives on this element only, so focusing a card
  * from another system restyles one div instead of re-rendering the app and every mounted screen.
  */
 function Ambient() {
@@ -161,7 +161,7 @@ function screenFor(route: Route): ReactNode {
 
 /**
  * Every stack entry stays mounted (scroll + focus survive); only the top one is visible and navigable.
- * Memoised: App re-renders when a game starts or settings change, and the screens subscribe to what they need.
+ * Memoized: App re-renders when a game starts or settings change, and the screens subscribe to what they need.
  */
 const ScreenStack = memo(function ScreenStack() {
   const stack = useNav((s) => s.stack)

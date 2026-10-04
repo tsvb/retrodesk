@@ -37,7 +37,7 @@ export function HomeScreen() {
     setAmbient(heroSystem ? systemColor(heroSystem) : null)
   }, [heroSystem, setAmbient])
 
-  // Stable handlers, so the memoised cards skip re-rendering when Home does.
+  // Stable handlers, so the memoized cards skip re-rendering when Home does.
   const openGame = useCallback((g: Game) => push({ name: 'game', gameId: g.id }), [push])
   const openSystem = useCallback((s: SystemSummary) => push({ name: 'games', systemId: s.id }), [push])
   const focusGame = useCallback((g: Game) => setAmbient(systemColor(systemById(systems, g.systemId) ?? { id: g.systemId })), [systems, setAmbient])

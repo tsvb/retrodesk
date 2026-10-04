@@ -36,7 +36,7 @@ const extractSlots = createLimiter(MAX_CONCURRENT_EXTRACTIONS)
 export async function extractArchive(archive: string, dest: string, opts: ExtractOptions = {}): Promise<void> {
   await mkdir(dest, { recursive: true })
   await extractSlots(() => run7za(archive, dest, opts), { signal: opts.signal, onQueued: opts.onQueued }).catch((e: unknown) => {
-    // Cancelled while queued: same error as cancelled while running.
+    // Canceled while queued: same error as canceled while running.
     throw opts.signal?.aborted ? new Error('Extraction cancelled') : e
   })
   opts.onProgress?.(1)

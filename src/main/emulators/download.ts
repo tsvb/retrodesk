@@ -152,7 +152,7 @@ const downloadSlots = createLimiter(MAX_CONCURRENT_DOWNLOADS)
 interface PartState {
   /** Bytes handed to the file so far (checked against its size before resuming). */
   bytes: number
-  /** SHA-256 of those bytes; Node can't serialise a hash, but it can keep one going across attempts. */
+  /** SHA-256 of those bytes; Node can't serialize a hash, but it can keep one going across attempts. */
   hash: Hash
   /** Strong ETag or Last-Modified of what we are downloading, for If-Range. No validator, no resume. */
   validator?: string

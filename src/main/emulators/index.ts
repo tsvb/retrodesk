@@ -264,7 +264,7 @@ export async function installForSystem(systemId: string): Promise<void> {
   const task = createTask(`Setting up ${sys.name}`, { kind: 'system', id: systemId })
   try {
     if (ref.type === 'retroarch') {
-      // RetroArch and the core install side by side (retroarch.ts serialises their moves into the RetroArch folder).
+      // RetroArch and the core install side by side (retroarch.ts serializes their moves into the RetroArch folder).
       const jobs = [
         ...(retroArchExe() ? [] : [{ name: 'RetroArch', id: RA_ID }]),
         ...(isCoreInstalled(ref.core) ? [] : [{ name: coreDisplayName(ref.core), id: `core:${ref.core}` }])
