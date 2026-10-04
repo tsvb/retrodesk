@@ -1,0 +1,419 @@
+/* ---------------------------------------------------------------------------
+   Base: reset, scale, shell layout (top bar, screen stack, hint bar).
+   --------------------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  /* 10-foot scale: ~20px at 1920 wide, never below 14px. */
+  font-size: clamp(14px, 1.04vw, 34px);
+  -webkit-text-size-adjust: 100%;
+}
+@media (max-aspect-ratio: 4/3) {
+  html {
+    font-size: clamp(14px, 1.45vh, 34px);
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  line-height: 1.45;
+  font-feature-settings: 'ss01', 'cv11';
+  overflow: hidden;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+  cursor: default;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+h1,
+h2,
+h3,
+p,
+dl,
+dd,
+ul,
+ol {
+  margin: 0;
+}
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+img {
+  display: block;
+}
+code {
+  font-family: inherit;
+  font-weight: 650;
+  padding: 0.05em 0.4em;
+  border-radius: var(--radius-xs);
+  background: var(--surface-2);
+}
+
+.muted {
+  color: var(--text-3);
+}
+
+::selection {
+  background: rgb(var(--accent-rgb) / 0.4);
+}
+
+::-webkit-scrollbar {
+  width: 0.55rem;
+  height: 0.55rem;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 99px;
+  border: 0.15rem solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+/* Pads don't need scrollbars; mouse users get them back on hover. */
+[data-input='pad'] ::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* ---------- App shell ---------- */
+
+.app {
+  position: relative;
+  height: 100%;
+  isolation: isolate;
+  transition: --ambient 900ms var(--ease-out);
+}
+
+/* Ambient light tinted by the focused system / game. */
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(70vw 70vh at 92% -18%, color-mix(in oklab, var(--ambient) var(--ambient-strength), transparent), transparent 70%),
+    radial-gradient(60vw 55vh at -10% 115%, color-mix(in oklab, var(--ambient) calc(var(--ambient-strength) * 0.45), transparent), transparent 70%),
+    var(--bg);
+}
+:root[data-theme='retro'] .ambient::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.16) 0 1px, transparent 1px 3px);
+  mix-blend-mode: multiply;
+}
+
+.splash {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  font-size: 1.6rem;
+}
+.splash .wordmark {
+  animation: splash-pulse 1.4s var(--ease-out) infinite alternate;
+}
+@keyframes splash-pulse {
+  from {
+    opacity: 0.45;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---------- Wordmark ---------- */
+
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-stretch: 80%;
+  font-size: 1.3em;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.wordmark__mark {
+  position: relative;
+  width: 1.15em;
+  height: 1.15em;
+  border-radius: 0.3em;
+  background: var(--accent);
+  box-shadow: inset 0 -0.14em 0 rgb(0 0 0 / 0.22);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  justify-items: center;
+  padding: 0 0.18em;
+}
+.wordmark__mark span {
+  width: 0.26em;
+  height: 0.26em;
+  border-radius: 50%;
+  background: var(--on-accent);
+}
+.wordmark__mark span:first-child {
+  width: 0.36em;
+  height: 0.12em;
+  border-radius: 0.05em;
+  box-shadow: 0 0 0 0 transparent;
+  position: relative;
+}
+.wordmark__mark span:first-child::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0.12em;
+  height: 0.36em;
+  transform: translate(-50%, -50%);
+  background: inherit;
+  border-radius: 0.05em;
+}
+
+/* ---------- Top bar ---------- */
+
+.topbar {
+  position: fixed;
+  z-index: 20;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  gap: 2.2rem;
+  padding: 0 var(--gutter);
+  -webkit-app-region: drag;
+  background: linear-gradient(to bottom, color-mix(in oklab, var(--bg) 92%, transparent), color-mix(in oklab, var(--bg) 0%, transparent));
+}
+.topbar.is-windowed {
+  /* Native window controls (titleBarOverlay) live in the top-right corner. */
+  padding-right: calc(140px + 1rem);
+}
+.topbar .wordmark {
+  font-size: 1.2rem;
+}
+
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklab, var(--surface) 70%, transparent);
+  border: 1px solid var(--line);
+  -webkit-app-region: no-drag;
+}
+.tabs__glyph {
+  display: inline-flex;
+  padding: 0 0.35rem;
+  opacity: 0.75;
+}
+.tabs__tab {
+  border: 0;
+  background: transparent;
+  padding: 0.42rem 1.15rem;
+  border-radius: var(--radius-pill);
+  font-weight: 650;
+  font-size: 0.95rem;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.tabs__tab:hover {
+  color: var(--text);
+}
+.tabs__tab.is-active {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.status {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  -webkit-app-region: no-drag;
+}
+.status__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.status__item.is-off {
+  opacity: 0.55;
+}
+.status__item.is-low {
+  color: var(--danger);
+}
+.status__tasks {
+  color: var(--text);
+}
+.status__clock {
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+
+/* ---------- Screen stack ---------- */
+
+.stack {
+  position: absolute;
+  inset: 0;
+}
+.layer {
+  position: absolute;
+  inset: 0;
+}
+.layer.is-below {
+  visibility: hidden;
+  pointer-events: none;
+}
+.layer.is-pushed {
+  animation: layer-in var(--t-med) var(--ease-out);
+}
+@keyframes layer-in {
+  from {
+    opacity: 0;
+    transform: translate3d(1.5rem, 0, 0);
+  }
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: calc(var(--topbar-h) + 0.8rem) var(--gutter) calc(var(--hintbar-h) + 2rem);
+  scroll-padding: calc(var(--topbar-h) + 3.2rem) 0 calc(var(--hintbar-h) + 2rem);
+  /* Content fades out under the top bar and the hint bar instead of colliding with them. */
+  mask-image: linear-gradient(to bottom, transparent calc(var(--topbar-h) * 0.85), #000 calc(var(--topbar-h) + 1.4rem), #000 calc(100% - var(--hintbar-h) - 0.5rem), transparent calc(100% - var(--hintbar-h) * 0.4));
+}
+
+
+/* ---------- Hint bar ---------- */
+
+.hintbar {
+  position: fixed;
+  z-index: 65;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--hintbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 var(--gutter);
+  background: linear-gradient(to top, color-mix(in oklab, var(--bg) 96%, transparent) 55%, transparent);
+  pointer-events: none;
+}
+.hintbar__items {
+  display: flex;
+  gap: 1.6rem;
+  pointer-events: auto;
+}
+.hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 0;
+  background: transparent;
+  padding: 0.2rem 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.hint:hover {
+  color: var(--text);
+}
+
+/* ---------- Glyphs ---------- */
+
+.glyph {
+  --g: 1.45rem;
+  display: inline-grid;
+  place-items: center;
+  min-width: var(--g);
+  height: var(--g);
+  font-family: var(--font-ui);
+  font-weight: 800;
+  font-size: calc(var(--g) * 0.56);
+  line-height: 1;
+  color: var(--text);
+  flex: none;
+}
+.glyph--sm {
+  --g: 1.15rem;
+}
+.glyph--lg {
+  --g: 2rem;
+}
+.glyph--face {
+  border-radius: 50%;
+  background: color-mix(in oklab, currentColor 18%, var(--surface-2));
+  border: 0.1rem solid color-mix(in oklab, currentColor 55%, transparent);
+}
+.glyph--shoulder {
+  padding: 0 0.45em;
+  border-radius: 0.38em 0.38em 0.5em 0.5em;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: calc(var(--g) * 0.46);
+  letter-spacing: 0.02em;
+}
+.glyph--meta {
+  padding: 0 0.45em;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  font-size: calc(var(--g) * 0.5);
+}
+.glyph--key {
+  padding: 0 0.48em;
+  border-radius: 0.32em;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 0.1em 0 var(--line-strong);
+  font-size: calc(var(--g) * 0.5);
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}

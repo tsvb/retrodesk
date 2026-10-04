@@ -1,0 +1,134 @@
+/* ---------------------------------------------------------------------------
+   Design tokens. Four themes via :root[data-theme]; accent from settings
+   (--accent / --accent-rgb are set inline on :root by applyAppearance()).
+   --------------------------------------------------------------------------- */
+
+@property --ambient {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: #7c5cff;
+}
+
+:root {
+  --font-ui: 'Figtree Variable', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Bricolage Grotesque Variable', 'Figtree Variable', 'Segoe UI', sans-serif;
+
+  --accent: #7c5cff;
+  --accent-rgb: 124 92 255;
+  --on-accent: #ffffff;
+  --accent-soft: color-mix(in oklab, var(--accent) 22%, transparent);
+
+  /* Scale: 1rem is ~20px at 1080p, ~14px at 1280 wide (see base.css). */
+  --gutter: 3.2rem;
+  --topbar-h: 4.1rem;
+  --hintbar-h: 3.3rem;
+  --radius-xs: 0.35rem;
+  --radius-s: 0.6rem;
+  --radius-m: 0.95rem;
+  --radius-l: 1.5rem;
+  --radius-pill: 999px;
+
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --t-fast: 140ms;
+  --t-med: 240ms;
+  --t-slow: 520ms;
+
+  --ring: 0 0 0 0.16rem var(--bg), 0 0 0 0.32rem var(--accent), 0 0 2.2rem 0.2rem rgb(var(--accent-rgb) / 0.5);
+  --ring-tight: 0 0 0 0.16rem var(--accent), 0 0 1.4rem rgb(var(--accent-rgb) / 0.45);
+
+  --ok: #3ddc97;
+  --warn: #ffc15e;
+  --danger: #ff5c7a;
+  --on-danger: #2a0710;
+  --fav: #ff5c8a;
+}
+
+/* Midnight: deep indigo night, lavender ink. */
+:root,
+:root[data-theme='midnight'] {
+  color-scheme: dark;
+  --bg: #0c0a1c;
+  --bg-elev: #131029;
+  --surface: #1b1838;
+  --surface-2: #252148;
+  --surface-3: #312c5a;
+  --line: rgb(225 220 255 / 0.08);
+  --line-strong: rgb(225 220 255 / 0.17);
+  --text: #f1eefc;
+  --text-2: #b2acd3;
+  --text-3: #7d779e;
+  --scrim: rgb(6 5 16 / 0.72);
+  --shadow: 0 1.4rem 3rem rgb(3 2 12 / 0.55);
+  --shadow-s: 0 0.5rem 1.2rem rgb(3 2 12 / 0.45);
+  --glass: rgb(19 16 41 / 0.72);
+  --ambient-strength: 34%;
+  --cart-shell: #24203f;
+}
+
+/* AMOLED: true black for OLED TVs; surfaces barely lifted. */
+:root[data-theme='amoled'] {
+  color-scheme: dark;
+  --bg: #000000;
+  --bg-elev: #07070a;
+  --surface: #0f0f14;
+  --surface-2: #18181f;
+  --surface-3: #23232c;
+  --line: rgb(255 255 255 / 0.07);
+  --line-strong: rgb(255 255 255 / 0.15);
+  --text: #f6f6f8;
+  --text-2: #a5a5b4;
+  --text-3: #6c6c7c;
+  --scrim: rgb(0 0 0 / 0.78);
+  --shadow: 0 1.4rem 3rem rgb(0 0 0 / 0.8);
+  --shadow-s: 0 0.5rem 1.2rem rgb(0 0 0 / 0.7);
+  --glass: rgb(0 0 0 / 0.78);
+  --ambient-strength: 20%;
+  --cart-shell: #17171d;
+}
+
+/* Daylight: cool lavender-grey paper, ink text. */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: #e9e7f2;
+  --bg-elev: #f4f3fa;
+  --surface: #ffffff;
+  --surface-2: #f0eef8;
+  --surface-3: #e2dfef;
+  --line: rgb(22 19 43 / 0.09);
+  --line-strong: rgb(22 19 43 / 0.18);
+  --text: #16132b;
+  --text-2: #4d4869;
+  --text-3: #817c9c;
+  --scrim: rgb(225 222 238 / 0.78);
+  --shadow: 0 1.2rem 2.6rem rgb(40 30 90 / 0.16);
+  --shadow-s: 0 0.4rem 1rem rgb(40 30 90 / 0.12);
+  --glass: rgb(244 243 250 / 0.8);
+  --ambient-strength: 22%;
+  --cart-shell: #d9d5e8;
+  --ring: 0 0 0 0.16rem var(--bg), 0 0 0 0.32rem var(--accent), 0 0.8rem 2rem rgb(var(--accent-rgb) / 0.35);
+}
+
+/* Dot matrix: green phosphor handheld, pixel display type, faint scanlines. */
+:root[data-theme='retro'] {
+  color-scheme: dark;
+  --font-display: 'Pixelify Sans Variable', 'Figtree Variable', monospace;
+  --bg: #0f150d;
+  --bg-elev: #141c11;
+  --surface: #1b2617;
+  --surface-2: #26341f;
+  --surface-3: #314228;
+  --line: rgb(214 240 170 / 0.09);
+  --line-strong: rgb(214 240 170 / 0.2);
+  --text: #dff3b4;
+  --text-2: #9cb877;
+  --text-3: #6b8250;
+  --scrim: rgb(6 10 5 / 0.75);
+  --shadow: 0 1.4rem 3rem rgb(0 0 0 / 0.6);
+  --shadow-s: 0 0.5rem 1.2rem rgb(0 0 0 / 0.5);
+  --glass: rgb(15 21 13 / 0.78);
+  --ambient-strength: 22%;
+  --cart-shell: #222e1b;
+  --radius-m: 0.5rem;
+  --radius-l: 0.8rem;
+}

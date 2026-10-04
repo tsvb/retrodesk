@@ -1,0 +1,26 @@
+appId: com.retrodesk.app
+productName: RetroDesk
+directories:
+  output: dist
+  buildResources: build
+icon: build/icon.png
+files:
+  - out/**
+  - package.json
+  - '!**/*.test.*'
+# 7za.exe must live on disk (not inside app.asar) to be spawned.
+asarUnpack:
+  - node_modules/7zip-bin/**
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-Setup-${version}.${ext}
+portable:
+  artifactName: ${productName}-Portable-${version}.${ext}
+npmRebuild: false

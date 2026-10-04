@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc --noEmit *)",
+      "PowerShell(npx tsc --noEmit *)",
+      "Bash(npm test)",
+      "PowerShell(npm test)",
+      "Bash(npm run typecheck)",
+      "PowerShell(npm run typecheck)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Test-Path *)",
+      "PowerShell(Get-Process *)",
+      "PowerShell(Get-Content *)",
+      "Bash(tasklist *)",
+      "PowerShell(tasklist *)",
+      "Bash(reg query *)",
+      "PowerShell(reg query *)",
+      "PowerShell(powercfg /getactivescheme)",
+      "PowerShell(powercfg /list)",
+      "mcp__Claude_Browser__get_page_text",
+      "mcp__Claude_Browser__read_page",
+      "mcp__Claude_Browser__tabs_context",
+      "mcp__Claude_Browser__find",
+      "mcp__Claude_Browser__read_console_messages",
+      "mcp__Claude_Browser__preview_logs",
+      "mcp__Claude_Browser__preview_list",
+      "mcp__claude-in-chrome__get_page_text",
+      "mcp__claude-in-chrome__tabs_context_mcp",
+      "mcp__claude-in-chrome__find",
+      "mcp__plugin_vercel_vercel__list_deployments",
+      "mcp__plugin_vercel_vercel__list_teams",
+      "mcp__plugin_vercel_vercel__list_projects"
+    ]
+  }
+}

@@ -1,0 +1,1873 @@
+[
+  {
+    "id": "nes",
+    "name": "Nintendo Entertainment System",
+    "shortName": "NES",
+    "manufacturer": "Nintendo",
+    "year": 1983,
+    "generation": 3,
+    "extensions": [
+      ".nes",
+      ".fds",
+      ".unf",
+      ".unif",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "Nintendo - Nintendo Entertainment System",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "mesen_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "fceumm_libretro"
+      },
+      {
+        "type": "retroarch",
+        "core": "nestopia_libretro"
+      }
+    ],
+    "bios": [
+      {
+        "file": "disksys.rom",
+        "md5": "ca30b50f880eb660a320674ed365ef7a",
+        "required": false,
+        "description": "Famicom Disk System BIOS (only for .fds)"
+      }
+    ],
+    "folderAliases": [
+      "nes",
+      "famicom",
+      "fc",
+      "fds",
+      "nintendo entertainment system",
+      "famicom disk system",
+      "nintendo - famicom disk system",
+      "nesh",
+      "nes hacks"
+    ],
+    "color": "#e0383e"
+  },
+  {
+    "id": "snes",
+    "name": "Super Nintendo",
+    "shortName": "SNES",
+    "manufacturer": "Nintendo",
+    "year": 1990,
+    "generation": 4,
+    "extensions": [
+      ".sfc",
+      ".smc",
+      ".swc",
+      ".fig",
+      ".bs",
+      ".st",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "Nintendo - Super Nintendo Entertainment System",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "snes9x_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "bsnes_libretro"
+      },
+      {
+        "type": "retroarch",
+        "core": "mesen-s_libretro"
+      }
+    ],
+    "bios": [],
+    "folderAliases": [
+      "snes",
+      "sfc",
+      "superfamicom",
+      "super famicom",
+      "super nintendo",
+      "super nintendo entertainment system",
+      "snesna",
+      "snes hacks",
+      "snesh",
+      "satellaview",
+      "sufami",
+      "sufami turbo",
+      "nintendo - satellaview",
+      "nintendo - sufami turbo"
+    ],
+    "color": "#7357e8"
+  },
+  {
+    "id": "n64",
+    "name": "Nintendo 64",
+    "shortName": "N64",
+    "manufacturer": "Nintendo",
+    "year": 1996,
+    "generation": 5,
+    "extensions": [
+      ".z64",
+      ".n64",
+      ".v64",
+      ".ndd",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "Nintendo - Nintendo 64",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "mupen64plus_next_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "parallel_n64_libretro"
+      }
+    ],
+    "bios": [],
+    "folderAliases": [
+      "n64",
+      "nintendo 64",
+      "nintendo64",
+      "n64dd",
+      "nintendo 64dd",
+      "nintendo - nintendo 64dd"
+    ],
+    "color": "#1fa463"
+  },
+  {
+    "id": "gc",
+    "name": "Nintendo GameCube",
+    "shortName": "GC",
+    "manufacturer": "Nintendo",
+    "year": 2001,
+    "generation": 6,
+    "extensions": [
+      ".iso",
+      ".gcm",
+      ".gcz",
+      ".rvz",
+      ".ciso",
+      ".wia",
+      ".dol",
+      ".m3u"
+    ],
+    "thumbnailsFolder": "Nintendo - GameCube",
+    "emulators": [
+      {
+        "type": "standalone",
+        "id": "dolphin",
+        "default": true
+      }
+    ],
+    "bios": [],
+    "folderAliases": [
+      "gc",
+      "gamecube",
+      "game cube",
+      "ngc",
+      "nintendo gamecube",
+      "gcn"
+    ],
+    "color": "#6c4fd0"
+  },
+  {
+    "id": "wii",
+    "name": "Nintendo Wii",
+    "shortName": "Wii",
+    "manufacturer": "Nintendo",
+    "year": 2006,
+    "generation": 7,
+    "extensions": [
+      ".iso",
+      ".wbfs",
+      ".rvz",
+      ".gcz",
+      ".ciso",
+      ".wia",
+      ".wad",
+      ".dol"
+    ],
+    "thumbnailsFolder": "Nintendo - Wii",
+    "emulators": [
+      {
+        "type": "standalone",
+        "id": "dolphin",
+        "default": true
+      }
+    ],
+    "bios": [],
+    "folderAliases": [
+      "wii",
+      "nintendo wii",
+      "wiiware"
+    ],
+    "color": "#8fb4c8"
+  },
+  {
+    "id": "wiiu",
+    "name": "Nintendo Wii U",
+    "shortName": "Wii U",
+    "manufacturer": "Nintendo",
+    "year": 2012,
+    "generation": 8,
+    "extensions": [
+      ".wua",
+      ".wud",
+      ".wux",
+      ".rpx"
+    ],
+    "thumbnailsFolder": "Nintendo - Wii U",
+    "emulators": [
+      {
+        "type": "standalone",
+        "id": "cemu",
+        "default": true
+      }
+    ],
+    "bios": [
+      {
+        "file": "keys.txt",
+        "md5": "",
+        "required": false,
+        "description": "Disc keys, only needed for encrypted .wud/.wux dumps"
+      }
+    ],
+    "folderAliases": [
+      "wiiu",
+      "wii u",
+      "nintendo wii u"
+    ],
+    "color": "#00a6d6"
+  },
+  {
+    "id": "switch",
+    "name": "Nintendo Switch",
+    "shortName": "Switch",
+    "manufacturer": "Nintendo",
+    "year": 2017,
+    "generation": 8,
+    "extensions": [
+      ".nsp",
+      ".xci",
+      ".nro"
+    ],
+    "emulators": [
+      {
+        "type": "standalone",
+        "id": "eden",
+        "default": true
+      }
+    ],
+    "bios": [
+      {
+        "file": "prod.keys",
+        "md5": "",
+        "required": true,
+        "description": "Console keys dumped from your own Switch"
+      },
+      {
+        "file": "title.keys",
+        "md5": "",
+        "required": false,
+        "description": "Title keys dumped from your own Switch"
+      },
+      {
+        "file": "switch/firmware/*.nca",
+        "md5": "",
+        "required": true,
+        "description": "Switch firmware (NCA files) dumped from your own console, in bios/switch/firmware/"
+      }
+    ],
+    "folderAliases": [
+      "switch",
+      "nintendo switch",
+      "nsw",
+      "ns"
+    ],
+    "color": "#e60012"
+  },
+  {
+    "id": "gb",
+    "name": "Game Boy",
+    "shortName": "GB",
+    "manufacturer": "Nintendo",
+    "year": 1989,
+    "generation": 4,
+    "extensions": [
+      ".gb",
+      ".dmg",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "Nintendo - Game Boy",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "gambatte_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "sameboy_libretro"
+      },
+      {
+        "type": "retroarch",
+        "core": "mgba_libretro"
+      }
+    ],
+    "bios": [
+      {
+        "file": "gb_bios.bin",
+        "md5": "32fbbd84168d3482956eb3c5051637f5",
+        "required": false,
+        "description": "Game Boy boot ROM (optional, boot logo only)"
+      }
+    ],
+    "folderAliases": [
+      "gb",
+      "gameboy",
+      "game boy",
+      "nintendo game boy",
+      "gbh",
+      "gb hacks"
+    ],
+    "color": "#8bac0f"
+  },
+  {
+    "id": "gbc",
+    "name": "Game Boy Color",
+    "shortName": "GBC",
+    "manufacturer": "Nintendo",
+    "year": 1998,
+    "generation": 5,
+    "extensions": [
+      ".gbc",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "Nintendo - Game Boy Color",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "gambatte_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "sameboy_libretro"
+      },
+      {
+        "type": "retroarch",
+        "core": "mgba_libretro"
+      }
+    ],
+    "bios": [
+      {
+        "file": "gbc_bios.bin",
+        "md5": "dbfce9db9deaa2567f6a84fde55f9680",
+        "required": false,
+        "description": "Game Boy Color boot ROM (optional)"
+      }
+    ],
+    "folderAliases": [
+      "gbc",
+      "gameboy color",
+      "game boy color",
+      "gameboycolor",
+      "nintendo game boy color",
+      "gbch"
+    ],
+    "color": "#d9418c"
+  },
+  {
+    "id": "gba",
+    "name": "Game Boy Advance",
+    "shortName": "GBA",
+    "manufacturer": "Nintendo",
+    "year": 2001,
+    "generation": 6,
+    "extensions": [
+      ".gba",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "Nintendo - Game Boy Advance",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "mgba_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "vbam_libretro"
+      },
+      {
+        "type": "retroarch",
+        "core": "gpsp_libretro"
+      }
+    ],
+    "bios": [
+      {
+        "file": "gba_bios.bin",
+        "md5": "a860e8c0b6d573d191e4ec7db1b1e4f6",
+        "required": false,
+        "description": "GBA BIOS (optional; mGBA has HLE BIOS, real BIOS improves accuracy)"
+      }
+    ],
+    "folderAliases": [
+      "gba",
+      "gameboy advance",
+      "game boy advance",
+      "gameboyadvance",
+      "nintendo game boy advance",
+      "gbah"
+    ],
+    "color": "#4a3fc4"
+  },
+  {
+    "id": "nds",
+    "name": "Nintendo DS",
+    "shortName": "NDS",
+    "manufacturer": "Nintendo",
+    "year": 2004,
+    "generation": 7,
+    "extensions": [
+      ".nds",
+      ".dsi",
+      ".ids",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "Nintendo - Nintendo DS",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "melondsds_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "desmume_libretro"
+      }
+    ],
+    "bios": [
+      {
+        "file": "bios7.bin",
+        "md5": "df692a80a5b1bc90728bc3dfc76cd948",
+        "required": false,
+        "description": "NDS ARM7 BIOS (optional; melonDS DS has built-in FreeBIOS)"
+      },
+      {
+        "file": "bios9.bin",
+        "md5": "a392174eb3e572fed6447e956bde4b25",
+        "required": false,
+        "description": "NDS ARM9 BIOS (optional)"
+      },
+      {
+        "file": "firmware.bin",
+        "md5": "e45033d9b0fa6b0de071292bba7c9d13",
+        "required": false,
+        "description": "NDS firmware (optional; needed to boot the DS system menu)"
+      },
+      {
+        "file": "dsi_bios7.bin",
+        "md5": "559dae4ea78eb9d67702c56c1d791e81",
+        "required": false,
+        "description": "DSi ARM7 BIOS (DSi mode only)"
+      },
+      {
+        "file": "dsi_bios9.bin",
+        "md5": "87b665fce118f76251271c3732532777",
+        "required": false,
+        "description": "DSi ARM9 BIOS (DSi mode only)"
+      }
+    ],
+    "folderAliases": [
+      "nds",
+      "ds",
+      "nintendo ds",
+      "nintendods",
+      "dsi",
+      "nintendo dsi",
+      "nintendo - nintendo dsi"
+    ],
+    "color": "#3a86f0"
+  },
+  {
+    "id": "3ds",
+    "name": "Nintendo 3DS",
+    "shortName": "3DS",
+    "manufacturer": "Nintendo",
+    "year": 2011,
+    "generation": 8,
+    "extensions": [
+      ".3ds",
+      ".cci",
+      ".cxi",
+      ".3dsx",
+      ".zcci",
+      ".zcxi",
+      ".z3dsx",
+      ".cia"
+    ],
+    "thumbnailsFolder": "Nintendo - Nintendo 3DS",
+    "emulators": [
+      {
+        "type": "standalone",
+        "id": "azahar",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "azahar_libretro"
+      }
+    ],
+    "bios": [],
+    "folderAliases": [
+      "3ds",
+      "n3ds",
+      "nintendo 3ds",
+      "nintendo3ds",
+      "new nintendo 3ds"
+    ],
+    "color": "#d32f3c"
+  },
+  {
+    "id": "vb",
+    "name": "Virtual Boy",
+    "shortName": "VB",
+    "manufacturer": "Nintendo",
+    "year": 1995,
+    "generation": 5,
+    "extensions": [
+      ".vb",
+      ".vboy",
+      ".bin",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "Nintendo - Virtual Boy",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "mednafen_vb_libretro",
+        "default": true
+      }
+    ],
+    "bios": [],
+    "folderAliases": [
+      "vb",
+      "virtualboy",
+      "virtual boy",
+      "nintendo virtual boy"
+    ],
+    "color": "#a3102a"
+  },
+  {
+    "id": "sms",
+    "name": "Sega Master System",
+    "shortName": "SMS",
+    "manufacturer": "Sega",
+    "year": 1985,
+    "generation": 3,
+    "extensions": [
+      ".sms",
+      ".sg",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "Sega - Master System - Mark III",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "genesis_plus_gx_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "gearsystem_libretro"
+      },
+      {
+        "type": "retroarch",
+        "core": "picodrive_libretro"
+      }
+    ],
+    "bios": [
+      {
+        "file": "bios_U.sms",
+        "md5": "840481177270d5642a14ca71ee72844c",
+        "required": false,
+        "description": "Master System US BIOS (optional)"
+      },
+      {
+        "file": "bios_E.sms",
+        "md5": "840481177270d5642a14ca71ee72844c",
+        "required": false,
+        "description": "Master System EU BIOS (optional)"
+      },
+      {
+        "file": "bios_J.sms",
+        "md5": "24a519c53f67b00640d0048ef7089105",
+        "required": false,
+        "description": "Master System JP BIOS (optional)"
+      }
+    ],
+    "folderAliases": [
+      "sms",
+      "mastersystem",
+      "master system",
+      "sega master system",
+      "mark iii",
+      "markiii",
+      "sg1000",
+      "sg-1000",
+      "sega sg-1000",
+      "sega - sg-1000"
+    ],
+    "color": "#e23d28"
+  },
+  {
+    "id": "genesis",
+    "name": "Sega Genesis / Mega Drive",
+    "shortName": "MD",
+    "manufacturer": "Sega",
+    "year": 1988,
+    "generation": 4,
+    "extensions": [
+      ".md",
+      ".gen",
+      ".smd",
+      ".bin",
+      ".68k",
+      ".sgd",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "Sega - Mega Drive - Genesis",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "genesis_plus_gx_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "picodrive_libretro"
+      },
+      {
+        "type": "retroarch",
+        "core": "blastem_libretro"
+      }
+    ],
+    "bios": [
+      {
+        "file": "bios_MD.bin",
+        "md5": "d3293ebaaa7f4eb2a6766b68a0fb4609",
+        "required": false,
+        "description": "Mega Drive TMSS startup ROM (optional)"
+      }
+    ],
+    "folderAliases": [
+      "genesis",
+      "megadrive",
+      "mega drive",
+      "megadrivejp",
+      "md",
+      "gen",
+      "sega genesis",
+      "sega mega drive",
+      "sega genesis mega drive",
+      "sega mega drive genesis",
+      "genh",
+      "genesis hacks"
+    ],
+    "color": "#2563eb"
+  },
+  {
+    "id": "segacd",
+    "name": "Sega CD / Mega-CD",
+    "shortName": "SCD",
+    "manufacturer": "Sega",
+    "year": 1991,
+    "generation": 4,
+    "extensions": [
+      ".chd",
+      ".cue",
+      ".iso",
+      ".m3u"
+    ],
+    "thumbnailsFolder": "Sega - Mega-CD - Sega CD",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "genesis_plus_gx_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "picodrive_libretro"
+      }
+    ],
+    "bios": [
+      {
+        "file": "bios_CD_U.bin",
+        "md5": "2efd74e3232ff260e371b99f84024f7f",
+        "required": true,
+        "description": "Sega CD US BIOS (required for US discs)"
+      },
+      {
+        "file": "bios_CD_E.bin",
+        "md5": "e66fa1dc5820d254611fdcdba0662372",
+        "required": false,
+        "description": "Mega-CD EU BIOS (required for EU discs)"
+      },
+      {
+        "file": "bios_CD_J.bin",
+        "md5": "278a9397d192149e84e820ac621a8edd",
+        "required": false,
+        "description": "Mega-CD JP BIOS (required for JP discs)"
+      }
+    ],
+    "folderAliases": [
+      "segacd",
+      "sega cd",
+      "megacd",
+      "mega cd",
+      "mega-cd",
+      "megacdjp",
+      "scd",
+      "sega mega-cd",
+      "sega mega cd"
+    ],
+    "color": "#0f6fb8"
+  },
+  {
+    "id": "32x",
+    "name": "Sega 32X",
+    "shortName": "32X",
+    "manufacturer": "Sega",
+    "year": 1994,
+    "generation": 4,
+    "extensions": [
+      ".32x",
+      ".bin",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "Sega - 32X",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "picodrive_libretro",
+        "default": true
+      }
+    ],
+    "bios": [],
+    "folderAliases": [
+      "32x",
+      "sega32x",
+      "sega 32x",
+      "sega32",
+      "mega32x",
+      "genesis 32x",
+      "megadrive 32x"
+    ],
+    "color": "#e5533d"
+  },
+  {
+    "id": "saturn",
+    "name": "Sega Saturn",
+    "shortName": "SAT",
+    "manufacturer": "Sega",
+    "year": 1994,
+    "generation": 5,
+    "extensions": [
+      ".chd",
+      ".cue",
+      ".ccd",
+      ".toc",
+      ".m3u"
+    ],
+    "thumbnailsFolder": "Sega - Saturn",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "mednafen_saturn_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "ymir_libretro"
+      },
+      {
+        "type": "retroarch",
+        "core": "kronos_libretro"
+      },
+      {
+        "type": "retroarch",
+        "core": "yabasanshiro_libretro"
+      }
+    ],
+    "bios": [
+      {
+        "file": "mpr-17933.bin",
+        "md5": "3240872c70984b6cbfda1586cab68dbe",
+        "required": true,
+        "description": "Saturn US/EU BIOS v1.00 (required by Beetle Saturn for US/EU discs)"
+      },
+      {
+        "file": "sega_101.bin",
+        "md5": "85ec9ca47d8f6807718151cbcca8b964",
+        "required": false,
+        "description": "Saturn JP BIOS v1.01 (required by Beetle Saturn for JP discs)"
+      }
+    ],
+    "folderAliases": [
+      "saturn",
+      "segasaturn",
+      "sega saturn",
+      "saturnjp",
+      "ss"
+    ],
+    "color": "#5b6b8c"
+  },
+  {
+    "id": "dreamcast",
+    "name": "Sega Dreamcast",
+    "shortName": "DC",
+    "manufacturer": "Sega",
+    "year": 1998,
+    "generation": 6,
+    "extensions": [
+      ".chd",
+      ".gdi",
+      ".cdi",
+      ".cue",
+      ".m3u"
+    ],
+    "thumbnailsFolder": "Sega - Dreamcast",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "flycast_libretro",
+        "default": true
+      }
+    ],
+    "bios": [
+      {
+        "file": "dc/dc_boot.bin",
+        "md5": "e10c53c2f8b90bab96ead2d368858623",
+        "required": false,
+        "description": "Dreamcast BIOS, in system/dc/ (optional; Flycast has HLE BIOS, real BIOS gives better compat)"
+      },
+      {
+        "file": "dc/dc_flash.bin",
+        "md5": "0a93f7940c455905bea6e392dfde92a4",
+        "required": false,
+        "description": "Dreamcast flash (optional; libretro DAT lists it as dc/flash.bin)"
+      }
+    ],
+    "folderAliases": [
+      "dreamcast",
+      "dc",
+      "sega dreamcast"
+    ],
+    "color": "#f26b1d"
+  },
+  {
+    "id": "gg",
+    "name": "Sega Game Gear",
+    "shortName": "GG",
+    "manufacturer": "Sega",
+    "year": 1990,
+    "generation": 4,
+    "extensions": [
+      ".gg",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "Sega - Game Gear",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "genesis_plus_gx_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "gearsystem_libretro"
+      }
+    ],
+    "bios": [
+      {
+        "file": "bios.gg",
+        "md5": "672e104c3be3a238301aceffc3b23fd6",
+        "required": false,
+        "description": "Game Gear BIOS (optional)"
+      }
+    ],
+    "folderAliases": [
+      "gg",
+      "gamegear",
+      "game gear",
+      "sega game gear",
+      "ggh"
+    ],
+    "color": "#00a0e9"
+  },
+  {
+    "id": "psx",
+    "name": "Sony PlayStation",
+    "shortName": "PS1",
+    "manufacturer": "Sony",
+    "year": 1994,
+    "generation": 5,
+    "extensions": [
+      ".chd",
+      ".cue",
+      ".bin",
+      ".img",
+      ".iso",
+      ".ccd",
+      ".toc",
+      ".m3u",
+      ".pbp"
+    ],
+    "thumbnailsFolder": "Sony - PlayStation",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "mednafen_psx_hw_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "swanstation_libretro"
+      },
+      {
+        "type": "retroarch",
+        "core": "pcsx_rearmed_libretro"
+      },
+      {
+        "type": "standalone",
+        "id": "duckstation"
+      }
+    ],
+    "bios": [
+      {
+        "file": "scph5501.bin",
+        "md5": "490f666e1afb15b7362b406ed1cea246",
+        "required": true,
+        "description": "PS1 US BIOS v3.0 (required by Beetle PSX for NTSC-U discs)"
+      },
+      {
+        "file": "scph5500.bin",
+        "md5": "8dd7d5296a650fac7319bce665a6a53c",
+        "required": false,
+        "description": "PS1 JP BIOS v3.0 (required for NTSC-J discs)"
+      },
+      {
+        "file": "scph5502.bin",
+        "md5": "32736f17079d0b2b7024407c39bd3050",
+        "required": false,
+        "description": "PS1 EU BIOS v3.0 (required for PAL discs)"
+      },
+      {
+        "file": "scph1001.bin",
+        "md5": "924e392ed05558ffdb115408c263dccf",
+        "required": false,
+        "description": "PS1 US BIOS v2.2 (accepted by DuckStation/SwanStation)"
+      },
+      {
+        "file": "ps1_rom.bin",
+        "md5": "81bbe60ba7a3d1cea1d48c14cbcc647b",
+        "required": false,
+        "description": "PS3-extracted PS1 BIOS, region-free (Beetle/SwanStation/DuckStation)"
+      }
+    ],
+    "folderAliases": [
+      "psx",
+      "ps1",
+      "ps",
+      "playstation",
+      "playstation 1",
+      "playstation1",
+      "sony playstation",
+      "sony playstation 1",
+      "psone"
+    ],
+    "color": "#9aa3b8"
+  },
+  {
+    "id": "ps2",
+    "name": "Sony PlayStation 2",
+    "shortName": "PS2",
+    "manufacturer": "Sony",
+    "year": 2000,
+    "generation": 6,
+    "extensions": [
+      ".chd",
+      ".iso",
+      ".cso",
+      ".zso",
+      ".gz",
+      ".cue",
+      ".bin",
+      ".mdf",
+      ".m3u"
+    ],
+    "thumbnailsFolder": "Sony - PlayStation 2",
+    "emulators": [
+      {
+        "type": "standalone",
+        "id": "pcsx2",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "pcsx2_libretro"
+      }
+    ],
+    "bios": [
+      {
+        "file": "ps2/*.bin",
+        "md5": "",
+        "required": true,
+        "description": "Any real PS2 BIOS dump (e.g. SCPH-70012, SCPH-39001) in bios/ps2/; md5 varies by console model"
+      }
+    ],
+    "folderAliases": [
+      "ps2",
+      "playstation 2",
+      "playstation2",
+      "sony playstation 2"
+    ],
+    "color": "#2f49c8"
+  },
+  {
+    "id": "ps3",
+    "name": "Sony PlayStation 3",
+    "shortName": "PS3",
+    "manufacturer": "Sony",
+    "year": 2006,
+    "generation": 7,
+    "extensions": [
+      ".iso",
+      ".pkg"
+    ],
+    "thumbnailsFolder": "Sony - PlayStation 3",
+    "emulators": [
+      {
+        "type": "standalone",
+        "id": "rpcs3",
+        "default": true
+      }
+    ],
+    "bios": [
+      {
+        "file": "PS3UPDAT.PUP",
+        "md5": "",
+        "required": true,
+        "description": "Official PS3 system software (free from playstation.com), install with rpcs3.exe --installfw PS3UPDAT.PUP"
+      }
+    ],
+    "folderAliases": [
+      "ps3",
+      "playstation 3",
+      "playstation3",
+      "sony playstation 3"
+    ],
+    "color": "#00439c"
+  },
+  {
+    "id": "psp",
+    "name": "Sony PSP",
+    "shortName": "PSP",
+    "manufacturer": "Sony",
+    "year": 2004,
+    "generation": 7,
+    "extensions": [
+      ".iso",
+      ".cso",
+      ".chd",
+      ".pbp"
+    ],
+    "thumbnailsFolder": "Sony - PlayStation Portable",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "ppsspp_libretro",
+        "default": true
+      },
+      {
+        "type": "standalone",
+        "id": "ppsspp"
+      }
+    ],
+    "bios": [
+      {
+        "file": "PPSSPP/ppge_atlas.zim",
+        "md5": "",
+        "required": true,
+        "description": "PPSSPP asset folder (not a console BIOS); from buildbot.libretro.com/assets/system/PPSSPP.zip"
+      }
+    ],
+    "folderAliases": [
+      "psp",
+      "playstation portable",
+      "sony psp",
+      "sony playstation portable",
+      "pspminis"
+    ],
+    "color": "#6b7085"
+  },
+  {
+    "id": "vita",
+    "name": "Sony PlayStation Vita",
+    "shortName": "Vita",
+    "manufacturer": "Sony",
+    "year": 2011,
+    "generation": 8,
+    "extensions": [
+      ".vpk",
+      ".zip"
+    ],
+    "thumbnailsFolder": "Sony - PlayStation Vita",
+    "emulators": [
+      {
+        "type": "standalone",
+        "id": "vita3k",
+        "default": true
+      }
+    ],
+    "bios": [
+      {
+        "file": "PSVUPDAT.PUP",
+        "md5": "",
+        "required": true,
+        "description": "Official Vita firmware (install via Vita3K --firmware)"
+      },
+      {
+        "file": "PSP2UPDAT.PUP",
+        "md5": "",
+        "required": false,
+        "description": "Vita firmware font package (recommended)"
+      }
+    ],
+    "folderAliases": [
+      "vita",
+      "psvita",
+      "ps vita",
+      "playstation vita",
+      "sony playstation vita",
+      "sony ps vita"
+    ],
+    "color": "#0ba4e0"
+  },
+  {
+    "id": "xbox",
+    "name": "Microsoft Xbox",
+    "shortName": "Xbox",
+    "manufacturer": "Microsoft",
+    "year": 2001,
+    "generation": 6,
+    "extensions": [
+      ".iso",
+      ".xiso"
+    ],
+    "thumbnailsFolder": "Microsoft - Xbox",
+    "emulators": [
+      {
+        "type": "standalone",
+        "id": "xemu",
+        "default": true
+      }
+    ],
+    "bios": [
+      {
+        "file": "mcpx_1.0.bin",
+        "md5": "d49c52a4102f6df7bcf8d0617ac475ed",
+        "required": true,
+        "description": "MCPX boot ROM (an md5 of 196a5f59a13382c185636e691d6c323d means a bad dump)"
+      },
+      {
+        "file": "Complex_4627*.bin",
+        "md5": "",
+        "required": true,
+        "description": "Flash BIOS: debug or modded retail BIOS (xemu recommends modified Complex 4627)"
+      },
+      {
+        "file": "xbox_hdd.qcow2",
+        "md5": "",
+        "required": true,
+        "description": "Xbox HDD image (prebuilt image available from the xemu project)"
+      }
+    ],
+    "folderAliases": [
+      "xbox",
+      "microsoft xbox",
+      "xbox classic",
+      "original xbox"
+    ],
+    "color": "#107c10"
+  },
+  {
+    "id": "atari2600",
+    "name": "Atari 2600",
+    "shortName": "2600",
+    "manufacturer": "Atari",
+    "year": 1977,
+    "generation": 2,
+    "extensions": [
+      ".a26",
+      ".bin",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "Atari - 2600",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "stella_libretro",
+        "default": true
+      }
+    ],
+    "bios": [],
+    "folderAliases": [
+      "atari2600",
+      "atari 2600",
+      "a2600",
+      "2600",
+      "atari vcs",
+      "vcs"
+    ],
+    "color": "#c8692b"
+  },
+  {
+    "id": "atari7800",
+    "name": "Atari 7800",
+    "shortName": "7800",
+    "manufacturer": "Atari",
+    "year": 1986,
+    "generation": 3,
+    "extensions": [
+      ".a78",
+      ".bin",
+      ".cdf",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "Atari - 7800",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "prosystem_libretro",
+        "default": true
+      }
+    ],
+    "bios": [
+      {
+        "file": "7800 BIOS (U).rom",
+        "md5": "0763f1ffb006ddbe32e52d497ee848ae",
+        "required": false,
+        "description": "7800 NTSC BIOS (optional)"
+      },
+      {
+        "file": "7800 BIOS (E).rom",
+        "md5": "397bb566584be7b9764e7a68974c4263",
+        "required": false,
+        "description": "7800 PAL BIOS (optional)"
+      }
+    ],
+    "folderAliases": [
+      "atari7800",
+      "atari 7800",
+      "a7800",
+      "7800",
+      "atari 7800 prosystem"
+    ],
+    "color": "#d33f2f"
+  },
+  {
+    "id": "lynx",
+    "name": "Atari Lynx",
+    "shortName": "Lynx",
+    "manufacturer": "Atari",
+    "year": 1989,
+    "generation": 4,
+    "extensions": [
+      ".lnx",
+      ".lyx",
+      ".o",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "Atari - Lynx",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "handy_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "mednafen_lynx_libretro"
+      }
+    ],
+    "bios": [
+      {
+        "file": "lynxboot.img",
+        "md5": "fcd403db69f54290b51035d82f835e7b",
+        "required": false,
+        "description": "Lynx boot ROM (optional for Handy, required for Beetle Lynx)"
+      }
+    ],
+    "folderAliases": [
+      "lynx",
+      "atarilynx",
+      "atari lynx"
+    ],
+    "color": "#f39c12"
+  },
+  {
+    "id": "pce",
+    "name": "PC Engine / TurboGrafx-16",
+    "shortName": "PCE",
+    "manufacturer": "NEC",
+    "year": 1987,
+    "generation": 4,
+    "extensions": [
+      ".pce",
+      ".sgx",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "NEC - PC Engine - TurboGrafx 16",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "mednafen_pce_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "mednafen_pce_fast_libretro"
+      },
+      {
+        "type": "retroarch",
+        "core": "geargrafx_libretro"
+      }
+    ],
+    "bios": [],
+    "folderAliases": [
+      "pce",
+      "pcengine",
+      "pc engine",
+      "tg16",
+      "tg-16",
+      "turbografx",
+      "turbografx16",
+      "turbografx-16",
+      "turbografx 16",
+      "nec turbografx-16",
+      "nec pc engine",
+      "supergrafx",
+      "sgfx",
+      "nec - pc engine supergrafx",
+      "nec supergrafx",
+      "pc engine supergrafx"
+    ],
+    "color": "#ff6f3c"
+  },
+  {
+    "id": "pcecd",
+    "name": "PC Engine CD / TurboGrafx-CD",
+    "shortName": "PCE-CD",
+    "manufacturer": "NEC",
+    "year": 1988,
+    "generation": 4,
+    "extensions": [
+      ".chd",
+      ".cue",
+      ".ccd",
+      ".toc",
+      ".m3u"
+    ],
+    "thumbnailsFolder": "NEC - PC Engine CD - TurboGrafx-CD",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "mednafen_pce_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "mednafen_pce_fast_libretro"
+      }
+    ],
+    "bios": [
+      {
+        "file": "syscard3.pce",
+        "md5": "38179df8f4ac870017db21ebcbf53114",
+        "required": true,
+        "description": "Super CD-ROM2 System Card v3.0 (JP) - required for CD games"
+      },
+      {
+        "file": "syscard3u.pce",
+        "md5": "0754f903b52e3b3342202bdafb13efa5",
+        "required": false,
+        "description": "TurboGrafx Super CD System Card v3.0 (US); Beetle loads syscard3.pce, so rename if only this is available"
+      },
+      {
+        "file": "syscard1.pce",
+        "md5": "2b7ccb3d86baa18f6402c176f3065082",
+        "required": false,
+        "description": "CD-ROM2 System Card v1.0 (rarely needed)"
+      },
+      {
+        "file": "gexpress.pce",
+        "md5": "6d2cb14fc3e1f65ceb135633d1694122",
+        "required": false,
+        "description": "Games Express card (Games Express titles only)"
+      }
+    ],
+    "folderAliases": [
+      "pcecd",
+      "pcenginecd",
+      "pc engine cd",
+      "pc-engine cd",
+      "tgcd",
+      "tg-cd",
+      "turbografxcd",
+      "turbografx-cd",
+      "turbografx cd",
+      "nec turbografx-cd",
+      "nec pc engine cd"
+    ],
+    "color": "#c2410c"
+  },
+  {
+    "id": "arcade",
+    "name": "Arcade",
+    "shortName": "ARC",
+    "manufacturer": "Various",
+    "year": null,
+    "extensions": [
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "FBNeo - Arcade Games",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "fbneo_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "mame2003_plus_libretro"
+      },
+      {
+        "type": "retroarch",
+        "core": "mame_libretro"
+      }
+    ],
+    "bios": [
+      {
+        "file": "neogeo.zip",
+        "md5": "00dad01abdbf8ea9e79ad2fe11bdb182",
+        "required": false,
+        "description": "Neo Geo BIOS set (needed for Neo Geo games); put next to ROMs or in system/fbneo/. md5 depends on FBNeo set version"
+      },
+      {
+        "file": "pgm.zip",
+        "md5": "87cc944eef4c671aa2629a8ba48a08e0",
+        "required": false,
+        "description": "IGS PGM BIOS (PGM games only)"
+      }
+    ],
+    "folderAliases": [
+      "arcade",
+      "fbneo",
+      "fba",
+      "finalburn",
+      "finalburn neo",
+      "fbalpha",
+      "mame",
+      "mame2003",
+      "mame2003plus",
+      "mame 2003-plus",
+      "mame-libretro",
+      "cps1",
+      "cps2",
+      "cps3",
+      "cps",
+      "capcom play system",
+      "mame - arcade games",
+      "fbneo - arcade games"
+    ],
+    "color": "#e8b10e"
+  },
+  {
+    "id": "neogeo",
+    "name": "Neo Geo (MVS/AES)",
+    "shortName": "NEO",
+    "manufacturer": "SNK",
+    "year": 1990,
+    "generation": 4,
+    "extensions": [
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "SNK - Neo Geo",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "fbneo_libretro",
+        "default": true
+      }
+    ],
+    "bios": [
+      {
+        "file": "neogeo.zip",
+        "md5": "00dad01abdbf8ea9e79ad2fe11bdb182",
+        "required": true,
+        "description": "Neo Geo BIOS set; place in ROM folder or system/fbneo/ (md5 depends on FBNeo set version)"
+      }
+    ],
+    "folderAliases": [
+      "neogeo",
+      "neo geo",
+      "neo-geo",
+      "snk neo geo",
+      "neo geo aes",
+      "neo geo mvs",
+      "snk neo geo aes",
+      "snk neo geo mvs",
+      "aes",
+      "mvs"
+    ],
+    "color": "#c9a227"
+  },
+  {
+    "id": "ngp",
+    "name": "Neo Geo Pocket",
+    "shortName": "NGP",
+    "manufacturer": "SNK",
+    "year": 1998,
+    "generation": 5,
+    "extensions": [
+      ".ngp",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "SNK - Neo Geo Pocket",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "mednafen_ngp_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "race_libretro"
+      }
+    ],
+    "bios": [],
+    "folderAliases": [
+      "ngp",
+      "neogeopocket",
+      "neo geo pocket",
+      "snk neo geo pocket"
+    ],
+    "color": "#3949ab"
+  },
+  {
+    "id": "ngpc",
+    "name": "Neo Geo Pocket Color",
+    "shortName": "NGPC",
+    "manufacturer": "SNK",
+    "year": 1999,
+    "generation": 5,
+    "extensions": [
+      ".ngc",
+      ".ngpc",
+      ".npc",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "SNK - Neo Geo Pocket Color",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "mednafen_ngp_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "race_libretro"
+      }
+    ],
+    "bios": [],
+    "folderAliases": [
+      "ngpc",
+      "neogeopocketcolor",
+      "neo geo pocket color",
+      "snk neo geo pocket color"
+    ],
+    "color": "#00897b"
+  },
+  {
+    "id": "ws",
+    "name": "WonderSwan",
+    "shortName": "WS",
+    "manufacturer": "Bandai",
+    "year": 1999,
+    "generation": 5,
+    "extensions": [
+      ".ws",
+      ".pc2",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "Bandai - WonderSwan",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "mednafen_wswan_libretro",
+        "default": true
+      }
+    ],
+    "bios": [],
+    "folderAliases": [
+      "ws",
+      "wonderswan",
+      "wswan",
+      "bandai wonderswan"
+    ],
+    "color": "#6d6e71"
+  },
+  {
+    "id": "wsc",
+    "name": "WonderSwan Color",
+    "shortName": "WSC",
+    "manufacturer": "Bandai",
+    "year": 2000,
+    "generation": 5,
+    "extensions": [
+      ".wsc",
+      ".pcv2",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "Bandai - WonderSwan Color",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "mednafen_wswan_libretro",
+        "default": true
+      }
+    ],
+    "bios": [],
+    "folderAliases": [
+      "wsc",
+      "wonderswancolor",
+      "wonderswan color",
+      "wswanc",
+      "bandai wonderswan color"
+    ],
+    "color": "#9b59b6"
+  },
+  {
+    "id": "3do",
+    "name": "3DO Interactive Multiplayer",
+    "shortName": "3DO",
+    "manufacturer": "The 3DO Company",
+    "year": 1993,
+    "generation": 5,
+    "extensions": [
+      ".chd",
+      ".cue",
+      ".iso",
+      ".bin"
+    ],
+    "thumbnailsFolder": "The 3DO Company - 3DO",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "opera_libretro",
+        "default": true
+      }
+    ],
+    "bios": [
+      {
+        "file": "panafz10.bin",
+        "md5": "51f2f43ae2f3508a14d9f56597e2d3ce",
+        "required": true,
+        "description": "Panasonic FZ-10 BIOS (recommended; any one 3DO BIOS is required)"
+      },
+      {
+        "file": "panafz1.bin",
+        "md5": "f47264dd47fe30f73ab3c010015c155b",
+        "required": false,
+        "description": "Panasonic FZ-1 BIOS (alternative)"
+      },
+      {
+        "file": "goldstar.bin",
+        "md5": "8639fd5e549bd6238cfee79e3e749114",
+        "required": false,
+        "description": "Goldstar GDO-101M BIOS (alternative)"
+      },
+      {
+        "file": "panafz1-kanji.bin",
+        "md5": "b8dc97f778a6245c58e064b0312e8281",
+        "required": false,
+        "description": "Kanji font ROM (some JP games)"
+      }
+    ],
+    "folderAliases": [
+      "3do",
+      "panasonic 3do",
+      "3do interactive multiplayer",
+      "the 3do company - 3do"
+    ],
+    "color": "#8e2de2"
+  },
+  {
+    "id": "coleco",
+    "name": "ColecoVision",
+    "shortName": "CV",
+    "manufacturer": "Coleco",
+    "year": 1982,
+    "generation": 2,
+    "extensions": [
+      ".col",
+      ".cv",
+      ".bin",
+      ".rom",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "Coleco - ColecoVision",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "gearcoleco_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "bluemsx_libretro"
+      }
+    ],
+    "bios": [
+      {
+        "file": "colecovision.rom",
+        "md5": "2c66f5911e5b42b8ebe113403548eee7",
+        "required": true,
+        "description": "ColecoVision BIOS (OS-7)"
+      }
+    ],
+    "folderAliases": [
+      "coleco",
+      "colecovision",
+      "coleco vision",
+      "cv"
+    ],
+    "color": "#3b3b98"
+  },
+  {
+    "id": "msx",
+    "name": "MSX / MSX2",
+    "shortName": "MSX",
+    "manufacturer": "Microsoft / ASCII",
+    "year": 1983,
+    "generation": 3,
+    "extensions": [
+      ".rom",
+      ".ri",
+      ".mx1",
+      ".mx2",
+      ".dsk",
+      ".cas",
+      ".m3u",
+      ".zip",
+      ".7z"
+    ],
+    "thumbnailsFolder": "Microsoft - MSX",
+    "emulators": [
+      {
+        "type": "retroarch",
+        "core": "bluemsx_libretro",
+        "default": true
+      },
+      {
+        "type": "retroarch",
+        "core": "fmsx_libretro"
+      }
+    ],
+    "bios": [
+      {
+        "file": "Machines/",
+        "md5": "",
+        "required": true,
+        "description": "blueMSX machine configs (from buildbot.libretro.com/assets/system/blueMSX.zip)"
+      },
+      {
+        "file": "Databases/",
+        "md5": "",
+        "required": true,
+        "description": "blueMSX databases (from blueMSX.zip)"
+      },
+      {
+        "file": "MSX.ROM",
+        "md5": "aa95aea2563cd5ec0a0919b44cc17d47",
+        "required": false,
+        "description": "MSX1 BIOS (fMSX only)"
+      },
+      {
+        "file": "MSX2.ROM",
+        "md5": "ec3a01c91f24fbddcbcab0ad301bc9ef",
+        "required": false,
+        "description": "MSX2 BIOS (fMSX only)"
+      },
+      {
+        "file": "MSX2EXT.ROM",
+        "md5": "2183c2aff17cf4297bdb496de78c2e8a",
+        "required": false,
+        "description": "MSX2 extended BIOS (fMSX only)"
+      }
+    ],
+    "folderAliases": [
+      "msx",
+      "msx1",
+      "msx2",
+      "msx2+",
+      "msxturbor",
+      "microsoft msx",
+      "microsoft msx2",
+      "microsoft - msx2"
+    ],
+    "color": "#4a90d9"
+  },
+  {
+    "id": "steam",
+    "name": "PC Games (Steam)",
+    "shortName": "Steam",
+    "manufacturer": "Valve",
+    "year": 2003,
+    "extensions": [],
+    "emulators": [],
+    "bios": [],
+    "folderAliases": [],
+    "color": "#66c0f4"
+  }
+]
