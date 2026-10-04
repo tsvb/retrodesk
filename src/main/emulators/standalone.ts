@@ -5,9 +5,9 @@ import { existsSync } from 'fs'
 import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'fs/promises'
 import { basename, dirname, extname, join } from 'path'
 import defsJson from '../data/standalone-emulators.json'
-import { dolphinLatest, downloadTrusted, forgejoLatestRelease, githubRelease, isTrustedDownloadUrl, type ResolvedRelease } from './download'
+import { dolphinLatest, downloadTrusted, forgejoLatestRelease, githubRelease, isTrustedDownloadUrl, releaseCacheDir, type ResolvedRelease } from './download'
 import { dirSize, extractArchive, findFile, moveMerge, singleTopFolder } from './extract'
-import { downloadDetail, type ProgressSink } from './retroarch'
+import { downloadDetail, type ProgressSink, waitingFor } from './retroarch'
 
 export type ReleaseSource =
   | { type: 'github'; repo: string; tag?: string }
@@ -97,21 +97,22 @@ export interface InstallPaths {
 
 export const standaloneDir = (paths: Pick<InstallPaths, 'emulators'>, id: string): string => join(paths.emulators, id)
 
-function lookupRelease(def: StandaloneDef, pattern: RegExp, signal?: AbortSignal): Promise<ResolvedRelease> {
+function lookupRelease(def: StandaloneDef, pattern: RegExp, signal?: AbortSignal, cacheDir?: string): Promise<ResolvedRelease> {
   switch (def.source.type) {
     case 'github':
-      return githubRelease(def.source.repo, pattern, def.source.tag, signal)
+      return githubRelease(def.source.repo, pattern, def.source.tag, signal, cacheDir)
     case 'forgejo':
-      return forgejoLatestRelease(def.source.api, def.source.repo, pattern, signal)
+      return forgejoLatestRelease(def.source.api, def.source.repo, pattern, signal, cacheDir)
     case 'dolphin':
-      return dolphinLatest(def.source.url, signal)
+      return dolphinLatest(def.source.url, signal, cacheDir)
   }
 }
 
-export async function resolveRelease(def: StandaloneDef, signal?: AbortSignal): Promise<ResolvedRelease> {
+/** Latest release from the def's feed (cached in `cacheDir`, see releaseCacheDir), else its pinned fallback. */
+export async function resolveRelease(def: StandaloneDef, signal?: AbortSignal, cacheDir?: string): Promise<ResolvedRelease> {
   const pattern = new RegExp(def.assetPattern)
   try {
-    const rel = await lookupRelease(def, pattern, signal)
+    const rel = await lookupRelease(def, pattern, signal, cacheDir)
     // The feed chooses the URL; if it points somewhere unexpected, prefer the pinned fallback over failing later.
     if (!isTrustedDownloadUrl(rel.asset.url)) throw new Error(`${def.name} release feed returned an untrusted download URL: ${rel.asset.url}`)
     return rel
@@ -125,19 +126,24 @@ export async function resolveRelease(def: StandaloneDef, signal?: AbortSignal): 
 /** Download, extract and install a standalone emulator into <emulators>/<id>. Keeps existing user data. */
 export async function installStandalone(def: StandaloneDef, paths: InstallPaths, task: ProgressSink, signal?: AbortSignal): Promise<{ version: string; exePath: string; sizeBytes: number }> {
   task.update(-1, `Finding latest ${def.name}`)
-  const rel = await resolveRelease(def, signal)
+  const rel = await resolveRelease(def, signal, releaseCacheDir(paths.downloads))
   const archive = join(paths.downloads, rel.asset.name.replace(/[^\w.-]+/g, '_'))
   await downloadTrusted(rel.asset.url, archive, {
     signal,
     size: rel.asset.size,
     sha256: rel.asset.sha256,
+    onQueued: waitingFor(task, 'download'),
     onProgress: (r, t) => task.update(t ? (r / t) * 0.8 : -1, downloadDetail(r, t))
   })
   const dir = standaloneDir(paths, def.id)
   const staging = join(paths.emulators, `.staging-${def.id}-${Date.now()}`)
   try {
     task.update(0.8, 'Extracting')
-    await extractArchive(archive, staging, { signal, onProgress: (f) => task.update(0.8 + f * 0.17, `Extracting ${Math.round(f * 100)}%`) })
+    await extractArchive(archive, staging, {
+      signal,
+      onQueued: waitingFor(task, 'extract'),
+      onProgress: (f) => task.update(0.8 + f * 0.17, `Extracting ${Math.round(f * 100)}%`)
+    })
     const root = await singleTopFolder(staging)
     task.update(0.97, 'Installing')
     await moveMerge(root, dir)
@@ -481,7 +487,11 @@ export async function postInstall(def: StandaloneDef, paths: InstallPaths, task:
     if ([d.to, ...(d.unless ?? [])].some((p) => existsSync(rel(paths.bios, p)))) continue
     task.update(-1, `Downloading ${d.label}`)
     try {
-      await downloadTrusted(d.url, rel(paths.bios, d.to), { signal, onProgress: (r, t) => task.update(t ? r / t : -1, downloadDetail(r, t)) })
+      await downloadTrusted(d.url, rel(paths.bios, d.to), {
+        signal,
+        onQueued: waitingFor(task, 'download'),
+        onProgress: (r, t) => task.update(t ? r / t : -1, downloadDetail(r, t))
+      })
     } catch (e) {
       console.warn(`[emulators] ${d.label} download failed`, e)
     }
