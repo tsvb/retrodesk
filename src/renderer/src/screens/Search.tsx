@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Search as SearchIcon } from 'lucide-react'
 import type { Game } from '@shared/types'
 import { api } from '../api'
@@ -22,6 +22,9 @@ export function SearchScreen() {
   const setAmbient = useUi((s) => s.setAmbient)
   const total = systems.reduce((n, s) => n + s.gameCount, 0)
   useFocusGroup('search-results', { memory: true })
+  // Stable handlers keep the memoised result cards from re-rendering on every keystroke.
+  const openGame = useCallback((g: Game) => push({ name: 'game', gameId: g.id }), [push])
+  const focusGame = useCallback((g: Game) => setAmbient(systemColor(systemById(systems, g.systemId) ?? { id: g.systemId })), [systems, setAmbient])
 
   useEffect(() => {
     const q = query.trim()
@@ -103,8 +106,8 @@ export function SearchScreen() {
                     system={systemById(systems, g.systemId)}
                     group="search-results"
                     showSystem
-                    onActivate={(x) => push({ name: 'game', gameId: x.id })}
-                    onFocus={(x) => setAmbient(systemColor(systemById(systems, x.systemId) ?? { id: x.systemId }))}
+                    onActivate={openGame}
+                    onFocus={focusGame}
                   />
                 ))}
               </div>

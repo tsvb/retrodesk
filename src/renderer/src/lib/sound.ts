@@ -78,6 +78,9 @@ let master: GainNode | null = null
 let enabled = true
 let palette: SoundPalette = 'soft'
 let lastMove = 0
+let suspendTimer: ReturnType<typeof setTimeout> | undefined
+/** Long enough for the launch jingle to finish before the device is released. */
+const SUSPEND_DELAY_MS = 1000
 
 export function setSoundsEnabled(on: boolean): void {
   enabled = on
@@ -96,6 +99,7 @@ function audio(): { ctx: AudioContext; out: GainNode } | null {
       master.gain.value = 0.5
       master.connect(ctx.destination)
     }
+    clearTimeout(suspendTimer)
     if (ctx.state === 'suspended') void ctx.resume()
     return master ? { ctx, out: master } : null
   } catch {
@@ -132,7 +136,18 @@ export function playSound(kind: UiSound): void {
   VOICES[palette][kind].forEach(blip)
 }
 
-/** Unlock the AudioContext on the first real user gesture (autoplay policy). */
+/**
+ * Release the audio device while nothing will be heard from us (window in the background, a game running): an
+ * idle running AudioContext still keeps the audio thread busy. The next sound resumes it.
+ */
+export function suspendAudio(): void {
+  clearTimeout(suspendTimer)
+  suspendTimer = setTimeout(() => {
+    if (ctx?.state === 'running') void ctx.suspend()
+  }, SUSPEND_DELAY_MS)
+}
+
+/** Unlock the AudioContext on the first real user gesture (autoplay policy), and suspend it whenever the window loses focus. */
 export function primeAudioOnGesture(): void {
   const unlock = () => {
     audio()
@@ -141,4 +156,5 @@ export function primeAudioOnGesture(): void {
   }
   window.addEventListener('pointerdown', unlock)
   window.addEventListener('keydown', unlock)
+  window.addEventListener('blur', suspendAudio)
 }

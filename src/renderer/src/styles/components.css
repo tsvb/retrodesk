@@ -123,9 +123,19 @@
   height: 100%;
   object-fit: contain;
   object-position: center;
-  filter: drop-shadow(0 6px 14px rgb(0 0 0 / 0.45));
 }
-/* Landscape box art (SNES, N64, Genesis...) sits on a blurred, enlarged copy of itself instead of empty space. */
+/*
+ * Landscape box art (SNES, N64, Genesis...) sits on a blurred, enlarged copy of itself instead of empty space.
+ * GameCover adds .is-wide (and the backdrop) once the art has loaded and turned out wider than tall. The art is
+ * then sized to its own box, so a plain box-shadow lifts it off the backdrop (cheaper than a drop-shadow filter).
+ */
+.cover--art.is-wide .cover__img {
+  position: absolute;
+  inset: 0;
+  height: auto;
+  margin: auto 0;
+  box-shadow: 0 6px 14px rgb(0 0 0 / 0.45);
+}
 .cover--art .cover__backdrop {
   position: absolute;
   inset: -12%;
@@ -133,11 +143,9 @@
   height: 124%;
   object-fit: cover;
   filter: blur(18px) saturate(1.3) brightness(0.55);
-  transform: translateZ(0);
 }
 .cover--fill .cover__img {
   object-fit: cover;
-  filter: none;
 }
 
 .cover--generated {

@@ -4,7 +4,7 @@ import type { Game, SystemSummary } from '@shared/types'
 import { useFocusable } from '../input/hooks'
 import { useLibrary, usePatched } from '../stores/library'
 import { toast } from '../stores/session'
-import { GameCover } from './GameCover'
+import { COVER_THUMB, GameCover } from './GameCover'
 
 interface Props {
   game: Game
@@ -39,7 +39,7 @@ export const GameCard = memo(function GameCard({ game: raw, system, group, autoF
   return (
     <div className="game-card" role="button" aria-label={game.title} {...props}>
       <div className="game-card__frame">
-        <GameCover game={game} system={system} />
+        <GameCover game={game} system={system} thumb={COVER_THUMB.tile} />
         {game.favorite && (
           <span className="game-card__fav" aria-label="Favourite">
             <Heart size="1em" fill="currentColor" strokeWidth={0} />

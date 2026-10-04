@@ -5,8 +5,8 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
-  useState,
   useSyncExternalStore,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
@@ -150,11 +150,9 @@ export function useActions(map: ActionMap, enabled = true): void {
 
 export function useHints(): Hint[] {
   const version = useSyncExternalStore(focusManager.subscribe, focusManager.getVersion)
-  const [hints, setHints] = useState<Hint[]>([])
-  useEffect(() => {
-    setHints(focusManager.hints())
-  }, [version])
-  return hints
+  // Derived during render: the version bumps after the change it reports, so the hints are current in this pass.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => focusManager.hints(), [version])
 }
 
 export function useFocusedId(): string | null {

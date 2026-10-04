@@ -15,6 +15,9 @@ files:
   - '!**/node_modules/7zip-bin/{linux,mac}/**'
   - '!**/node_modules/7zip-bin/win/{ia32,arm64}/**'
   - '!**/node_modules/7zip-bin/7x.sh'
+# The UI is English-only: ship one Chromium locale pack instead of ~50 MB of them.
+electronLanguages:
+  - en-US
 # 7za.exe must live on disk (not inside app.asar) to be spawned.
 asarUnpack:
   - node_modules/7zip-bin/**

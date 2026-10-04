@@ -46,7 +46,6 @@ export function useLauncher(): { launch: (g: Game, skipNotice?: boolean) => Prom
   const [installing, setInstalling] = useState(false)
   const systems = useLibrary((s) => s.systems)
   const push = useNav((s) => s.push)
-  const installTask = useTasks((s) => findRunningTask(s, { kinds: ['system', 'emulator'] }, (l) => /install/i.test(l)))
 
   const launch = useCallback(async (g: Game, skipNotice = false) => {
     if (!skipNotice && needsFirewallNotice(g)) {
@@ -149,12 +148,7 @@ export function useLauncher(): { launch: (g: Game, skipNotice?: boolean) => Prom
             </>
           }
         >
-          {installing && (
-            <div className="install-progress">
-              <span>{installTask ? `${installTask.label}${installTask.detail ? `: ${installTask.detail}` : ''}` : 'Preparing download'}</span>
-              <ProgressBar value={installTask?.progress ?? -1} />
-            </div>
-          )}
+          {installing && <InstallProgress />}
         </Modal>
       )
     } else {
@@ -191,4 +185,18 @@ export function useLauncher(): { launch: (g: Game, skipNotice?: boolean) => Prom
     }
   }
   return { launch, launching, dialog }
+}
+
+/**
+ * Live progress of the emulator install. Its own component so the many progress events re-render only this,
+ * not the screen that owns the launcher (Home and its cards).
+ */
+function InstallProgress() {
+  const task = useTasks((s) => findRunningTask(s, { kinds: ['system', 'emulator'] }, (l) => /install/i.test(l)))
+  return (
+    <div className="install-progress">
+      <span>{task ? `${task.label}${task.detail ? `: ${task.detail}` : ''}` : 'Preparing download'}</span>
+      <ProgressBar value={task?.progress ?? -1} />
+    </div>
+  )
 }

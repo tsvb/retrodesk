@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { BatteryCharging, BatteryMedium, Camera, Download, FastForward, Menu, Minus, Pause, Play, Plus, Power, RotateCcw, Upload, type LucideIcon } from 'lucide-react'
 import { QUICK_ACTIONS } from '@shared/quickActions'
-import type { PerformanceMode, QuickAction, SessionInfo, SystemStats } from '@shared/types'
+import type { PerformanceMode, QuickAction, SessionInfo, SystemStats, SystemSummary } from '@shared/types'
 import { api, isElectron } from '../api'
 import { Button, type ButtonProps } from '../components/Button'
 import { Segmented } from '../components/Controls'
@@ -19,7 +19,6 @@ import { feedback } from '../lib/feedback'
 import { primeAudioOnGesture } from '../lib/sound'
 import { systemColor } from '../lib/color'
 import { useInputStore } from '../stores/input'
-import { systemById, useLibrary } from '../stores/library'
 import { toast } from '../stores/session'
 import { followSettingsChanges, useSettings } from '../stores/settings'
 
@@ -91,8 +90,17 @@ function ActionButton({ id, session, running, onRun, iconOnly, ...button }: { id
 export function OverlayApp() {
   const [active, setActive] = useState(false)
   const [session, setSession] = useState<SessionInfo | null>(null)
+  // Only the running game's system (name and colour) is shown here, so skip the full library load.
+  const [systems, setSystems] = useState<SystemSummary[]>([])
   const activeRef = useRef(false)
   activeRef.current = active
+
+  const loadSystems = useCallback(() => {
+    void api.library
+      .getSystems()
+      .then(setSystems)
+      .catch(() => undefined)
+  }, [])
 
   const open = useCallback(() => {
     if (activeRef.current) return
@@ -101,7 +109,8 @@ export function OverlayApp() {
     feedback('open')
     void api.window.setOverlayActive(true)
     void api.game.getSession().then(setSession)
-  }, [])
+    loadSystems()
+  }, [loadSystems])
 
   const resume = useCallback(async () => {
     if (!activeRef.current) return
@@ -119,14 +128,17 @@ export function OverlayApp() {
     document.documentElement.classList.add('is-overlay')
     primeAudioOnGesture()
     void useSettings.getState().load()
-    void useLibrary.getState().refresh()
+    loadSystems()
     void api.game.getSession().then(setSession)
     const offs = [
       followSettingsChanges(),
       api.on.overlay((v) => {
         activeRef.current = v
         setActive(v)
-        if (v) void api.game.getSession().then(setSession)
+        if (v) {
+          void api.game.getSession().then(setSession)
+          loadSystems()
+        }
       }),
       api.on.session((s) => {
         setSession(s)
@@ -154,7 +166,7 @@ export function OverlayApp() {
       })
     ]
     return () => offs.forEach((o) => o())
-  }, [open, resume])
+  }, [open, resume, loadSystems])
 
   return (
     <div className={`overlay ${active ? 'is-active' : ''}`}>
@@ -162,7 +174,7 @@ export function OverlayApp() {
       <div className="overlay__dim" onClick={() => void resume()} />
       {active && (
         <FocusScope id="overlay-panel">
-          <Panel session={session} onResume={resume} />
+          <Panel session={session} system={session ? systems.find((x) => x.id === session.systemId) : undefined} onResume={resume} />
         </FocusScope>
       )}
       <Toasts className="toasts--overlay" />
@@ -170,7 +182,7 @@ export function OverlayApp() {
   )
 }
 
-function Panel({ session, onResume }: { session: SessionInfo | null; onResume: () => Promise<void> }) {
+function Panel({ session, system, onResume }: { session: SessionInfo | null; system?: SystemSummary; onResume: () => Promise<void> }) {
   const now = useNow(1000)
   const battery = useBattery()
   const [stats, setStats] = useState<SystemStats | null>(null)
@@ -178,7 +190,6 @@ function Panel({ session, onResume }: { session: SessionInfo | null; onResume: (
   const [running, setRunning] = useState<QuickAction | null>(null)
   const perf = useSettings((s) => s.settings?.performance.inGameMode ?? 'unchanged')
   const [mode, setMode] = useState<PerformanceMode>(perf)
-  const system = useLibrary((s) => systemById(s.systems, session?.systemId))
   useFocusGroup('qa-slot', { memory: false })
 
   useEffect(() => setMode(perf), [perf])
