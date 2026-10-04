@@ -31,9 +31,16 @@ export interface TaskHandle {
 export function createTask(label: string, subject?: TaskSubject): TaskHandle {
   const task: TaskProgress = { id: randomUUID(), label, subject, progress: -1, state: 'running' }
   let last = 0
+  let trailing: NodeJS.Timeout | undefined
   const send = (force = false) => {
     const now = Date.now()
-    if (!force && now - last < 100) return
+    if (!force && now - last < 100) {
+      // Throttled: still deliver the latest value once the window is over, in case no further update comes.
+      trailing ??= setTimeout(() => send(true), 100 - (now - last))
+      return
+    }
+    clearTimeout(trailing)
+    trailing = undefined
     last = now
     broadcast('task', { ...task })
   }

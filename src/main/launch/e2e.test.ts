@@ -23,6 +23,7 @@ const h = vi.hoisted(() => ({
 vi.mock('electron', () => ({
   app: { getPath: () => ROOT, on: () => undefined },
   globalShortcut: { register: () => true, unregister: () => undefined },
+  powerMonitor: { isOnBatteryPower: () => false },
   shell: { openExternal: async () => undefined }
 }))
 vi.mock('../settings', async () => {

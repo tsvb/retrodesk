@@ -1,11 +1,14 @@
 // Bring an emulator window back to the foreground after the overlay closes.
 // A single long-lived PowerShell helper (user32 via Add-Type) is spawned per game session so each request is fast
-// (~ms) instead of paying PowerShell + C# compile start-up (~1s) every time.
+// (~ms) instead of paying PowerShell start-up every time. The C# is compiled once into a DLL next to the app data
+// (named after a hash of the source, so an update recompiles) and only loaded afterwards: compiling runs csc and
+// costs a second or two of CPU, which would otherwise compete with every emulator boot.
+import { createHash } from 'crypto'
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
+import { existsSync, readdirSync, rmSync } from 'fs'
+import { join } from 'path'
 
-const SCRIPT = String.raw`
-$ErrorActionPreference = 'Stop'
-Add-Type -TypeDefinition @"
+const CSHARP = String.raw`
 using System;
 using System.Runtime.InteropServices;
 public static class RDFocus {
@@ -54,85 +57,179 @@ public static class RDFocus {
     return GetForegroundWindow() == h ? "OK" : "FAIL";
   }
 }
-"@
+`
+
+const DLL_PREFIX = 'rdfocus-'
+const DLL_NAME = `${DLL_PREFIX}${createHash('sha1').update(CSHARP).digest('hex').slice(0, 12)}.dll`
+
+const psQuote = (s: string): string => `'${s.replace(/'/g, "''")}'`
+
+/**
+ * The helper script. With `dll`, the C# is compiled into that file if it isn't there yet (via a temporary name,
+ * so a half-written DLL is never picked up) and loaded from it; anything going wrong falls back to compiling
+ * in memory. Requests are "<id> <pid>", replies "<id> <result>".
+ */
+function script(dll: string | undefined): string {
+  return String.raw`
+$ErrorActionPreference = 'Stop'
+$src = @'
+${CSHARP}
+'@
+$dll = ${dll ? psQuote(dll) : "''"}
+if ($dll -and -not (Test-Path -LiteralPath $dll)) {
+  $tmp = $dll -replace '\.dll$', ".$PID.tmp.dll"
+  try {
+    Add-Type -TypeDefinition $src -OutputAssembly $tmp -OutputType Library
+    Move-Item -LiteralPath $tmp -Destination $dll -Force
+  } catch {
+    Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+  }
+}
+$loaded = $false
+if ($dll -and (Test-Path -LiteralPath $dll)) {
+  try { Add-Type -Path $dll; $loaded = $true } catch { Remove-Item -LiteralPath $dll -Force -ErrorAction SilentlyContinue }
+}
+if (-not $loaded) { Add-Type -TypeDefinition $src }
 [Console]::Out.WriteLine('READY')
 while ($true) {
   $line = [Console]::In.ReadLine()
   if ($line -eq $null -or $line -eq 'EXIT') { break }
-  try { [Console]::Out.WriteLine([RDFocus]::Focus([uint32]$line)) } catch { [Console]::Out.WriteLine('ERR ' + $_.Exception.Message) }
+  $id, $target = $line.Split(' ', 2)
+  try { $r = [RDFocus]::Focus([uint32]$target) } catch { $r = 'ERR ' + $_.Exception.Message }
+  [Console]::Out.WriteLine($id + ' ' + ($r -replace '\s+', ' '))
 }
 `
+}
+
+/** DLLs compiled from an older version of the source (and leftovers of an interrupted compile). */
+function removeStaleDlls(dir: string): void {
+  for (const f of readdirSync(dir)) {
+    if (f.startsWith(DLL_PREFIX) && f.endsWith('.dll') && f !== DLL_NAME) rmSync(join(dir, f), { force: true })
+  }
+}
+
+interface Connection {
+  child: ChildProcessWithoutNullStreams
+  ready: Promise<boolean>
+  /** Requests waiting for their reply, by id. */
+  pending: Map<number, (reply: string) => void>
+}
+
+export interface FocusHelperOptions {
+  /** Where the compiled helper DLL is kept. Without it the C# is compiled in memory on every start. */
+  cacheDir?: () => string
+}
 
 export class FocusHelper {
-  private child: ChildProcessWithoutNullStreams | null = null
-  private ready: Promise<boolean> | null = null
-  private waiters: ((line: string) => void)[] = []
-  private buf = ''
+  private conn: Connection | null = null
+  private nextId = 1
+  private warmTimer: NodeJS.Timeout | undefined
+
+  constructor(private readonly opts: FocusHelperOptions = {}) {}
+
+  private dllPath(): string | undefined {
+    try {
+      const dir = this.opts.cacheDir?.()
+      if (!dir) return undefined
+      const dll = join(dir, DLL_NAME)
+      if (!existsSync(dll)) removeStaleDlls(dir)
+      return dll
+    } catch {
+      return undefined
+    }
+  }
+
+  /** Start the helper in `delayMs`, away from the emulator's start-up. focus() still starts it at once if needed sooner. */
+  prewarm(delayMs: number): void {
+    clearTimeout(this.warmTimer)
+    this.warmTimer = setTimeout(() => void this.start(), delayMs)
+    this.warmTimer.unref()
+  }
 
   /** Start the helper (idempotent). Resolves false if PowerShell is unavailable. */
   start(): Promise<boolean> {
-    if (this.ready) return this.ready
-    this.ready = new Promise<boolean>((resolve) => {
-      let settled = false
-      const done = (v: boolean) => {
-        if (!settled) {
-          settled = true
-          resolve(v)
-        }
-      }
-      try {
-        const encoded = Buffer.from(SCRIPT, 'utf16le').toString('base64')
-        const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded], { windowsHide: true, stdio: 'pipe' })
-        this.child = child
-        child.stdout.setEncoding('utf8')
-        child.stdout.on('data', (d: string) => {
-          this.buf += d
-          let i: number
-          while ((i = this.buf.indexOf('\n')) >= 0) {
-            const line = this.buf.slice(0, i).trim()
-            this.buf = this.buf.slice(i + 1)
-            if (!line) continue
-            if (line === 'READY') done(true)
-            else this.waiters.shift()?.(line)
-          }
-        })
-        child.stderr.on('data', () => undefined)
-        child.on('error', () => done(false))
-        child.on('exit', () => {
-          done(false)
-          for (const w of this.waiters.splice(0)) w('EXITED')
-          this.child = null
-          this.ready = null
-        })
-        setTimeout(() => done(false), 15_000).unref()
-      } catch {
-        done(false)
+    clearTimeout(this.warmTimer)
+    if (this.conn) return this.conn.ready
+    let settle!: (ok: boolean) => void
+    let settled = false
+    const ready = new Promise<boolean>((resolve) => {
+      settle = (ok) => {
+        if (settled) return
+        settled = true
+        resolve(ok)
       }
     })
-    return this.ready
+    let child: ChildProcessWithoutNullStreams
+    try {
+      const encoded = Buffer.from(script(this.dllPath()), 'utf16le').toString('base64')
+      child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded], { windowsHide: true, stdio: 'pipe' })
+    } catch {
+      return Promise.resolve(false)
+    }
+    const conn: Connection = { child, ready, pending: new Map() }
+    this.conn = conn
+    let buf = ''
+    child.stdout.setEncoding('utf8')
+    child.stdout.on('data', (d: string) => {
+      buf += d
+      let i: number
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, i).trim()
+        buf = buf.slice(i + 1)
+        if (line === 'READY') {
+          settle(true)
+          continue
+        }
+        // A reply to a request that already timed out has no waiter any more and is dropped.
+        const m = /^(\d+) (.*)$/.exec(line)
+        const waiter = m ? conn.pending.get(Number(m[1])) : undefined
+        if (!waiter) continue
+        conn.pending.delete(Number(m![1]))
+        waiter(m![2]!)
+      }
+    })
+    child.stderr.on('data', () => undefined)
+    child.stdin.on('error', () => undefined)
+    child.on('error', () => settle(false))
+    child.on('exit', () => {
+      settle(false)
+      for (const w of conn.pending.values()) w('EXITED')
+      conn.pending.clear()
+      // stop() + start() may already have replaced this helper with the next session's: leave that one alone.
+      if (this.conn === conn) this.conn = null
+    })
+    setTimeout(() => {
+      if (settled) return
+      settle(false)
+      child.kill()
+    }, 15_000).unref()
+    return ready
   }
 
   /** Focus the top-level window of `pid`. Resolves "OK" | "FAIL" | "NOWINDOW" | "ERR ..." | "UNAVAILABLE". */
   async focus(pid: number, timeoutMs = 3000): Promise<string> {
-    if (!(await this.start()) || !this.child) return 'UNAVAILABLE'
-    const child = this.child
+    if (!(await this.start())) return 'UNAVAILABLE'
+    const conn = this.conn
+    if (!conn) return 'UNAVAILABLE'
+    const id = this.nextId++
     return new Promise<string>((resolve) => {
       const t = setTimeout(() => {
-        this.waiters = this.waiters.filter((w) => w !== waiter)
+        conn.pending.delete(id)
         resolve('TIMEOUT')
       }, timeoutMs)
-      const waiter = (line: string) => {
+      conn.pending.set(id, (reply) => {
         clearTimeout(t)
-        resolve(line)
-      }
-      this.waiters.push(waiter)
-      child.stdin.write(`${pid}\n`)
+        resolve(reply)
+      })
+      conn.child.stdin.write(`${id} ${pid}\n`)
     })
   }
 
   stop(): void {
-    const c = this.child
-    if (!c) return
+    clearTimeout(this.warmTimer)
+    const conn = this.conn
+    if (!conn) return
+    const c = conn.child
     try {
       c.stdin.write('EXIT\n')
       c.stdin.end()
@@ -142,7 +239,6 @@ export class FocusHelper {
     setTimeout(() => {
       if (c.exitCode === null) c.kill()
     }, 1500).unref()
-    this.child = null
-    this.ready = null
+    this.conn = null
   }
 }

@@ -60,6 +60,14 @@ describe('RaCommandClient against a fake RetroArch', () => {
     expect(b).toBe('1.22.2')
   })
 
+  it('answers null and keeps no socket when closed while still binding', async () => {
+    const c = new RaCommandClient(1)
+    const status = c.getStatus(150)
+    c.close()
+    expect(await status).toBeNull()
+    expect((c as unknown as { sock: unknown }).sock).toBeNull()
+  })
+
   it('times out to null when nobody answers', async () => {
     const dead = new RaCommandClient(1)
     const t = Date.now()

@@ -107,7 +107,8 @@ export function parseNvidiaSmi(out: string): GpuStats | undefined {
   return { name: parts[0]!, utilPercent: num(parts[1]), tempC: num(parts[2]), memUsedMB: num(parts[3]), memTotalMB: num(parts[4]) }
 }
 
-const getGpu = makeCached<GpuStats>(1000, async (c) => {
+// nvidia-smi is a process spawn of its own: refresh every other poll of the quick menu (1s), not every one.
+const getGpu = makeCached<GpuStats>(2000, async (c) => {
   const r = await run('nvidia-smi', ['--query-gpu=name,utilization.gpu,temperature.gpu,memory.used,memory.total', '--format=csv,noheader,nounits'], 3000)
   if (r.code !== 0) {
     if (r.errno === 'ENOENT') c.disabled = true
