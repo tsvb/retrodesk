@@ -4,7 +4,7 @@ import { join } from 'path'
 import type { RetroDeskApi } from '../../shared/api'
 import type { BiosStatus, Game, MediaKind, ScanResult, SystemSummary } from '../../shared/types'
 import { isSystemPlayable } from '../emulators'
-import { createTask, emitLibraryChanged } from '../events'
+import { broadcast, createTask, emitLibraryChanged } from '../events'
 import { getPaths, isManagedPath as isServable } from '../paths'
 import { getSettings, onSettingsChanged } from '../settings'
 import { getSystemDefs } from '../systems'
@@ -47,20 +47,40 @@ function indexDir(): string {
   return join(getPaths().media, '_index')
 }
 
-/** Throttled libraryChanged event (bursts of updates during artwork downloads). */
+/**
+ * Throttled libraryChanged event (bursts of updates during artwork downloads). Artwork-only changes travel as a
+ * delta the renderer patches in place; anything else makes it reload.
+ */
 let changeTimer: ReturnType<typeof setTimeout> | null = null
-function notifyChanged(immediate = false): void {
-  if (immediate) {
-    if (changeTimer) clearTimeout(changeTimer)
-    changeTimer = null
+let reloadPending = false
+const mediaPending = new Set<string>()
+
+function flushChanges(): void {
+  if (changeTimer) clearTimeout(changeTimer)
+  changeTimer = null
+  if (reloadPending) {
+    // The reload picks up the artwork too.
+    reloadPending = false
+    mediaPending.clear()
     emitLibraryChanged()
     return
   }
-  if (changeTimer) return
-  changeTimer = setTimeout(() => {
-    changeTimer = null
-    emitLibraryChanged()
-  }, 1500)
+  const lib = getStore()
+  const media = [...mediaPending].map((id) => lib.get(id)).filter((g): g is Game => !!g)
+  mediaPending.clear()
+  if (media.length) broadcast('libraryChanged', { media })
+}
+
+function notifyChanged(immediate = false): void {
+  reloadPending = true
+  if (immediate) flushChanges()
+  else changeTimer ??= setTimeout(flushChanges, 1500)
+}
+
+/** A game's artwork changed: tell the renderer with the next throttled event, without a reload. */
+function notifyMediaChanged(id: string): void {
+  mediaPending.add(id)
+  changeTimer ??= setTimeout(flushChanges, 1500)
 }
 
 function detectSteam(): Promise<void> {
@@ -312,8 +332,7 @@ async function runArtwork(games: Game[], force: boolean): Promise<void> {
       isServable,
       onProgress: (done, total, title) => task.update(done / total, `${done.toLocaleString()} of ${total.toLocaleString()}: ${title}`),
       onUpdate: (id, media) => {
-        lib.update(id, (g) => (g.media = media))
-        notifyChanged()
+        if (lib.update(id, (g) => (g.media = media))) notifyMediaChanged(id)
       }
     })
     await lib.flush()

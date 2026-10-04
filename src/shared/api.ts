@@ -91,11 +91,18 @@ export interface RetroDeskApi {
 export interface ApiEvents {
   task: TaskProgress
   session: SessionInfo | null
-  libraryChanged: void
+  /** No payload: anything may have changed, reload. With one: only what it lists changed. */
+  libraryChanged: LibraryChange | void
   /** Overlay window: main asks the overlay to show (true) or hide (false). */
   overlay: boolean
   /** Settings changed (from any window). */
   settingsChanged: Settings
+}
+
+/** A libraryChanged event that is cheaper to apply than a reload. */
+export interface LibraryChange {
+  /** Games whose artwork changed, as they are now. Nothing else about the library changed. */
+  media: Game[]
 }
 
 export type EventName = keyof ApiEvents
