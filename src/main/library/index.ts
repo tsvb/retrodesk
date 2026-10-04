@@ -1,6 +1,6 @@
 import { app } from 'electron'
 import { existsSync } from 'fs'
-import { join } from 'path'
+import { isAbsolute, join, relative } from 'path'
 import type { RetroDeskApi } from '../../shared/api'
 import type { BiosStatus, Game, MediaKind, ScanResult, SystemSummary } from '../../shared/types'
 import { isSystemPlayable } from '../emulators'
@@ -16,7 +16,7 @@ import { scanFolders, type ScannedGame } from './scanner'
 import { findSteamPath, listSteamGames, steamGamePath, type SteamApp } from './steam'
 import { GameStore } from './store'
 import { parseRomName } from './titles'
-import { gameIdForPath, isUnder, normPath } from './util'
+import { dirExists, gameIdForPath, isUnder, normPath } from './util'
 
 // ---------------------------------------------------------------- state
 
@@ -29,6 +29,11 @@ let steamDetectDone: Promise<void> | null = null
 let romFolderBiosFiles: string[] = []
 let arcadeNames: Map<string, string> | undefined
 let scanPromise: Promise<ScanResult> | null = null
+/**
+ * Set after the first full scan of this session. Later scans reuse the sizes the library already has instead of
+ * measuring every file again, so a ROM replaced by one of another size shows its new size after the next restart.
+ */
+let sizesMeasured = false
 let artworkChain: Promise<void> = Promise.resolve()
 
 function libraryFile(): string {
@@ -189,32 +194,83 @@ function applyArcadeTitles(): number {
   return n
 }
 
-async function runScan(): Promise<ScanResult> {
+const MEDIA_KINDS: MediaKind[] = ['boxart', 'snap', 'title']
+const sameList = (a: readonly string[], b: readonly string[]): boolean => a.length === b.length && a.every((x, i) => x === b[i])
+const sameMedia = (a: Game['media'], b: Game['media']): boolean => MEDIA_KINDS.every((k) => a[k] === b[k])
+
+/**
+ * What a rescan changes about a game already in the library, or undefined when it changes nothing. Unchanged games
+ * are left alone, so a rescan that finds nothing new neither rewrites the library file nor makes the UI reload.
+ */
+function rescanned(g: Game, sg: ScannedGame): Partial<Game> | undefined {
+  // A cover next to the ROM is the user's choice: it wins. Other local images only fill gaps.
+  const media = { ...g.media }
+  if (sg.localMedia.boxart) media.boxart = sg.localMedia.boxart
+  for (const k of ['snap', 'title'] as MediaKind[]) {
+    const local = sg.localMedia[k]
+    if (local && !media[k]) media[k] = local
+  }
+  const same =
+    g.systemId === sg.systemId &&
+    g.path === sg.path &&
+    g.fileName === sg.fileName &&
+    g.rawName === sg.rawName &&
+    g.title === sg.title &&
+    g.sizeBytes === sg.sizeBytes &&
+    sameList(g.regions, sg.regions) &&
+    sameList(g.tags, sg.tags) &&
+    sameMedia(g.media, media)
+  if (same) return undefined
+  const { systemId, path, fileName, rawName, title, regions, tags, sizeBytes } = sg
+  return { systemId, path, fileName, rawName, title, regions, tags, sizeBytes, media }
+}
+
+/** Installed Steam games, reusing the Steam folder found before (finding it runs reg.exe). */
+async function scanSteam(): ReturnType<typeof listSteamGames> {
+  await detectSteam()
+  const known = steamPath && (await dirExists(join(steamPath, 'steamapps'))) ? steamPath : undefined
+  return listSteamGames(known)
+}
+
+/**
+ * Bring the library in line with the ROM folders and Steam. With `scope` (folders an import just copied games
+ * into), only those folders are read, Steam is skipped and nothing is removed.
+ */
+async function runScan(scope?: string[]): Promise<ScanResult> {
   const t0 = Date.now()
   const task = createTask('Scanning library', { kind: 'scan' })
   const lib = getStore()
   try {
     const settings = getSettings()
     const paths = getPaths()
-    const roots = [...settings.romFolders.filter((f) => f.path), { path: paths.roms }]
-    const knownSizes = new Map(lib.all().map((g) => [normPath(g.path), g.sizeBytes]))
+    const roots = scope ? scope.map((path) => ({ path })) : [...settings.romFolders.filter((f) => f.path), { path: paths.roms }]
+    const known = new Map(lib.all().map((g) => [normPath(g.path), { sizeBytes: g.sizeBytes, systemId: g.systemId }]))
+    const noSteam = { steamPath: undefined, apps: [] as SteamApp[], complete: false }
     const [out, steam] = await Promise.all([
       scanFolders({
         roots,
         excludeDirs: [paths.bios, paths.saves, paths.states, paths.screenshots, paths.emulators, paths.media, paths.downloads],
-        knownSizes,
+        known,
+        trustKnownSizes: sizesMeasured,
         arcadeNames,
         onProgress: (p) =>
           p.phase === 'walk'
             ? task.update(-1, `${p.dirs.toLocaleString()} folders, ${p.files.toLocaleString()} files`)
             : task.update(p.total ? (p.done ?? 0) / p.total : -1, `Reading ${(p.done ?? 0).toLocaleString()} of ${(p.total ?? 0).toLocaleString()} games`)
       }),
-      listSteamGames().catch(() => ({ steamPath: undefined, apps: [] as SteamApp[], complete: false }))
+      scope ? noSteam : scanSteam().catch(() => noSteam)
     ])
-    steamPath = steam.steamPath
-    steamDetected = !!steam.steamPath
-    steamDetectDone = Promise.resolve()
-    romFolderBiosFiles = out.biosFiles
+    const steamWasDetected = steamDetected
+    if (scope) {
+      romFolderBiosFiles = [...new Set([...romFolderBiosFiles, ...out.biosFiles])]
+    } else {
+      steamPath = steam.steamPath
+      steamDetected = !!steam.steamPath
+      steamDetectDone = Promise.resolve()
+      romFolderBiosFiles = out.biosFiles
+    }
+    // Steam's "playable" flag is part of what the UI shows.
+    let changed = steamDetected !== steamWasDetected
 
     const scanned = [...out.games, ...steam.apps.map(steamToScanned)]
     const seen = new Set<string>()
@@ -229,49 +285,47 @@ async function runScan(): Promise<ScanResult> {
         g.media = { ...sg.localMedia }
         lib.put(g)
         newIds.push(id)
+        changed = true
         continue
       }
-      lib.update(id, (g) => {
-        g.systemId = sg.systemId
-        g.path = sg.path
-        g.fileName = sg.fileName
-        g.rawName = sg.rawName
-        g.title = sg.title
-        g.regions = sg.regions
-        g.tags = sg.tags
-        g.sizeBytes = sg.sizeBytes
-        // A cover next to the ROM is the user's choice: it wins. Other local images only fill gaps.
-        if (sg.localMedia.boxart) g.media.boxart = sg.localMedia.boxart
-        for (const k of ['snap', 'title'] as MediaKind[]) {
-          const local = sg.localMedia[k]
-          if (local && !g.media[k]) g.media[k] = local
-        }
-      })
+      const patch = rescanned(existing, sg)
+      if (patch) {
+        lib.update(id, (g) => Object.assign(g, patch))
+        changed = true
+      }
     }
 
     // Removing a game also drops its play time, favourite flag and artwork links, so only do it when the scan
     // actually looked where the game lives and did not find it.
     const notLookedAt = [...out.unreachableRoots, ...out.unreadableDirs]
     let removed = 0
-    for (const g of lib.all()) {
+    for (const g of scope ? [] : lib.all()) {
       if (seen.has(g.id)) continue
       if (g.systemId === 'steam' ? !steam.complete : notLookedAt.some((r) => isUnder(g.path, r))) continue
       lib.remove(g.id)
       removed++
+      changed = true
     }
 
     // ES-DE downloaded_media for games still missing artwork.
     try {
-      const lacking = lib.all().filter((g) => g.systemId !== 'steam' && (!g.media.boxart || !g.media.snap || !g.media.title))
+      const candidates = scope ? [...seen].map((id) => lib.get(id)).filter((g): g is Game => !!g) : lib.all()
+      const lacking = candidates.filter((g) => g.systemId !== 'steam' && (!g.media.boxart || !g.media.snap || !g.media.title))
       const esde = await applyEsDeMedia(lacking, { romRoots: roots.map((r) => r.path), mediaDir: paths.media, isServable })
-      for (const [id, media] of esde) lib.update(id, (g) => (g.media = media))
+      for (const [id, media] of esde) {
+        const g = lib.get(id)
+        if (!g || sameMedia(g.media, media)) continue
+        lib.update(id, (x) => (x.media = media))
+        changed = true
+      }
     } catch (e) {
       console.warn('[library] ES-DE media lookup failed', e)
     }
-    applyArcadeTitles()
+    if (applyArcadeTitles()) changed = true
+    if (!scope) sizesMeasured = true
 
     await lib.flush()
-    notifyChanged(true)
+    if (changed) notifyChanged(true)
     const total = lib.size
     const errNote = out.errors.length ? `, ${out.errors.length} unreadable` : ''
     const offline = out.unreachableRoots.length ? `, ${out.unreachableRoots.length} folder(s) not reachable` : ''
@@ -288,13 +342,38 @@ async function runScan(): Promise<ScanResult> {
   }
 }
 
-export function scan(): Promise<ScanResult> {
+/** Start a scan unless one is running, in which case that one's result is returned. */
+function startScan(scope?: string[]): Promise<ScanResult> {
   if (!scanPromise) {
-    scanPromise = runScan().finally(() => {
+    scanPromise = runScan(scope).finally(() => {
       scanPromise = null
     })
   }
   return scanPromise
+}
+
+export function scan(): Promise<ScanResult> {
+  return startScan()
+}
+
+/**
+ * The folders to rescan after an import copied `copied` into `romsDir`: the roms/<system> folder of each.
+ * Undefined when a full scan is needed instead: a configured ROM folder overlaps one of them and may assign
+ * its own system to what is inside.
+ */
+function importScope(copied: string[], romsDir: string): string[] | undefined {
+  const dirs = new Map<string, string>()
+  for (const p of copied) {
+    const sys = relative(romsDir, p).split(/[\\/]/)[0]
+    if (!sys || sys.startsWith('..') || isAbsolute(sys)) return undefined
+    const dir = join(romsDir, sys)
+    dirs.set(normPath(dir), dir)
+  }
+  // A ROM folder below roms/<system> is a scan root of its own, with its own system: leave that to a full scan.
+  // Folders above are fine: roms/ is always a root, so they never decide what is inside it.
+  const folders = getSettings().romFolders.map((f) => f.path).filter(Boolean)
+  for (const d of dirs.values()) if (folders.some((f) => isUnder(f, d))) return undefined
+  return [...dirs.values()]
 }
 
 // ---------------------------------------------------------------- artwork
@@ -418,16 +497,21 @@ export const libraryHandlers: RetroDeskApi['library'] = {
   },
   async importFiles(paths) {
     const task = createTask('Importing games', { kind: 'import' })
+    const romsDir = getPaths().roms
+    let scope: string[] | undefined
     try {
-      const res = await importRomFiles(paths ?? [], getPaths().roms, (done, total, name) => task.update(total ? done / total : -1, name))
+      const res = await importRomFiles(paths ?? [], romsDir, (done, total, name) => task.update(total ? done / total : -1, name))
       task.done(`${res.copied.length} file(s) copied${res.skipped.length ? `, ${res.skipped.length} skipped` : ''}${res.errors.length ? `, ${res.errors.length} failed` : ''}`)
       if (res.errors.length) console.warn('[library] import errors', res.errors)
+      // Files skipped because they are already in roms/ may not be in the library yet: look at those too.
+      scope = importScope([...res.copied, ...res.skipped.filter((p) => isUnder(p, romsDir))], romsDir)
     } catch (e) {
       task.fail(e)
       throw e
     }
     if (scanPromise) await scanPromise.catch(() => undefined)
-    return scan()
+    // Only the folders the import touched, not every ROM folder.
+    return startScan(scope)
   }
 }
 

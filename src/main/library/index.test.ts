@@ -3,6 +3,7 @@ import { join } from 'path'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LibraryChange } from '../../shared/api'
 import type { Game, Settings } from '../../shared/types'
+import { GameStore } from './store'
 import { rom, writeFile } from './testutil'
 
 /** Library orchestration with artwork downloads and Steam stubbed out: change events, rescans, imports. */
@@ -42,6 +43,12 @@ vi.mock('./steam', async (orig) => ({
   findSteamPath: async () => undefined,
   listSteamGames: async () => ({ apps: [], complete: false })
 }))
+const scanSpy = vi.hoisted(() => vi.fn())
+vi.mock('./scanner', async (orig) => {
+  const real = await orig<typeof import('./scanner')>()
+  scanSpy.mockImplementation(real.scanFolders)
+  return { ...real, scanFolders: scanSpy as typeof real.scanFolders }
+})
 vi.mock('./artwork', () => ({
   loadArcadeNames: async () => undefined,
   fetchArtworkForGames: async (games: Game[], o: { onUpdate: (id: string, media: Game['media']) => void }) => {
@@ -86,5 +93,40 @@ describe('library change events', () => {
     release()
     await run
     expect(env.reloads).toBe(1) // the end of the run
+  })
+})
+
+describe('rescans', () => {
+  it('leave the library alone when nothing changed', async () => {
+    const dirty = vi.spyOn(GameStore.prototype, 'markDirty')
+    const r = await lib.libraryHandlers.scan()
+    expect(r).toMatchObject({ added: 0, removed: 0 })
+    expect(dirty).not.toHaveBeenCalled()
+    expect(env.reloads).toBe(0)
+    dirty.mockRestore()
+  })
+
+  it('update games whose files changed, and say so', async () => {
+    writeFile(join(roms, 'SNES', 'F-Zero (USA).png'), rom(200))
+    await lib.libraryHandlers.scan()
+    const fzero = (await lib.libraryHandlers.getGames({ search: 'f-zero' }))[0]
+    expect(fzero?.media.boxart).toBe(join(roms, 'SNES', 'F-Zero (USA).png'))
+    expect(env.reloads).toBe(1)
+  })
+})
+
+describe('importing', () => {
+  it('scans only the roms/<system> folders the import copied into', async () => {
+    writeFile(join(roms, 'SNES', 'Not Yet Scanned (USA).sfc'), rom(4096, 5))
+    const src = join(env.root, 'Downloads', 'Kirby (USA).gba')
+    writeFile(src, rom(4096, 6))
+    scanSpy.mockClear()
+    const r = await lib.libraryHandlers.importFiles([src])
+    expect(r.added).toBe(1)
+    expect(scanSpy).toHaveBeenCalledTimes(1)
+    expect(scanSpy.mock.calls[0]![0].roots).toEqual([{ path: join(env.settings.dataRoot, 'roms', 'gba') }])
+    const titles = (await lib.libraryHandlers.getGames()).map((g) => g.title)
+    expect(titles).toContain('Kirby')
+    expect(titles).not.toContain('Not Yet Scanned')
   })
 })
