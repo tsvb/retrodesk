@@ -80,6 +80,12 @@ describe('GameStore', () => {
     s3.load()
     expect(s3.all()[0]?.playCount).toBe(3)
     expect(existsSync(`${file}.tmp`)).toBe(false)
+    const s4 = new GameStore(file)
+    await s4.loadAsync()
+    expect(s4.all()[0]?.playCount).toBe(3)
+    const empty = new GameStore(join(tmp, 'missing.json'))
+    await empty.loadAsync()
+    expect(empty.size).toBe(0)
   })
 
   it('debounces saves', async () => {

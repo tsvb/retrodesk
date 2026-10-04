@@ -106,14 +106,29 @@ const handlers: Omit<RetroDeskApi, 'on'> = {
   window: windowHandlers
 }
 
+/**
+ * Settled once the library, emulators and launcher are initialised. The window opens before that, so handlers
+ * that need them wait for it; settings, system and window requests are answered straight away.
+ */
+let markReady: () => void = () => undefined
+let markFailed: (e: unknown) => void = () => undefined
+const ready = new Promise<void>((resolve, reject) => {
+  markReady = resolve
+  markFailed = reject
+})
+ready.catch(() => undefined) // startup failure is reported (and the app quits) below
+const NEEDS_INIT: ReadonlySet<string> = new Set<keyof typeof handlers>(['library', 'emulators', 'bios', 'game'])
+
 function registerIpc(): void {
   for (const [ns, methods] of Object.entries(API_SHAPE)) {
     const group = handlers[ns as keyof typeof handlers] as unknown as Record<string, (...a: unknown[]) => Promise<unknown>>
+    const gated = NEEDS_INIT.has(ns)
     for (const m of methods) {
       const fn = group[m]
       if (typeof fn !== 'function') throw new Error(`IPC handler missing: ${ns}:${m}`)
       ipcMain.handle(`${ns}:${m}`, async (_e, ...args) => {
         try {
+          if (gated) await ready
           return await fn.apply(group, args)
         } catch (err) {
           console.error(`[ipc] ${ns}:${m} failed`, err)
@@ -174,10 +189,17 @@ if (!gotLock) {
       if (!ensureDataRoot()) return app.quit()
       registerMediaProtocol()
       registerIpc()
-      await initLibrary()
-      await initEmulators()
-      initLaunch()
+      // Open the window first so it paints (and loads settings) while the library loads.
       createMainWindow()
+      try {
+        await initLibrary()
+        await initEmulators()
+        initLaunch()
+        markReady()
+      } catch (e) {
+        markFailed(e)
+        throw e
+      }
     })
     .catch((err: unknown) => {
       // Without this the process would sit there with no window, holding the single-instance lock.

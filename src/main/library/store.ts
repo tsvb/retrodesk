@@ -1,5 +1,5 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs'
-import { mkdir, rename, writeFile } from 'fs/promises'
+import { mkdir, readFile, rename, writeFile } from 'fs/promises'
 import { dirname } from 'path'
 import type { Game, GameQuery, SortKey } from '../../shared/types'
 import { systemOrder } from '../systems'
@@ -86,16 +86,32 @@ export class GameStore {
     private readonly maxWaitMs = 10_000
   ) {}
 
-  /** Synchronous load (startup). A corrupt file is moved aside, never thrown. */
+  /** Synchronous load. A corrupt file is moved aside, never thrown. */
   load(): void {
-    this.games.clear()
-    this.searchText.clear()
-    let text: string
+    let text: string | undefined
     try {
       text = readFileSync(this.file, 'utf8')
     } catch {
-      return // first run
+      /* first run */
     }
+    this.parse(text)
+  }
+
+  /** load() with the file read off the main thread (startup, while the window opens). */
+  async loadAsync(): Promise<void> {
+    let text: string | undefined
+    try {
+      text = await readFile(this.file, 'utf8')
+    } catch {
+      /* first run */
+    }
+    this.parse(text)
+  }
+
+  private parse(text: string | undefined): void {
+    this.games.clear()
+    this.searchText.clear()
+    if (text === undefined) return
     try {
       const data = JSON.parse(text) as unknown
       const games = isRecord(data) ? data.games : undefined

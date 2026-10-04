@@ -103,6 +103,12 @@ function detectSteam(): Promise<void> {
 // ---------------------------------------------------------------- public (main-process) API
 
 export async function initLibrary(): Promise<void> {
+  if (!store) {
+    const loading = new GameStore(libraryFile())
+    await loading.loadAsync()
+    // Something that could not wait may have loaded it synchronously in the meantime: keep that one.
+    store ??= loading
+  }
   const s = getStore()
   if (!quitHookInstalled) {
     quitHookInstalled = true
