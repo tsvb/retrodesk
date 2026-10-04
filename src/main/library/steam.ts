@@ -62,12 +62,13 @@ function regQuery(key: string, value: string): Promise<string | undefined> {
 /** Locate the Steam install directory, or undefined if Steam isn't installed. */
 export async function findSteamPath(): Promise<string | undefined> {
   if (process.platform !== 'win32') return undefined
-  const candidates = [
-    await regQuery('HKCU\\Software\\Valve\\Steam', 'SteamPath'),
-    await regQuery('HKLM\\SOFTWARE\\WOW6432Node\\Valve\\Steam', 'InstallPath'),
-    await regQuery('HKLM\\SOFTWARE\\Valve\\Steam', 'InstallPath'),
-    'C:\\Program Files (x86)\\Steam'
-  ]
+  // Each query spawns reg.exe: ask all at once, then take the first answer in this order.
+  const found = await Promise.all([
+    regQuery('HKCU\\Software\\Valve\\Steam', 'SteamPath'),
+    regQuery('HKLM\\SOFTWARE\\WOW6432Node\\Valve\\Steam', 'InstallPath'),
+    regQuery('HKLM\\SOFTWARE\\Valve\\Steam', 'InstallPath')
+  ])
+  const candidates = [...found, 'C:\\Program Files (x86)\\Steam']
   for (const c of candidates) {
     if (!c) continue
     const p = normalize(c)
