@@ -4,6 +4,7 @@ import { Button } from '../../components/Button'
 import { KeyCap, PadButton } from '../../components/Glyph'
 import { Segmented, SettingRow } from '../../components/Controls'
 import { ControllerTester } from '../../components/ControllerTester'
+import { SchemaSegmented } from '../../components/SchemaSetting'
 import { useInputStore } from '../../stores/input'
 import { useSettings, useSettingsValue } from '../../stores/settings'
 import { Section } from './Settings'
@@ -41,16 +42,7 @@ export function ControlsTab() {
       </Section>
 
       <Section title="Button layout" description="Which face button confirms. Nintendo layout puts confirm on the right button, like a Switch or a Retroid in retro mode.">
-        <Segmented
-          group="ctl-layout"
-          size="lg"
-          value={settings.ui.buttonLayout}
-          onChange={(v) => void update({ ui: { buttonLayout: v } })}
-          options={[
-            { value: 'xbox', label: 'Xbox', hint: 'Bottom button confirms' },
-            { value: 'nintendo', label: 'Nintendo', hint: 'Right button confirms' }
-          ]}
-        />
+        <SchemaSegmented path="ui.buttonLayout" size="lg" />
         <div className="layout-preview">
           <span>
             <PadButton family={family} index={settings.ui.buttonLayout === 'nintendo' ? 1 : 0} /> Confirm

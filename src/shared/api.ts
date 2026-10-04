@@ -84,27 +84,33 @@ export interface RetroDeskApi {
     setOverlayActive(active: boolean): Promise<void>
   }
   /** Event subscriptions. Each returns an unsubscribe function. */
-  on: {
-    task(cb: (task: TaskProgress) => void): () => void
-    session(cb: (session: SessionInfo | null) => void): () => void
-    libraryChanged(cb: () => void): () => void
-    /** Overlay window: main asks the overlay to show (true) or hide (false). */
-    overlay(cb: (visible: boolean) => void): () => void
-    /** Settings changed (from any window). */
-    settingsChanged(cb: (settings: Settings) => void): () => void
-  }
+  on: { [K in EventName]: (cb: (payload: ApiEvents[K]) => void) => () => void }
 }
+
+/** Events pushed from main -> renderer, and the payload each carries. The single source for both ends. */
+export interface ApiEvents {
+  task: TaskProgress
+  session: SessionInfo | null
+  libraryChanged: void
+  /** Overlay window: main asks the overlay to show (true) or hide (false). */
+  overlay: boolean
+  /** Settings changed (from any window). */
+  settingsChanged: Settings
+}
+
+export type EventName = keyof ApiEvents
 
 export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? (T[K] extends unknown[] ? T[K] : DeepPartial<T[K]>) : T[K] }
 
-/** Event channel names pushed from main -> renderer via webContents.send. */
-export const EVENTS = {
-  task: 'event:task',
-  session: 'event:session',
-  libraryChanged: 'event:libraryChanged',
-  overlay: 'event:overlay',
-  settingsChanged: 'event:settingsChanged'
-} as const
+/** Fails to compile, naming the stragglers, when a list below leaves out part of the interface it mirrors. */
+type AssertAllListed<Missing extends never> = Missing
+
+/** Event names, used by preload to build `on` generically. */
+export const EVENT_NAMES = ['task', 'session', 'libraryChanged', 'overlay', 'settingsChanged'] as const satisfies readonly EventName[]
+export type AllEventsListed = AssertAllListed<Exclude<EventName, (typeof EVENT_NAMES)[number]>>
+
+/** Channel an event is pushed on via webContents.send. */
+export const eventChannel = (name: EventName): string => `event:${name}`
 
 /** Request namespaces/methods, used by preload to build the API proxy generically. */
 export const API_SHAPE = {
@@ -118,3 +124,4 @@ export const API_SHAPE = {
 } as const satisfies { [K in Exclude<keyof RetroDeskApi, 'on'>]: readonly (keyof RetroDeskApi[K])[] }
 
 export type ApiNamespace = keyof typeof API_SHAPE
+export type AllMethodsListed = AssertAllListed<{ [K in ApiNamespace]: Exclude<keyof RetroDeskApi[K], (typeof API_SHAPE)[K][number]> }[ApiNamespace]>

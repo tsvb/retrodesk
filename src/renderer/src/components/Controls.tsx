@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Check, ChevronRight } from 'lucide-react'
 import { useFocusable, useFocusGroup } from '../input/hooks'
-import { playSound } from '../lib/sound'
+import { feedback } from '../lib/feedback'
 import { Modal } from './Modal'
 
 /** Label + description on the left, control on the right. */
@@ -23,7 +23,7 @@ export function ToggleRow({ title, description, value, onChange, disabled }: { t
     disabled,
     label: value ? 'Turn off' : 'Turn on',
     onActivate: () => {
-      playSound('toggle')
+      feedback('toggle')
       onChange(!value)
     }
   })

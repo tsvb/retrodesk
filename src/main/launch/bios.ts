@@ -7,6 +7,7 @@ import { dirname, join } from 'path'
 import type { BiosDef, SystemDef } from '../../shared/types'
 import type { EmuRef } from '../emulators/keys'
 import { CORE_SYSTEM_ASSETS, coreFileBase } from '../emulators/retroarch'
+import { STANDALONE_DEFS } from '../emulators/standalone'
 
 /** Required files that can be substituted by another file of the same family (other regions / models). */
 const ALTERNATIVES: Record<string, string[]> = {
@@ -20,7 +21,7 @@ const ALTERNATIVES: Record<string, string[]> = {
 const BIOS_OPTIONAL: string[] = ['retroarch:pcsx_rearmed_libretro']
 
 /** Standalone emulators whose firmware is validated/provisioned by provisionStandalone() instead. */
-export const PROVISIONED_STANDALONES = new Set(['pcsx2', 'rpcs3', 'eden', 'xemu', 'vita3k'])
+export const PROVISIONED_STANDALONES = new Set(STANDALONE_DEFS.filter((d) => d.firmware?.length).map((d) => d.id))
 
 /** BIOS entries that are really core asset packs (auto-downloaded) mapped to the core that needs them. */
 function assetCoreFor(file: string): string | undefined {

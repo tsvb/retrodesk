@@ -1,5 +1,6 @@
 import { mkdirSync } from 'fs'
-import { join } from 'path'
+import { isAbsolute, join } from 'path'
+import { isUnder } from './library/util'
 import { getSettings } from './settings'
 
 export interface DataPaths {
@@ -34,4 +35,14 @@ export function getPaths(): DataPaths {
   }
   for (const dir of Object.values(p)) mkdirSync(dir, { recursive: true })
   return p
+}
+
+/**
+ * True for the data root, the configured ROM folders and anything inside them. The one rule for what the
+ * rdmedia:// protocol serves, what the shell may open and which artwork paths the library keeps.
+ */
+export function isManagedPath(p: string): boolean {
+  if (typeof p !== 'string' || !isAbsolute(p)) return false
+  const s = getSettings()
+  return [s.dataRoot, ...s.romFolders.map((f) => f.path)].some((r) => !!r && isAbsolute(r) && isUnder(p, r))
 }

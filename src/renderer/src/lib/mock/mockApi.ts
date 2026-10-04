@@ -1,4 +1,6 @@
 import type { DeepPartial, RetroDeskApi } from '@shared/api'
+import { deepMerge } from '@shared/merge'
+import { QUICK_ACTIONS } from '@shared/quickActions'
 import type {
   BiosStatus,
   EmulatorStatus,
@@ -53,16 +55,6 @@ function parseRaw(raw: string): { title: string; regions: string[]; tags: string
   return { title, regions, tags }
 }
 
-function deepMerge<T>(base: T, patch: unknown): T {
-  if (patch === undefined) return base
-  if (Array.isArray(patch) || patch === null || typeof patch !== 'object' || typeof base !== 'object' || base === null || Array.isArray(base)) {
-    return patch as T
-  }
-  const out: Record<string, unknown> = { ...(base as Record<string, unknown>) }
-  for (const [k, v] of Object.entries(patch as Record<string, unknown>)) out[k] = deepMerge(out[k], v)
-  return out as T
-}
-
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 const ROOT = 'C:\\Users\\you\\RetroDesk'
 
@@ -91,7 +83,7 @@ export function createMockApi(): RetroDeskApi {
     dataRoot: ROOT,
     romFolders: params.has('empty') || params.has('onboarding') ? [] : [{ path: 'D:\\Games\\ROMs' }, { path: 'E:\\Arcade', systemId: 'arcade' }],
     systemEmulator: {},
-    ui: { theme: 'midnight', accent: '#7c5cff', density: 'comfortable', sounds: true, startFullscreen: false, hideEmptySystems: true, buttonLayout: 'xbox' },
+    ui: { theme: 'midnight', accent: '#7c5cff', density: 'comfortable', sounds: true, haptics: true, startFullscreen: false, hideEmptySystems: true, buttonLayout: 'xbox' },
     retroarch: { shader: 'none', autoSaveState: true, autoLoadState: true, showFps: false, runAhead: false, rewind: false, integerScale: false, aspect: 'core', videoDriver: 'vulkan' },
     retroAchievements: { enabled: false, username: '', password: '', hardcore: false },
     hotkeys: { quickMenu: 'Control+Alt+Home', quickMenuCombo: [8, 9] },
@@ -365,13 +357,11 @@ export function createMockApi(): RetroDeskApi {
           changed()
           return
         }
-        if (action === 'fast_forward') session.fastForward = !session.fastForward
-        if (action === 'pause_toggle') session.paused = !session.paused
+        const def = QUICK_ACTIONS[action]
+        if (def.available && !def.available(session)) return
         if (action === 'resume') session.paused = false
-        if (action === 'fast_forward' || action === 'pause_toggle' || action === 'resume') emitSession()
-        if (action === 'slot_next') session.stateSlot = Math.min(9, session.stateSlot + 1)
-        if (action === 'slot_prev') session.stateSlot = Math.max(0, session.stateSlot - 1)
-        if (action === 'slot_next' || action === 'slot_prev') emitSession()
+        def.apply?.(session)
+        emitSession()
       }
     },
     settings: {

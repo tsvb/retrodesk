@@ -1,6 +1,8 @@
 // Shared data contract between the main process and the renderer.
 // Everything that crosses the IPC boundary is defined here and must stay JSON-serialisable.
 
+import type { SettingValue } from './settingsSchema'
+
 export type SystemId = string
 
 export type EmulatorRef =
@@ -87,8 +89,9 @@ export interface RomFolder {
   systemId?: SystemId
 }
 
-export type PerformanceMode = 'quiet' | 'balanced' | 'performance' | 'unchanged'
+export type PerformanceMode = SettingValue<'performance.inGameMode'>
 
+/** Choices and switches are declared in settingsSchema.ts; their types, defaults and validation come from there. */
 export interface Settings {
   /** First-run wizard completed. */
   onboarded: boolean
@@ -98,27 +101,29 @@ export interface Settings {
   /** Per-system default emulator: `retroarch:<core>` or `standalone:<id>`. */
   systemEmulator: Record<SystemId, string>
   ui: {
-    theme: 'midnight' | 'amoled' | 'light' | 'retro'
+    theme: SettingValue<'ui.theme'>
     accent: string
     /** Show the per-game cover grid as large tiles (10-foot) or compact. */
-    density: 'comfortable' | 'compact'
+    density: SettingValue<'ui.density'>
     sounds: boolean
+    /** Rumble the controller on UI feedback. */
+    haptics: boolean
     startFullscreen: boolean
     /** Show only systems that have games. */
     hideEmptySystems: boolean
     /** Gamepad face-button layout: 'xbox' => A confirms (bottom), 'nintendo' => swap A/B. */
-    buttonLayout: 'xbox' | 'nintendo'
+    buttonLayout: SettingValue<'ui.buttonLayout'>
   }
   retroarch: {
-    shader: 'none' | 'crt' | 'lcd' | 'sharp'
+    shader: SettingValue<'retroarch.shader'>
     autoSaveState: boolean
     autoLoadState: boolean
     showFps: boolean
     runAhead: boolean
     rewind: boolean
     integerScale: boolean
-    aspect: 'core' | '4:3' | '16:9' | 'stretch'
-    videoDriver: 'vulkan' | 'glcore' | 'd3d11' | 'd3d12'
+    aspect: SettingValue<'retroarch.aspect'>
+    videoDriver: SettingValue<'retroarch.videoDriver'>
   }
   retroAchievements: {
     enabled: boolean
@@ -139,7 +144,7 @@ export interface Settings {
   }
   scraping: {
     autoFetchArtwork: boolean
-    preferredRegion: 'USA' | 'Europe' | 'Japan' | 'World'
+    preferredRegion: SettingValue<'scraping.preferredRegion'>
   }
 }
 

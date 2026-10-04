@@ -1,23 +1,17 @@
 import { create } from 'zustand'
 import type { DeepPartial } from '@shared/api'
+import { deepMerge as merge } from '@shared/merge'
 import type { Settings } from '@shared/types'
 import { api } from '../api'
 import { hexToRgb } from '../lib/color'
-import { setSoundsEnabled } from '../lib/sound'
+import { setHapticsEnabled } from '../lib/feedback'
+import { setSoundPalette, setSoundsEnabled } from '../lib/sound'
 
 interface SettingsState {
   settings: Settings | null
   load(): Promise<Settings>
   /** Optimistically merges locally, then persists and adopts the backend's result. */
   update(patch: DeepPartial<Settings>): Promise<void>
-}
-
-function merge<T>(base: T, patch: unknown): T {
-  if (patch === undefined) return base
-  if (Array.isArray(patch) || patch === null || typeof patch !== 'object' || typeof base !== 'object' || base === null || Array.isArray(base)) return patch as T
-  const out: Record<string, unknown> = { ...(base as Record<string, unknown>) }
-  for (const [k, v] of Object.entries(patch as Record<string, unknown>)) out[k] = merge(out[k], v)
-  return out as T
 }
 
 export const useSettings = create<SettingsState>((set, get) => ({
@@ -58,6 +52,9 @@ export function applyAppearance(s: Settings): void {
   root.style.setProperty('--accent', s.ui.accent)
   root.style.setProperty('--accent-rgb', `${r} ${g} ${b}`)
   setSoundsEnabled(s.ui.sounds)
+  // The dot-matrix theme sounds like the handheld it looks like.
+  setSoundPalette(s.ui.theme === 'retro' ? 'chip' : 'soft')
+  setHapticsEnabled(s.ui.haptics)
 }
 
 /** Follow settings changes made by any window (main or overlay). Returns the unsubscribe function. */

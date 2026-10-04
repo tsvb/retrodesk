@@ -1,6 +1,6 @@
 import { app, BrowserWindow, screen, shell } from 'electron'
 import { join } from 'path'
-import { EVENTS } from '../shared/api'
+import { sendEvent } from './events'
 import { getSettings } from './settings'
 
 let mainWindow: BrowserWindow | null = null
@@ -128,7 +128,7 @@ export function setOverlayActive(active: boolean): void {
     win.setFocusable(false)
     win.blur()
   }
-  win.webContents.send(EVENTS.overlay, active)
+  sendEvent(win, 'overlay', active)
   for (const l of overlayListeners) l(active)
 }
 

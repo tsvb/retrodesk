@@ -10,7 +10,7 @@ import { VirtualGrid, type VirtualGridApi } from '../components/VirtualGrid'
 import { useActions, useFocusGroup } from '../input/hooks'
 import { systemColor } from '../lib/color'
 import { formatPlayTime, formatRelative, letterOf, plural } from '../lib/format'
-import { playSound } from '../lib/sound'
+import { feedback } from '../lib/feedback'
 import { systemById, useLibrary } from '../stores/library'
 import { useNav } from '../stores/nav'
 import { toast } from '../stores/session'
@@ -113,7 +113,7 @@ export function GameListScreen({ systemId }: { systemId: string }) {
       await useLibrary.getState().refreshEmulators()
       toast(`${system.name} is ready to play`, 'success')
     } catch (e) {
-      playSound('error')
+      feedback('error')
       toast(`Install failed: ${e instanceof Error ? e.message : String(e)}`, 'error')
     } finally {
       setInstalling(false)

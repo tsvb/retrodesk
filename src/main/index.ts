@@ -1,11 +1,11 @@
 import { app, dialog, ipcMain, net, protocol, shell, BrowserWindow } from 'electron'
 import { stat } from 'fs/promises'
-import { isAbsolute, join, resolve } from 'path'
+import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { API_SHAPE, type RetroDeskApi } from '../shared/api'
 import { MEDIA_SCHEME, pathFromMediaUrl } from '../shared/media'
 import { defaultSettings, getSettings, portableDataDir, updateSettings } from './settings'
-import { getPaths } from './paths'
+import { getPaths, isManagedPath } from './paths'
 import { createMainWindow, focusMainWindow, getMainWindow, setOverlayActive } from './windows'
 import { initLibrary, libraryHandlers, biosHandlers } from './library'
 import { initEmulators, emulatorsHandlers } from './emulators'
@@ -50,7 +50,7 @@ const systemHandlers: RetroDeskApi['system'] = {
   },
   async openPath(p) {
     // The UI only opens folders RetroDesk manages. Never hand the shell an arbitrary path (it would run an .exe).
-    if (typeof p !== 'string' || !isManagedPath(p)) return
+    if (!isManagedPath(p)) return
     const st = await stat(p).catch(() => null)
     if (st?.isDirectory()) await shell.openPath(p)
   },
@@ -122,15 +122,6 @@ function registerIpc(): void {
       })
     }
   }
-}
-
-/** True for the data root, the configured ROM folders and anything inside them. Nothing else is served or opened. */
-function isManagedPath(p: string): boolean {
-  if (!isAbsolute(p)) return false
-  const full = resolve(p).toLowerCase()
-  const s = getSettings()
-  const roots = [s.dataRoot, ...s.romFolders.map((f) => f.path)].filter((r) => r && isAbsolute(r)).map((r) => resolve(r).toLowerCase())
-  return roots.some((r) => full === r || full.startsWith(r.endsWith('\\') ? r : `${r}\\`))
 }
 
 function registerMediaProtocol(): void {

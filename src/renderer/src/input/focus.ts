@@ -1,4 +1,4 @@
-import { playSound } from '../lib/sound'
+import { feedback } from '../lib/feedback'
 import { HINT_ORDER, type Action, type ActionBinding, type ActionMap, type Direction, type Hint, type InputSource } from './types'
 
 /**
@@ -243,7 +243,7 @@ class FocusManager {
       return false
     }
     if (cur.opts.current.handleDirection?.(dir)) {
-      playSound('move')
+      feedback('move')
       this.emit()
       return true
     }
@@ -266,7 +266,7 @@ class FocusManager {
       if (mem && mem.scope === cur.scope && mem.el.isConnected && !mem.opts.current.disabled) target = mem
     }
     this.focus(target.id, { source })
-    playSound('move')
+    feedback('move')
     return true
   }
 

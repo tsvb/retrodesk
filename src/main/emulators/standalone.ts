@@ -1,5 +1,6 @@
 // Standalone emulators: release discovery, install (download + extract + portable trigger), argument templating,
-// ROM path resolution for folder-format games and BIOS/config provisioning.
+// ROM path resolution for folder-format games and BIOS/config provisioning. What each emulator needs is declared
+// in data/standalone-emulators.json; this file is the machinery that carries it out.
 import { existsSync } from 'fs'
 import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'fs/promises'
 import { basename, dirname, extname, join } from 'path'
@@ -12,6 +13,43 @@ export type ReleaseSource =
   | { type: 'github'; repo: string; tag?: string }
   | { type: 'forgejo'; api: string; repo: string }
   | { type: 'dolphin'; url: string }
+
+/** A BIOS / firmware / key file an emulator needs, and what to do with it. */
+export interface FirmwareItem {
+  /** Name the player knows it by; used in the "needs ..." message. */
+  label: string
+  /** Lets config values refer to the file found, as `{id}`. */
+  id?: string
+  /** Folders to look in, relative to the BIOS dir ('' is the BIOS dir itself). */
+  dirs?: string[]
+  /** Exact file name, or a case-insensitive pattern for the file name. */
+  name?: string
+  pattern?: string
+  /** A named search for what a name or pattern cannot express (see FINDERS). */
+  finder?: string
+  /** Use every match, not only the first. */
+  all?: boolean
+  /** Copy what was found here (relative to the exe dir; a trailing "/" means "into this folder"). */
+  copyTo?: string
+  /** missing: only files not there yet. newer: also when the source is newer. notInstalled: only until `installed` holds. */
+  copyWhen?: 'missing' | 'newer' | 'notInstalled'
+  /** How to tell the emulator already has it, relative to the exe dir. */
+  installed?: { anyOf?: string[]; nonEmptyDir?: string; dirNamed?: string; depth?: number }
+  required: boolean
+  /** Shown when it is missing. Placeholders: {bios}. */
+  message?: string
+  /** The emulator has to install the file itself: shown when it was found but is not installed. Placeholders: {file}. */
+  manual?: string
+}
+
+export interface ConfigEdit {
+  /** INI / TOML file relative to the exe dir. */
+  file: string
+  /** Values: {bios}, or {<firmware id>} for a found file (the entry is skipped when it was not found). */
+  set: { section: string; key: string; value: string; quote?: 'toml' }[]
+  /** A named edit for what `set` cannot express (see CONFIG_HOOKS). */
+  hook?: string
+}
 
 export interface StandaloneDef {
   id: string
@@ -28,12 +66,20 @@ export interface StandaloneDef {
   /** Args used by openEmulatorUi (no game). */
   uiArgs: string[]
   /** Files/dirs whose presence switches the emulator to portable mode. */
-  portable: { path: string; kind: 'file' | 'dir' }[]
+  portable: { path: string; kind: 'file' | 'dir'; content?: string }[]
   /** Paths (relative to install dir) holding user data; kept on uninstall. */
   userData: string[]
   needsVcRedist: boolean
   /** How Game.path is turned into the {rom} argument. */
   romKind: 'file' | 'ps3' | 'wiiu' | 'vita'
+  /** BIOS / firmware / keys checked and put in place before every launch. */
+  firmware?: FirmwareItem[]
+  /** Replaces the per-item messages with one listing everything missing. Placeholders: {missing} {bios}. */
+  missingMessage?: string
+  /** Settings written into the emulator's own config before every launch. */
+  config?: ConfigEdit
+  /** Extra downloads into the BIOS dir when the emulator is installed (best effort). */
+  postInstall?: { label: string; url: string; to: string; unless?: string[] }[]
   notes?: string
 }
 
@@ -115,8 +161,7 @@ export async function ensurePortable(def: StandaloneDef, exeDir: string): Promis
     const full = join(exeDir, p.path)
     if (existsSync(full)) continue
     if (p.kind === 'dir') await mkdir(full, { recursive: true })
-    else if (def.id === 'xemu') await writeFile(full, '[general]\nshow_welcome = false\n')
-    else await writeFile(full, '')
+    else await writeFile(full, p.content ?? '')
   }
 }
 
@@ -271,15 +316,6 @@ export function readIniValue(text: string, section: string, key: string): string
   return undefined
 }
 
-async function editFile(path: string, edit: (text: string) => string): Promise<void> {
-  const before = existsSync(path) ? await readFile(path, 'utf8') : ''
-  const after = edit(before)
-  if (after !== before) {
-    await mkdir(dirname(path), { recursive: true })
-    await writeFile(path, after)
-  }
-}
-
 /** TOML literal string (no escapes needed for Windows paths). */
 const tomlStr = (s: string) => (s.includes("'") ? JSON.stringify(s) : `'${s}'`)
 
@@ -318,100 +354,108 @@ export async function globFiles(dir: string, re: RegExp): Promise<string[]> {
   return entries.filter((e) => e.isFile() && re.test(e.name)).map((e) => join(dir, e.name))
 }
 
-function firstExisting(cands: string[]): string | undefined {
-  return cands.find((c) => existsSync(c))
+/** Searches a firmware item can name when a file name or pattern is not enough. */
+const FINDERS: Record<string, (biosDir: string) => Promise<string[]>> = {
+  ps2Bios: findPs2Bios
+}
+
+/** Config edits a `set` list cannot express. Given the config text and the exe dir. */
+const CONFIG_HOOKS: Record<string, (text: string, exeDir: string) => Promise<string>> = {
+  /** Keep the chosen PS2 BIOS if it is still there, else pick one (a .bin for preference). */
+  async pcsx2BiosFile(text, exeDir) {
+    const target = join(exeDir, 'bios')
+    const files = (await readdir(target).catch(() => [] as string[])).filter((f) => !f.startsWith('.'))
+    if (!files.length) return text
+    const current = readIniValue(text, 'Filenames', 'BIOS')
+    if (current && existsSync(join(target, current))) return text
+    return upsertIni(text, 'Filenames', 'BIOS', files.find((f) => /\.bin$/i.test(f)) ?? files[0]!)
+  }
+}
+
+const rel = (base: string, path: string): string => join(base, ...path.split('/').filter(Boolean))
+
+async function findFirmware(item: FirmwareItem, biosDir: string): Promise<string[]> {
+  let found: string[] = []
+  if (item.finder) found = (await FINDERS[item.finder]?.(biosDir)) ?? []
+  else {
+    for (const d of item.dirs ?? ['']) {
+      const dir = rel(biosDir, d)
+      if (item.name) {
+        if (existsSync(join(dir, item.name))) found.push(join(dir, item.name))
+      } else if (item.pattern) found.push(...(await globFiles(dir, new RegExp(item.pattern, 'i'))))
+    }
+  }
+  return item.all ? found : found.slice(0, 1)
+}
+
+async function isInstalled(item: FirmwareItem, exeDir: string): Promise<boolean> {
+  const i = item.installed
+  if (!i) return false
+  if (i.anyOf?.some((p) => existsSync(rel(exeDir, p)))) return true
+  if (i.nonEmptyDir && (await readdir(rel(exeDir, i.nonEmptyDir)).catch(() => [] as string[])).some((f) => !f.startsWith('.'))) return true
+  if (i.dirNamed && (await findDir(exeDir, i.dirNamed, i.depth ?? 3)) !== undefined) return true
+  return false
+}
+
+async function copyFirmware(item: FirmwareItem, files: string[], exeDir: string): Promise<void> {
+  if (!item.copyTo) return
+  const intoDir = item.copyTo.endsWith('/')
+  for (const src of files) {
+    const dst = intoDir ? join(rel(exeDir, item.copyTo), basename(src)) : rel(exeDir, item.copyTo)
+    const stale = item.copyWhen === 'newer' && existsSync(dst) && (await stat(src)).mtimeMs > (await stat(dst)).mtimeMs
+    if (existsSync(dst) && !stale) continue
+    await mkdir(dirname(dst), { recursive: true })
+    await copyFile(src, dst)
+  }
 }
 
 /**
- * Point a standalone emulator at RetroDesk's BIOS dir / copy what it needs, and check required firmware.
- * Called right before every launch (and is cheap when already done).
+ * Point a standalone emulator at RetroDesk's BIOS dir / copy what it needs, and check required firmware, as
+ * declared by the def's `firmware` and `config`. Called right before every launch (and is cheap when already done).
  */
 export async function provisionStandalone(def: StandaloneDef, exeDir: string, biosDir: string): Promise<ProvisionResult> {
-  switch (def.id) {
-    case 'pcsx2': {
-      const target = join(exeDir, 'bios')
-      await mkdir(target, { recursive: true })
-      for (const src of await findPs2Bios(biosDir)) {
-        const dst = join(target, basename(src))
-        if (!existsSync(dst)) await copyFile(src, dst)
-      }
-      const files = (await readdir(target).catch(() => [] as string[])).filter((f) => !f.startsWith('.'))
-      if (!files.length) return { ok: false, error: `PS2 needs a BIOS dump. Put your PS2 BIOS (e.g. SCPH-70012.bin) in ${join(biosDir, 'ps2')}.` }
-      const ini = join(exeDir, 'inis', 'PCSX2.ini')
-      await editFile(ini, (t) => {
-        let out = upsertIni(t, 'UI', 'SetupWizardIncomplete', 'false')
-        out = upsertIni(out, 'UI', 'ConfirmShutdown', 'false')
-        out = upsertIni(out, 'Folders', 'Bios', 'bios')
-        const current = readIniValue(out, 'Filenames', 'BIOS')
-        if (!current || !existsSync(join(target, current))) {
-          const preferred = files.find((f) => /\.bin$/i.test(f)) ?? files[0]!
-          out = upsertIni(out, 'Filenames', 'BIOS', preferred)
-        }
-        return out
-      })
-      return { ok: true }
+  const found: Record<string, string> = {}
+  const problems: { item: FirmwareItem; error: string }[] = []
+  for (const item of def.firmware ?? []) {
+    const files = await findFirmware(item, biosDir)
+    if (item.id && files[0]) found[item.id] = files[0]
+    let installed = await isInstalled(item, exeDir)
+    if (files.length && !(item.copyWhen === 'notInstalled' && installed)) {
+      await copyFirmware(item, files, exeDir)
+      if (item.copyTo) installed = await isInstalled(item, exeDir)
     }
-    case 'duckstation': {
-      await editFile(join(exeDir, 'settings.ini'), (t) => {
-        let out = upsertIni(t, 'Main', 'SetupWizardIncomplete', 'false')
-        out = upsertIni(out, 'Main', 'ConfirmPowerOff', 'false')
-        return upsertIni(out, 'BIOS', 'SearchDirectory', biosDir)
-      })
-      return { ok: true }
-    }
-    case 'xemu': {
-      const find = (name: string) => firstExisting([join(biosDir, name), join(biosDir, 'xbox', name)])
-      const mcpx = find('mcpx_1.0.bin')
-      const flash = (await globFiles(biosDir, /^complex_4627.*\.bin$/i))[0] ?? (await globFiles(join(biosDir, 'xbox'), /^complex_4627.*\.bin$/i))[0]
-      const hdd = find('xbox_hdd.qcow2')
-      const missing = [!mcpx && 'mcpx_1.0.bin', !flash && 'Complex_4627.bin', !hdd && 'xbox_hdd.qcow2'].filter(Boolean)
-      await editFile(join(exeDir, 'xemu.toml'), (t) => {
-        let out = upsertIni(t, 'general', 'show_welcome', 'false')
-        if (mcpx) out = upsertIni(out, 'sys.files', 'bootrom_path', tomlStr(mcpx))
-        if (flash) out = upsertIni(out, 'sys.files', 'flashrom_path', tomlStr(flash))
-        if (hdd) out = upsertIni(out, 'sys.files', 'hdd_path', tomlStr(hdd))
-        return out
-      })
-      if (missing.length) return { ok: false, error: `Xbox needs ${missing.join(', ')} in ${biosDir}.` }
-      return { ok: true }
-    }
-    case 'eden': {
-      const keysDir = join(exeDir, 'user', 'keys')
-      await mkdir(keysDir, { recursive: true })
-      for (const k of ['prod.keys', 'title.keys']) {
-        const src = firstExisting([join(biosDir, k), join(biosDir, 'switch', k)])
-        const dst = join(keysDir, k)
-        if (src && (!existsSync(dst) || (await stat(src)).mtimeMs > (await stat(dst)).mtimeMs)) await copyFile(src, dst)
-      }
-      if (!existsSync(join(keysDir, 'prod.keys'))) return { ok: false, error: `Switch games need your prod.keys. Put it in ${biosDir} (or ${join(biosDir, 'switch')}).` }
-      // Firmware install == copying the firmware NCAs into nand/system/Contents/registered (what Eden's installer does).
-      const fw = join(exeDir, 'user', 'nand', 'system', 'Contents', 'registered')
-      if (!(await readdir(fw).catch(() => [] as string[])).length) {
-        const ncas = await globFiles(join(biosDir, 'switch', 'firmware'), /\.nca$/i)
-        if (!ncas.length) {
-          return { ok: false, error: `Switch firmware is not installed. Put your firmware dump (*.nca files) in ${join(biosDir, 'switch', 'firmware')}, or install it from Eden (Tools > Install Firmware).` }
-        }
-        await mkdir(fw, { recursive: true })
-        for (const n of ncas) await copyFile(n, join(fw, basename(n)))
-      }
-      return { ok: true }
-    }
-    case 'rpcs3': {
-      const fwInstalled = existsSync(join(exeDir, 'dev_flash', 'vsh', 'module')) || existsSync(join(exeDir, 'dev_flash', 'sys', 'external'))
-      if (fwInstalled) return { ok: true }
-      const pup = firstExisting([join(biosDir, 'PS3UPDAT.PUP'), join(biosDir, 'ps3', 'PS3UPDAT.PUP')])
-      if (!pup) return { ok: false, error: `PS3 games need the official firmware. Download PS3UPDAT.PUP from playstation.com and put it in ${biosDir}.` }
-      return { ok: false, error: `PS3 firmware is not installed in RPCS3 yet. Open RPCS3 (Settings > Emulators) and use File > Install Firmware with ${pup}.` }
-    }
-    case 'vita3k': {
-      const pup = firstExisting([join(biosDir, 'PSVUPDAT.PUP'), join(biosDir, 'vita', 'PSVUPDAT.PUP')])
-      const installed = (await findDir(exeDir, 'vs0', 3)) !== undefined
-      if (!installed && !pup) return { ok: false, error: `Vita games need the official firmware. Put PSVUPDAT.PUP in ${biosDir}, then install it from Vita3K.` }
-      return { ok: true }
-    }
-    default:
-      return { ok: true }
+    const ready = item.installed ? installed || (files.length > 0 && !item.manual && !item.copyTo) : files.length > 0
+    if (ready || !item.required) continue
+    const text = files[0] && item.manual ? item.manual.replaceAll('{file}', files[0]) : (item.message ?? `${def.name} needs ${item.label} in {bios}.`)
+    problems.push({ item, error: text.replaceAll('{bios}', biosDir) })
   }
+
+  if (def.config) {
+    const cfg = def.config
+    const hook = cfg.hook ? CONFIG_HOOKS[cfg.hook] : undefined
+    const before = existsSync(rel(exeDir, cfg.file)) ? await readFile(rel(exeDir, cfg.file), 'utf8') : ''
+    let after = before
+    for (const e of cfg.set) {
+      let skip = false
+      const value = e.value.replace(/\{(\w+)\}/g, (m, k: string) => {
+        if (k === 'bios') return biosDir
+        if (found[k] === undefined) skip = true
+        return found[k] ?? m
+      })
+      if (!skip) after = upsertIni(after, e.section, e.key, e.quote === 'toml' ? tomlStr(value) : value)
+    }
+    if (hook) after = await hook(after, exeDir)
+    if (after !== before) {
+      await mkdir(dirname(rel(exeDir, cfg.file)), { recursive: true })
+      await writeFile(rel(exeDir, cfg.file), after)
+    }
+  }
+
+  if (!problems.length) return { ok: true }
+  if (def.missingMessage) {
+    return { ok: false, error: def.missingMessage.replaceAll('{missing}', problems.map((p) => p.item.label).join(', ')).replaceAll('{bios}', biosDir) }
+  }
+  return { ok: false, error: problems[0]!.error }
 }
 
 async function findDir(root: string, name: string, depth: number): Promise<string | undefined> {
@@ -431,17 +475,15 @@ async function findDir(root: string, name: string, depth: number): Promise<strin
   return undefined
 }
 
-/** Extra files fetched when installing an emulator (e.g. xemu's prebuilt HDD image into the BIOS dir). */
+/** Extra files fetched into the BIOS dir when installing an emulator (e.g. xemu's prebuilt HDD image). Best effort. */
 export async function postInstall(def: StandaloneDef, paths: InstallPaths, task: ProgressSink, signal?: AbortSignal): Promise<void> {
-  if (def.id === 'xemu') {
-    const hdd = join(paths.bios, 'xbox_hdd.qcow2')
-    if (!existsSync(hdd) && !existsSync(join(paths.bios, 'xbox', 'xbox_hdd.qcow2'))) {
-      task.update(-1, 'Downloading Xbox HDD image')
-      try {
-        await downloadTrusted('https://github.com/xemu-project/xemu-dashboard/releases/latest/download/xbox_hdd.qcow2', hdd, { signal, onProgress: (r, t) => task.update(t ? r / t : -1, downloadDetail(r, t)) })
-      } catch (e) {
-        console.warn('[emulators] xbox_hdd.qcow2 download failed', e)
-      }
+  for (const d of def.postInstall ?? []) {
+    if ([d.to, ...(d.unless ?? [])].some((p) => existsSync(rel(paths.bios, p)))) continue
+    task.update(-1, `Downloading ${d.label}`)
+    try {
+      await downloadTrusted(d.url, rel(paths.bios, d.to), { signal, onProgress: (r, t) => task.update(t ? r / t : -1, downloadDetail(r, t)) })
+    } catch (e) {
+      console.warn(`[emulators] ${d.label} download failed`, e)
     }
   }
 }

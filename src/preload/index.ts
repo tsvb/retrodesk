@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import { API_SHAPE, EVENTS, type RetroDeskApi } from '../shared/api'
+import { API_SHAPE, EVENT_NAMES, eventChannel, type RetroDeskApi } from '../shared/api'
 
 function subscribe<T>(channel: string) {
   return (cb: (payload: T) => void) => {
@@ -17,13 +17,7 @@ for (const [ns, methods] of Object.entries(API_SHAPE)) {
   for (const m of methods) group[m] = (...args) => ipcRenderer.invoke(`${ns}:${m}`, ...args)
   api[ns] = group
 }
-api.on = {
-  task: subscribe(EVENTS.task),
-  session: subscribe(EVENTS.session),
-  libraryChanged: subscribe(EVENTS.libraryChanged),
-  overlay: subscribe(EVENTS.overlay),
-  settingsChanged: subscribe(EVENTS.settingsChanged)
-} satisfies RetroDeskApi['on']
+api.on = Object.fromEntries(EVENT_NAMES.map((name) => [name, subscribe(eventChannel(name))]))
 
 contextBridge.exposeInMainWorld('retrodesk', api as unknown as RetroDeskApi)
 // Drag-and-drop: File objects no longer expose .path; let the renderer resolve it.

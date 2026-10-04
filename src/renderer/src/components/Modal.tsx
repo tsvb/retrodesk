@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { FocusScope, useActions } from '../input/hooks'
-import { playSound } from '../lib/sound'
+import { feedback } from '../lib/feedback'
 import { Button } from './Button'
 
 interface ModalProps {
@@ -28,7 +28,7 @@ export function Modal(props: ModalProps) {
 function ModalInner({ title, description, onClose, children, footer, size = 'md', closeLabel = 'Close', className = '' }: ModalProps) {
   useActions({ back: { label: closeLabel, run: onClose } })
   useEffect(() => {
-    playSound('open')
+    feedback('open')
   }, [])
   return (
     <div className="modal" role="dialog" aria-modal="true" aria-label={title}>

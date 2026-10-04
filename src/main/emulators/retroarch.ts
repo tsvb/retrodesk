@@ -2,6 +2,9 @@
 import { existsSync } from 'fs'
 import { mkdir, readdir, rename, rm, writeFile } from 'fs/promises'
 import { join } from 'path'
+import { prettifyCore } from '../../shared/emulators'
+import { hotkeyBindings, XI } from '../../shared/quickActions'
+import { retroArchCfgFromSettings, settingOptions } from '../../shared/settingsSchema'
 import type { Settings } from '../../shared/types'
 import { coreUrl, downloadTrusted, fetchText, fileSize, lastModifiedToVersion, retroArchLatestStable, retroArchUrl, USER_AGENT } from './download'
 import { extractArchive, findFile, moveMerge, singleTopFolder } from './extract'
@@ -87,13 +90,7 @@ const CORE_NAMES: Record<string, string> = {
 
 export function coreDisplayName(core: string): string {
   const base = coreFileBase(core).replace(/_libretro$/, '')
-  return (
-    CORE_NAMES[base] ??
-    base
-      .split(/[_-]/)
-      .map((w) => (w.length <= 3 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
-      .join(' ')
-  )
+  return CORE_NAMES[base] ?? prettifyCore(base)
 }
 
 /** Asset packs some cores need inside system_directory (= our BIOS dir). */
@@ -202,38 +199,16 @@ export async function ensureCoreSystemAssets(core: string, paths: Pick<RaPaths, 
 // Configuration
 // ---------------------------------------------------------------------------------------------
 
-/** Preset candidates per shader setting, best first (paths relative to the RetroArch dir). */
-export const SHADER_CANDIDATES: Record<Exclude<Settings['retroarch']['shader'], 'none'>, string[]> = {
-  crt: ['shaders/shaders_slang/crt/crt-geom.slangp', 'shaders/shaders_slang/crt/crt-easymode.slangp', 'shaders/shaders_slang/crt/crt-royale.slangp', 'shaders/shaders_slang/crt/crt-lottes.slangp'],
-  lcd: ['shaders/shaders_slang/handheld/lcd-grid-v2.slangp', 'shaders/shaders_slang/handheld/lcd3x.slangp', 'shaders/shaders_slang/handheld/lcd1x.slangp'],
-  sharp: [
-    'shaders/shaders_slang/pixel-art-scaling/sharp-bilinear.slangp',
-    'shaders/shaders_slang/pixel-art-scaling/sharp-bilinear-simple.slangp',
-    'shaders/shaders_slang/interpolation/sharp-bilinear.slangp'
-  ]
-}
-
 export function resolveShaderPreset(dir: string, shader: Settings['retroarch']['shader'], exists: (p: string) => boolean = existsSync): string | undefined {
   if (shader === 'none') return undefined
-  for (const rel of SHADER_CANDIDATES[shader] ?? []) {
+  // Candidates are declared with the shader setting's options, best first.
+  for (const rel of settingOptions('retroarch.shader').find((o) => o.value === shader)?.presets ?? []) {
     const p = join(dir, ...rel.split('/'))
     if (exists(p)) return p
   }
   return undefined
 }
 
-const ASPECT_INDEX: Record<Settings['retroarch']['aspect'], string> = {
-  '4:3': '0',
-  '16:9': '1',
-  core: '22', // ASPECT_RATIO_CORE
-  stretch: '24' // ASPECT_RATIO_FULL
-}
-
-/**
- * RetroArch XInput joypad driver button indices (input/drivers_joypad/xinput_joypad.c button_index_to_bitmap_code):
- * 0=A 1=B 2=X 3=Y 4=LB 5=RB 6=Start 7=Back 8=L3 9=R3 10=Guide; axes +4=LT +5=RT.
- */
-const XI = { A: '0', B: '1', X: '2', Y: '3', LB: '4', RB: '5', START: '6', BACK: '7', L3: '8', R3: '9' } as const
 /** W3C Standard Gamepad indices used by Settings.hotkeys.quickMenuCombo. */
 const STD = { BACK: 8, START: 9, L3: 10, R3: 11 } as const
 
@@ -296,26 +271,22 @@ export function buildRetroArchConfig({ settings, paths, shaderPath, uiMode }: Ra
     log_to_file_timestamp: 'false',
     log_dir: join(dir, 'logs'),
 
+    // Everything the In-game settings map to directly (video driver, aspect, scaling, FPS, quick resume, run-ahead).
+    ...retroArchCfgFromSettings(settings),
+
     // Video: borderless fullscreen so the always-on-top overlay can draw over the game.
-    video_driver: ra.videoDriver,
     video_fullscreen: 'true',
     video_windowed_fullscreen: 'true',
     video_vsync: 'true',
-    video_scale_integer: b(ra.integerScale),
-    aspect_ratio_index: ASPECT_INDEX[ra.aspect] ?? '22',
     video_shader_enable: b(!!shaderPath),
     video_gpu_screenshot: 'true',
-    fps_show: b(ra.showFps),
 
     // Save states / quick resume
-    savestate_auto_save: b(ra.autoSaveState),
-    savestate_auto_load: b(ra.autoLoadState),
     savestate_auto_index: 'false',
     savestate_thumbnail_enable: 'true',
     state_slot: '0',
 
     // Latency / rewind
-    run_ahead_enabled: b(ra.runAhead),
     run_ahead_frames: '1',
     run_ahead_secondary_instance: 'true',
     rewind_enable: b(ra.rewind && !(cheevos.enabled && cheevos.hardcore)),
@@ -327,18 +298,9 @@ export function buildRetroArchConfig({ settings, paths, shaderPath, uiMode }: Ra
     input_enable_hotkey_btn: XI.BACK,
     input_enable_hotkey_axis: 'nul',
     input_hotkey_block_delay: '5',
-    input_save_state_btn: XI.RB,
-    input_save_state_axis: 'nul',
-    input_load_state_btn: XI.LB,
-    input_load_state_axis: 'nul',
-    input_toggle_fast_forward_btn: 'nul',
-    input_toggle_fast_forward_axis: '+5', // RT
-    input_state_slot_increase_btn: 'h0right',
-    input_state_slot_decrease_btn: 'h0left',
-    input_screenshot_btn: XI.Y,
-    input_menu_toggle_btn: XI.X,
+    ...hotkeyBindings(),
     input_exit_emulator_btn: comboUsesBackStart ? 'nul' : XI.START,
-    input_rewind_axis: ra.rewind ? '+4' : 'nul', // LT
+    input_rewind_axis: ra.rewind ? XI.LT : 'nul',
     input_menu_toggle_gamepad_combo: comboUsesSticks ? '0' : '2', // L3+R3 as a no-modifier fallback
     input_quit_gamepad_combo: '0',
     menu_swap_ok_cancel_buttons: b(settings.ui.buttonLayout === 'nintendo'),

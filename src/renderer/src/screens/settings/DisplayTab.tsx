@@ -1,19 +1,22 @@
 import { Check } from 'lucide-react'
+import { settingOptions } from '@shared/settingsSchema'
 import type { Settings } from '@shared/types'
-import { Segmented, SettingRow, ToggleRow } from '../../components/Controls'
+import { SchemaSetting } from '../../components/SchemaSetting'
 import { useFocusable, useFocusGroup } from '../../input/hooks'
-import { playSound } from '../../lib/sound'
+import { feedback } from '../../lib/feedback'
 import { useSettings, useSettingsValue } from '../../stores/settings'
 import { Section } from './Settings'
 
 type Theme = Settings['ui']['theme']
 
-const THEMES: { value: Theme; label: string; colors: [string, string, string] }[] = [
-  { value: 'midnight', label: 'Midnight', colors: ['#0c0a1c', '#1b1838', '#f1eefc'] },
-  { value: 'amoled', label: 'AMOLED black', colors: ['#000000', '#121217', '#f6f6f8'] },
-  { value: 'light', label: 'Daylight', colors: ['#e9e7f2', '#ffffff', '#16132b'] },
-  { value: 'retro', label: 'Dot matrix', colors: ['#0f150d', '#26341f', '#dff3b4'] }
-]
+/** Preview swatches (background, surface, text) for each theme declared in the settings schema. */
+const THEME_COLORS: Record<Theme, [string, string, string]> = {
+  midnight: ['#0c0a1c', '#1b1838', '#f1eefc'],
+  amoled: ['#000000', '#121217', '#f6f6f8'],
+  light: ['#e9e7f2', '#ffffff', '#16132b'],
+  retro: ['#0f150d', '#26341f', '#dff3b4']
+}
+const THEMES = settingOptions('ui.theme').map((t) => ({ value: t.value, label: t.label, colors: THEME_COLORS[t.value] }))
 
 export const ACCENTS = ['#7c5cff', '#ff4f8b', '#ff8a3d', '#f5c400', '#2fd39a', '#25b9f0', '#4c6fff', '#e5484d']
 
@@ -39,20 +42,11 @@ export function DisplayTab() {
         </div>
       </Section>
       <Section title="Layout">
-        <SettingRow title="Game grid density" description="Comfortable is sized for a TV across the room; compact fits more covers on a desk monitor.">
-          <Segmented
-            group="density"
-            value={s.ui.density}
-            onChange={(v) => void update({ ui: { density: v } })}
-            options={[
-              { value: 'comfortable', label: 'Comfortable' },
-              { value: 'compact', label: 'Compact' }
-            ]}
-          />
-        </SettingRow>
-        <ToggleRow title="Hide systems without games" value={s.ui.hideEmptySystems} onChange={(v) => void update({ ui: { hideEmptySystems: v } })} />
-        <ToggleRow title="Start in full screen" description="Recommended on a TV. F11 switches at any time." value={s.ui.startFullscreen} onChange={(v) => void update({ ui: { startFullscreen: v } })} />
-        <ToggleRow title="Interface sounds" description="Soft clicks when moving and selecting." value={s.ui.sounds} onChange={(v) => void update({ ui: { sounds: v } })} />
+        <SchemaSetting path="ui.density" />
+        <SchemaSetting path="ui.hideEmptySystems" />
+        <SchemaSetting path="ui.startFullscreen" />
+        <SchemaSetting path="ui.sounds" />
+        <SchemaSetting path="ui.haptics" />
       </Section>
     </>
   )
@@ -82,7 +76,7 @@ function Swatch({ color, selected, onSelect }: { color: string; selected: boolea
     group: 'accents',
     label: 'Use colour',
     onActivate: () => {
-      playSound('toggle')
+      feedback('toggle')
       onSelect()
     }
   })

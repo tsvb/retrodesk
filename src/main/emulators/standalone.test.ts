@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { expandArgs, getStandaloneDef, parseSfo, provisionStandalone, readIniValue, resolveRom, STANDALONE_DEFS, titleIdFromName, upsertIni } from './standalone'
+import { ensurePortable, expandArgs, getStandaloneDef, parseSfo, provisionStandalone, readIniValue, resolveRom, STANDALONE_DEFS, titleIdFromName, upsertIni } from './standalone'
 import { parseEmulatorKey, resolveGameRef } from './keys'
 import type { SystemDef } from '../../shared/types'
 
@@ -154,6 +154,43 @@ describe('provisioning', () => {
     const toml = readFileSync(join(exeDir, 'xemu.toml'), 'utf8')
     expect(readIniValue(toml, 'sys.files', 'bootrom_path')).toBe(join(bios, 'mcpx_1.0.bin'))
     expect(readIniValue(toml, 'sys.files', 'flashrom_path')).toBe(join(bios, 'Complex_4627v1.03.bin'))
+  })
+  it('points DuckStation at the BIOS dir from its declared config', async () => {
+    const bios = join(dir, 'bios4')
+    const exeDir = join(dir, 'duck')
+    mkdirSync(exeDir, { recursive: true })
+    expect((await provisionStandalone(getStandaloneDef('duckstation')!, exeDir, bios)).ok).toBe(true)
+    const ini = readFileSync(join(exeDir, 'settings.ini'), 'utf8')
+    expect(readIniValue(ini, 'BIOS', 'SearchDirectory')).toBe(bios)
+    expect(readIniValue(ini, 'Main', 'ConfirmPowerOff')).toBe('false')
+  })
+  it('tells apart missing PS3 firmware, firmware to install by hand, and installed firmware', async () => {
+    const bios = join(dir, 'bios5')
+    const exeDir = join(dir, 'rpcs3')
+    mkdirSync(bios, { recursive: true })
+    mkdirSync(exeDir, { recursive: true })
+    const rpcs3 = getStandaloneDef('rpcs3')!
+    expect((await provisionStandalone(rpcs3, exeDir, bios)).error).toMatch(/playstation\.com/)
+    writeFileSync(join(bios, 'PS3UPDAT.PUP'), '')
+    expect((await provisionStandalone(rpcs3, exeDir, bios)).error).toContain(`Install Firmware with ${join(bios, 'PS3UPDAT.PUP')}`)
+    mkdirSync(join(exeDir, 'dev_flash', 'vsh', 'module'), { recursive: true })
+    expect((await provisionStandalone(rpcs3, exeDir, bios)).ok).toBe(true)
+  })
+  it('accepts Vita firmware that is either dumped or already installed', async () => {
+    const bios = join(dir, 'bios6')
+    const exeDir = join(dir, 'vita3k')
+    mkdirSync(join(bios, 'vita'), { recursive: true })
+    mkdirSync(exeDir, { recursive: true })
+    const vita = getStandaloneDef('vita3k')!
+    expect((await provisionStandalone(vita, exeDir, bios)).error).toMatch(/PSVUPDAT\.PUP/)
+    writeFileSync(join(bios, 'vita', 'PSVUPDAT.PUP'), '')
+    expect((await provisionStandalone(vita, exeDir, bios)).ok).toBe(true)
+  })
+  it('creates portable markers with their declared content', async () => {
+    const exeDir = join(dir, 'xemu-portable')
+    mkdirSync(exeDir, { recursive: true })
+    await ensurePortable(getStandaloneDef('xemu')!, exeDir)
+    expect(readFileSync(join(exeDir, 'xemu.toml'), 'utf8')).toContain('show_welcome = false')
   })
   it('installs Switch keys + firmware NCAs into Eden', async () => {
     const bios = join(dir, 'bios3')
