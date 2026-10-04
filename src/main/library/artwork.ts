@@ -1,7 +1,9 @@
+import { createHash } from 'crypto'
 import { copyFile, mkdir, readFile, rename, stat, writeFile } from 'fs/promises'
 import { dirname, extname, join } from 'path'
 import type { Game, MediaKind, Settings } from '../../shared/types'
 import { getSystemDef } from '../systems'
+import { createLimiter } from './limiter'
 import { appIdFromPath, findLocalSteamArt } from './steam'
 import { matchKey, parseRomName } from './titles'
 import { errMsg, mapLimit, mediaFileName, sleep, thumbnailSafeName } from './util'
@@ -10,7 +12,8 @@ import { errMsg, mapLimit, mediaFileName, sleep, thumbnailSafeName } from './uti
  * Artwork from libretro-thumbnails (no API key) and Steam's CDN / local cache.
  *
  * Layout: <media>/<systemId>/<kind>/<rawName>.png   (Steam: <media>/steam/<kind>/<appid>.jpg)
- * Directory listings of thumbnails.libretro.com are cached for 24h in <media>/_index/<Folder>.json.
+ * Directory listings of thumbnails.libretro.com are cached for 24h in <media>/_index/<Folder>.json, artwork they
+ * do not have in <media>/_index/misses.json.
  */
 
 export const THUMBNAILS_BASE = 'https://thumbnails.libretro.com'
@@ -96,29 +99,46 @@ export function thumbnailUrl(folder: string, kind: MediaKind, name: string): str
   return `${THUMBNAILS_BASE}/${encodeURIComponent(folder)}/${KIND_DIRS[kind]}/${encodeURIComponent(name)}.png`
 }
 
+/** Bump when the cached fields change meaning (including any change to matchKey): older files are rebuilt. */
+const INDEX_FORMAT = 2
+
 interface IndexFile {
+  v?: number
   fetchedAt: number
   kinds: Partial<Record<string, string[]>>
+  /** matchKey of each name, same order ('' for none): loading a listing then skips parseRomName over every name. */
+  keys?: Partial<Record<string, string[]>>
+  /** Hash of each listing. Artwork misses are recorded against it, so they expire when the listing changes. */
+  versions?: Partial<Record<string, string>>
 }
 
 export interface ThumbIndex {
   names: string[]
   exact: Map<string, string>
   byKey: Map<string, string[]>
+  /** matchKey per name (parallel to `names`). */
+  keys: string[]
+  version: string
 }
 
-export function buildThumbIndex(names: string[]): ThumbIndex {
+export function listingVersion(names: string[]): string {
+  return createHash('sha1').update(names.join('\n')).digest('hex').slice(0, 16)
+}
+
+/** Lookup tables for a listing. `keys`/`version` come from the on-disk cache when known (computing keys is the slow part). */
+export function buildThumbIndex(names: string[], keys?: string[], version?: string): ThumbIndex {
+  const ks = keys && keys.length === names.length ? keys : names.map((n) => matchKey(n))
   const exact = new Map<string, string>()
   const byKey = new Map<string, string[]>()
-  for (const n of names) {
+  names.forEach((n, i) => {
     exact.set(n.toLowerCase(), n)
-    const k = matchKey(n)
-    if (!k) continue
+    const k = ks[i]
+    if (!k) return
     const list = byKey.get(k)
     if (list) list.push(n)
     else byKey.set(k, [n])
-  }
-  return { names, exact, byKey }
+  })
+  return { names, exact, byKey, keys: ks, version: version ?? listingVersion(names) }
 }
 
 /** Per-run cache of listings with on-disk 24h cache (stale cache is used if the network fails). */
@@ -145,36 +165,110 @@ export class LibretroIndexCache {
     return join(this.indexDir, `${mediaFileName(folder)}.json`)
   }
 
+  /** The cached file. One from an older format keeps its names (still usable) but loses the derived fields. */
   private async readFile(folder: string): Promise<IndexFile | undefined> {
     try {
       const data = JSON.parse(await readFile(this.fileFor(folder), 'utf8')) as IndexFile
-      return typeof data.fetchedAt === 'number' && typeof data.kinds === 'object' ? data : undefined
+      if (typeof data.fetchedAt !== 'number' || typeof data.kinds !== 'object' || !data.kinds) return undefined
+      if (data.v !== INDEX_FORMAT) return { v: INDEX_FORMAT, fetchedAt: data.fetchedAt, kinds: data.kinds, keys: {}, versions: {} }
+      return data
     } catch {
       return undefined
     }
   }
 
+  private static fromFile(data: IndexFile, dirName: string): ThumbIndex | undefined {
+    const names = data.kinds[dirName]
+    return names ? buildThumbIndex(names, data.keys?.[dirName], data.versions?.[dirName]) : undefined
+  }
+
+  private async save(folder: string, dirName: string, idx: ThumbIndex, fetchedAt: number): Promise<void> {
+    // Re-read before writing: other kinds of the same folder may have been saved meanwhile.
+    const latest = await this.readFile(folder)
+    const fresh: IndexFile = latest && Date.now() - latest.fetchedAt < INDEX_TTL_MS ? latest : { v: INDEX_FORMAT, fetchedAt, kinds: {} }
+    fresh.kinds[dirName] = idx.names
+    fresh.keys = { ...fresh.keys, [dirName]: idx.keys }
+    fresh.versions = { ...fresh.versions, [dirName]: idx.version }
+    await mkdir(this.indexDir, { recursive: true })
+    const tmp = `${this.fileFor(folder)}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`
+    await writeFile(tmp, JSON.stringify(fresh))
+    await rename(tmp, this.fileFor(folder))
+  }
+
   private async load(folder: string, kind: MediaKind): Promise<ThumbIndex | undefined> {
     const dirName = KIND_DIRS[kind]
     const cached = await this.readFile(folder)
-    const cachedNames = cached?.kinds[dirName]
-    if (cached && cachedNames && Date.now() - cached.fetchedAt < INDEX_TTL_MS) return buildThumbIndex(cachedNames)
+    const cachedIdx = cached && LibretroIndexCache.fromFile(cached, dirName)
+    if (cached && cachedIdx && Date.now() - cached.fetchedAt < INDEX_TTL_MS) {
+      // Written by an older version: store the keys computed just now so the next run can skip that work.
+      if (!cached.keys?.[dirName]) await this.save(folder, dirName, cachedIdx, cached.fetchedAt).catch(() => undefined)
+      return cachedIdx
+    }
     try {
       const html = await this.fetchListing(`${THUMBNAILS_BASE}/${encodeURIComponent(folder)}/${dirName}/`)
-      const names = parseListing(html)
-      // Re-read before writing: other kinds of the same folder may have been saved meanwhile.
-      const latest = (await this.readFile(folder)) ?? { fetchedAt: Date.now(), kinds: {} }
-      const fresh = latest.fetchedAt && Date.now() - latest.fetchedAt < INDEX_TTL_MS ? latest : { fetchedAt: Date.now(), kinds: {} }
-      fresh.kinds[dirName] = names
-      await mkdir(this.indexDir, { recursive: true })
-      const tmp = `${this.fileFor(folder)}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`
-      await writeFile(tmp, JSON.stringify(fresh))
-      await rename(tmp, this.fileFor(folder))
-      return buildThumbIndex(names)
+      const idx = buildThumbIndex(parseListing(html))
+      await this.save(folder, dirName, idx, Date.now())
+      return idx
     } catch (e) {
       this.errors.push(`${folder}/${dirName}: ${errMsg(e)}`)
-      return cachedNames ? buildThumbIndex(cachedNames) : undefined
+      return cachedIdx
     }
+  }
+}
+
+// ---------------------------------------------------------------- misses
+
+const MISS_TTL_MS = 30 * 24 * 60 * 60 * 1000
+
+/**
+ * Game artwork libretro does not have, persisted in <media>/_index/misses.json so "fetch missing" does not search
+ * for it again on every run. An entry holds the version of the listing it was checked against: it stops counting
+ * once that listing changes (new thumbnails were added), and after 30 days regardless.
+ */
+export class ArtworkMissCache {
+  private entries = new Map<string, [version: string, at: number]>()
+  private dirty = false
+
+  constructor(private readonly file: string) {}
+
+  /** What was searched for: the same game searched under a new name (e.g. arcade names loaded) is a new search. */
+  static key(folder: string, kind: MediaKind, names: string[], title: string): string {
+    return createHash('sha1').update([folder, kind, title, ...names].join('\u0000')).digest('hex').slice(0, 20)
+  }
+
+  async load(): Promise<void> {
+    try {
+      const data = JSON.parse(await readFile(this.file, 'utf8')) as Record<string, [string, number]>
+      const now = Date.now()
+      for (const [k, v] of Object.entries(data)) {
+        if (Array.isArray(v) && typeof v[0] === 'string' && typeof v[1] === 'number' && now - v[1] < MISS_TTL_MS) this.entries.set(k, [v[0], v[1]])
+      }
+    } catch {
+      /* none yet */
+    }
+  }
+
+  has(key: string, version: string): boolean {
+    const e = this.entries.get(key)
+    return !!e && e[0] === version && Date.now() - e[1] < MISS_TTL_MS
+  }
+
+  add(key: string, version: string): void {
+    this.entries.set(key, [version, Date.now()])
+    this.dirty = true
+  }
+
+  delete(key: string): void {
+    if (this.entries.delete(key)) this.dirty = true
+  }
+
+  async save(): Promise<void> {
+    if (!this.dirty) return
+    this.dirty = false
+    await mkdir(dirname(this.file), { recursive: true })
+    const tmp = `${this.file}.${process.pid}.tmp`
+    await writeFile(tmp, JSON.stringify(Object.fromEntries(this.entries)))
+    await rename(tmp, this.file)
   }
 }
 
@@ -270,6 +364,11 @@ export async function loadArcadeNames(indexDir: string, allowNetwork: boolean): 
 
 // ---------------------------------------------------------------- runner
 
+/** Games worked on at once: file checks and matching, which are cheap. Downloads are bounded separately. */
+const GAME_CONCURRENCY = 12
+/** Image downloads in flight for the whole run; a game's boxart, snap and title download in parallel within it. */
+const DOWNLOAD_CONCURRENCY = 10
+
 export interface ArtworkOptions {
   mediaDir: string
   preferredRegion?: Region
@@ -284,6 +383,20 @@ export interface ArtworkOptions {
   isServable?: (p: string) => boolean
   /** Injected for tests. */
   index?: LibretroIndexCache
+  /** Injected for tests (default: <mediaDir>/_index/misses.json). */
+  misses?: ArtworkMissCache
+  /** Injected for tests (default: downloadFile). */
+  download?: (url: string, dest: string) => Promise<boolean>
+}
+
+/** State shared by every game of one fetchArtworkForGames call. */
+interface Run {
+  opts: ArtworkOptions
+  index: LibretroIndexCache
+  misses: ArtworkMissCache
+  res: ArtworkResult
+  /** Download through the run's shared connection limit. */
+  download: (url: string, dest: string) => Promise<boolean>
 }
 
 export interface ArtworkResult {
@@ -328,7 +441,7 @@ async function usableExisting(current: string | undefined, dest: string, opts: A
   }
 }
 
-async function steamArtwork(game: Game, opts: ArtworkOptions, res: ArtworkResult): Promise<Game['media']> {
+async function steamArtwork(game: Game, { opts, res, download }: Run): Promise<Game['media']> {
   const appid = appIdFromPath(game.path)
   const media: Game['media'] = { ...game.media }
   if (!appid) return media
@@ -360,7 +473,7 @@ async function steamArtwork(game: Game, opts: ArtworkOptions, res: ArtworkResult
     outer: for (const f of step.files) {
       for (const cdn of STEAM_CDNS) {
         try {
-          if (await downloadFile(`${cdn}/${appid}/${f}`, dest)) {
+          if (await download(`${cdn}/${appid}/${f}`, dest)) {
             media[step.kind] = dest
             res.downloaded++
             break outer
@@ -374,7 +487,7 @@ async function steamArtwork(game: Game, opts: ArtworkOptions, res: ArtworkResult
   return media
 }
 
-async function libretroArtwork(game: Game, opts: ArtworkOptions, index: LibretroIndexCache, res: ArtworkResult): Promise<Game['media']> {
+async function libretroArtwork(game: Game, { opts, index, misses, res, download }: Run): Promise<Game['media']> {
   const media: Game['media'] = { ...game.media }
   const sys = getSystemDef(game.systemId)
   const folder = sys?.thumbnailsFolder
@@ -384,41 +497,58 @@ async function libretroArtwork(game: Game, opts: ArtworkOptions, index: Libretro
     const desc = opts.arcadeNames.get(game.rawName.toLowerCase())
     if (desc) names.unshift(desc)
   }
+  const dests = new Map(KINDS.map((kind) => [kind, mediaPath(opts.mediaDir, game.systemId, kind, game.rawName)]))
+  const kept = opts.force
+    ? []
+    : await Promise.all(
+        KINDS.map(async (kind) => {
+          const dest = dests.get(kind) as string
+          return (await usableExisting(media[kind], dest, opts)) ?? ((await nonEmptyFile(dest)) ? dest : undefined)
+        })
+      )
+  // Resolve every name first (snap and title prefer the variant the boxart matched), then download them together.
+  const jobs: { kind: MediaKind; name: string; dest: string; miss?: { key: string; version: string } }[] = []
   let matchedBoxart: string | undefined
-  for (const kind of KINDS) {
-    const dest = mediaPath(opts.mediaDir, game.systemId, kind, game.rawName)
-    if (!opts.force) {
-      const kept = await usableExisting(media[kind], dest, opts)
-      if (kept) {
-        media[kind] = kept
-        continue
-      }
-      if (await nonEmptyFile(dest)) {
-        media[kind] = dest
-        continue
-      }
+  for (const [i, kind] of KINDS.entries()) {
+    const have = kept[i]
+    if (have) {
+      media[kind] = have
+      continue
     }
     const idx = await index.get(folder, kind)
     let name: string | undefined
+    let miss: { key: string; version: string } | undefined
     if (idx) {
+      miss = { key: ArtworkMissCache.key(folder, kind, names, game.title), version: idx.version }
+      // Nothing found last time and the listing has not changed since: don't search again (unless asked to).
+      if (!opts.force && misses.has(miss.key, miss.version)) continue
       if (matchedBoxart && idx.exact.has(matchedBoxart.toLowerCase())) name = matchedBoxart
       else name = matchThumbnail(idx, names, game, opts.preferredRegion)
+      if (!name) {
+        misses.add(miss.key, miss.version)
+        continue
+      }
     } else {
       // No listing (offline / server error): try the exact name directly.
       name = thumbnailSafeName(names[0] ?? game.rawName)
     }
-    if (!name) continue
     if (kind === 'boxart') matchedBoxart = name
-    try {
-      if (await downloadFile(thumbnailUrl(folder, kind, name), dest)) {
-        media[kind] = dest
-        res.downloaded++
-      }
-    } catch (e) {
-      res.failed++
-      res.errors.push(`${game.title} (${kind}): ${errMsg(e)}`)
-    }
+    jobs.push({ kind, name, dest: dests.get(kind) as string, miss })
   }
+  await Promise.all(
+    jobs.map(async (j) => {
+      try {
+        if (await download(thumbnailUrl(folder, j.kind, j.name), j.dest)) {
+          media[j.kind] = j.dest
+          res.downloaded++
+          if (j.miss) misses.delete(j.miss.key)
+        } else if (j.miss) misses.add(j.miss.key, j.miss.version)
+      } catch (e) {
+        res.failed++
+        res.errors.push(`${game.title} (${j.kind}): ${errMsg(e)}`)
+      }
+    })
+  )
   return media
 }
 
@@ -429,11 +559,20 @@ function sameMedia(a: Game['media'], b: Game['media']): boolean {
 /** Fetch artwork for `games`. Never throws for per-game failures (they are counted and listed in `errors`). */
 export async function fetchArtworkForGames(games: Game[], opts: ArtworkOptions): Promise<ArtworkResult> {
   const res: ArtworkResult = { updates: new Map(), downloaded: 0, notFound: 0, failed: 0, errors: [] }
-  const index = opts.index ?? new LibretroIndexCache(join(opts.mediaDir, '_index'))
+  const indexDir = join(opts.mediaDir, '_index')
+  const index = opts.index ?? new LibretroIndexCache(indexDir)
+  let misses = opts.misses
+  if (!misses) {
+    misses = new ArtworkMissCache(join(indexDir, 'misses.json'))
+    await misses.load()
+  }
+  const limit = createLimiter(DOWNLOAD_CONCURRENCY)
+  const fetchImage = opts.download ?? downloadFile
+  const run: Run = { opts, index, misses, res, download: (url, dest) => limit(() => fetchImage(url, dest)) }
   let done = 0
-  await mapLimit(games, 6, async (g) => {
+  await mapLimit(games, GAME_CONCURRENCY, async (g) => {
     try {
-      const media = g.systemId === 'steam' ? await steamArtwork(g, opts, res) : await libretroArtwork(g, opts, index, res)
+      const media = g.systemId === 'steam' ? await steamArtwork(g, run) : await libretroArtwork(g, run)
       if (!media.boxart && !media.snap && !media.title) res.notFound++
       if (!sameMedia(media, g.media)) {
         res.updates.set(g.id, media)
@@ -447,6 +586,8 @@ export async function fetchArtworkForGames(games: Game[], opts: ArtworkOptions):
       opts.onProgress?.(done, games.length, g.title)
     }
   })
+  // Losing the miss list only costs a repeat search next time.
+  await misses.save().catch(() => undefined)
   res.errors.push(...index.errors)
   return res
 }
