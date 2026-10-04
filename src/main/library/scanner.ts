@@ -44,6 +44,15 @@ export interface ScannedGame {
   localMedia: Partial<Record<MediaKind, string>>
 }
 
+/**
+ * A game already in the library. Its size saves measuring it again, and its system saves sniffing the disc
+ * header of an ambiguous file (.iso/.bin in a folder named after no system) as long as the size still matches.
+ */
+export interface KnownGame {
+  sizeBytes: number
+  systemId: string
+}
+
 export interface ScanProgress {
   phase: 'walk' | 'process'
   dirs: number
@@ -56,8 +65,14 @@ export interface ScanOptions {
   roots: ScanRoot[]
   /** Absolute directories never entered (bios, saves, media, emulators...). */
   excludeDirs?: string[]
-  /** Previously known sizes by normPath, used to skip re-measuring directory-format games. */
-  knownSizes?: Map<string, number>
+  /** What earlier scans found, by normPath of the game path. See KnownGame. */
+  known?: Map<string, KnownGame>
+  /**
+   * Take the sizes in `known` as they are instead of measuring those files again (one stat per file, slow on
+   * USB/NAS). A file whose size changed keeps its old size until a scan without this flag.
+   * Directory-format games always reuse a known size: measuring one walks the whole folder.
+   */
+  trustKnownSizes?: boolean
   /** Arcade zip short name (lower-case) -> full description, e.g. mslug -> "Metal Slug - Super Vehicle-001". */
   arcadeNames?: Map<string, string>
   onProgress?: (p: ScanProgress) => void
@@ -307,6 +322,7 @@ export async function scanFolders(opts: ScanOptions): Promise<ScanOutput> {
       }
     }
     const sys = job.systemId ? getSystemDef(job.systemId) : undefined
+    const entryPoints: string[] = []
     for (const f of fileNames) {
       if (isHiddenName(f)) continue
       const ext = extname(f).toLowerCase()
@@ -330,17 +346,19 @@ export async function scanFolders(opts: ScanOptions): Promise<ScanOutput> {
         biosFiles.push(full)
         continue
       }
-      if (ENTRY_POINT_EXTENSIONS.has(ext) && (cand || !sys)) {
-        try {
-          const refs = await referencedFiles(full)
-          refsByEntry.set(normPath(full), refs)
-          for (const r of refs) referenced.add(normPath(r))
-        } catch (e) {
-          errors.push(`${full}: ${errMsg(e)}`)
-        }
-      }
+      if (ENTRY_POINT_EXTENSIONS.has(ext) && (cand || !sys)) entryPoints.push(full)
       if (cand) candidates.push(cand)
     }
+    // A disc folder can hold hundreds of .cue files: read them a few at a time, not one after another.
+    await mapLimit(entryPoints, 8, async (full) => {
+      try {
+        const refs = await referencedFiles(full)
+        refsByEntry.set(normPath(full), refs)
+        for (const r of refs) referenced.add(normPath(r))
+      } catch (e) {
+        errors.push(`${full}: ${errMsg(e)}`)
+      }
+    })
 
     // Sub-directories.
     if (job.depth >= maxDepth) return []
@@ -395,11 +413,16 @@ export async function scanFolders(opts: ScanOptions): Promise<ScanOutput> {
     if (done % 200 === 0) opts.onProgress?.({ phase: 'process', dirs: dirsSeen, files: filesSeen, done, total })
   }
 
-  // Sizes of everything (entry points sum their references).
+  // Sizes of everything (entry points sum their references, as the library records them).
   const sizeCache = new Map<string, Promise<number>>()
   const sizeOf = (p: string, depth = 0): Promise<number> => {
     const k = normPath(p)
     let pr = sizeCache.get(k)
+    const known = depth === 0 && opts.trustKnownSizes ? opts.known?.get(k) : undefined
+    if (!pr && known) {
+      pr = Promise.resolve(known.sizeBytes)
+      sizeCache.set(k, pr)
+    }
     if (!pr) {
       pr = (async () => {
         let own = 0
@@ -424,6 +447,9 @@ export async function scanFolders(opts: ScanOptions): Promise<ScanOutput> {
   const resolveSystem = async (c: Candidate): Promise<string | undefined> => {
     if (c.systemId) return c.systemId
     const among = c.sniffAmong ?? []
+    // Sniffed on an earlier scan and not changed since (same size): no need to read the header again.
+    const known = opts.known?.get(normPath(c.path))
+    if (known && among.includes(known.systemId) && (await sizeOf(c.path)) === known.sizeBytes) return known.systemId
     const ext = extname(c.path).toLowerCase()
     if (ENTRY_POINT_EXTENSIONS.has(ext)) {
       if (ext === '.gdi') return 'dreamcast'
@@ -467,7 +493,7 @@ export async function scanFolders(opts: ScanOptions): Promise<ScanOutput> {
 
   await mapLimit(dirGames, 4, async (g) => {
     try {
-      const known = opts.knownSizes?.get(normPath(g.path))
+      const known = opts.known?.get(normPath(g.path))?.sizeBytes
       const size = known ?? (await dirSize(g.folder))
       const parsed = parseRomName(g.rawName)
       games.push({

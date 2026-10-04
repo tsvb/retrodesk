@@ -12,11 +12,16 @@ const MAX_TEXT = 1024 * 1024 // entry-point files are tiny; refuse to read anyth
 async function readSmallText(p: string): Promise<string> {
   const fh = await open(p, 'r')
   try {
-    const { size } = await fh.stat()
-    if (size > MAX_TEXT) return ''
-    const buf = Buffer.alloc(size)
-    await fh.read(buf, 0, size, 0)
-    return buf.toString('utf8').replace(/^﻿/, '')
+    // Usually a few hundred bytes: one read gets it all, without asking for the size first.
+    let buf = Buffer.allocUnsafe(16 * 1024) // only the bytesRead prefix is used
+    let { bytesRead } = await fh.read(buf, 0, buf.length, 0)
+    if (bytesRead === buf.length) {
+      const { size } = await fh.stat()
+      if (size > MAX_TEXT) return ''
+      buf = Buffer.alloc(size)
+      ;({ bytesRead } = await fh.read(buf, 0, size, 0))
+    }
+    return buf.toString('utf8', 0, bytesRead).replace(/^﻿/, '')
   } finally {
     await fh.close()
   }

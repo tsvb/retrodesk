@@ -24,4 +24,15 @@ describe('referencedFiles', () => {
     writeFile(m3u, '//203.0.113.5/share/disc1.cue\ndisc2.cue\n')
     expect(await referencedFiles(m3u)).toEqual([join(tmp, 'disc2.cue')])
   })
+
+  it('reads long entry files whole and skips huge ones', async () => {
+    const m3u = join(tmp, 'long.m3u')
+    const lines = Array.from({ length: 2000 }, (_, i) => `# padding line ${i} to get past the first read`)
+    writeFile(m3u, `﻿first.cue\n${lines.join('\n')}\nlast.cue\n`)
+    expect(await referencedFiles(m3u)).toEqual([join(tmp, 'first.cue'), join(tmp, 'last.cue')])
+
+    const huge = join(tmp, 'huge.cue')
+    writeFile(huge, `FILE "x.bin" BINARY\n${' '.repeat(1024 * 1024)}`)
+    expect(await referencedFiles(huge)).toEqual([])
+  })
 })
