@@ -157,6 +157,29 @@ html.is-overlay body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Action label on the left, its in-game hotkey glyph on the right. */
+.qa .btn__label {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.4em;
+  min-width: 0;
+}
+.qa__actionlabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.qa__hotkey {
+  margin-left: auto;
+  display: inline-flex;
+  opacity: 0.7;
+}
+.qa__legend {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--text-3);
+}
 .qa__slot {
   display: grid;
   grid-template-columns: auto 1fr auto;

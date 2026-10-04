@@ -1,11 +1,11 @@
 import { app } from 'electron'
 import { existsSync } from 'fs'
-import { isAbsolute, join, resolve } from 'path'
+import { join } from 'path'
 import type { RetroDeskApi } from '../../shared/api'
 import type { BiosStatus, Game, MediaKind, ScanResult, SystemSummary } from '../../shared/types'
 import { isSystemPlayable } from '../emulators'
 import { createTask, emitLibraryChanged } from '../events'
-import { getPaths } from '../paths'
+import { getPaths, isManagedPath as isServable } from '../paths'
 import { getSettings, onSettingsChanged } from '../settings'
 import { getSystemDefs } from '../systems'
 import { fetchArtworkForGames, loadArcadeNames } from './artwork'
@@ -61,13 +61,6 @@ function notifyChanged(immediate = false): void {
     changeTimer = null
     emitLibraryChanged()
   }, 1500)
-}
-
-/** Same rule as the rdmedia:// protocol handler: files under the data root or a configured ROM folder. */
-function isServable(p: string): boolean {
-  if (!isAbsolute(p)) return false
-  const s = getSettings()
-  return [s.dataRoot, ...s.romFolders.map((f) => f.path)].some((r) => isUnder(resolve(p), resolve(r)))
 }
 
 function detectSteam(): Promise<void> {

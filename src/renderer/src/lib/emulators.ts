@@ -1,46 +1,19 @@
-import type { EmulatorRef, EmulatorStatus, SystemDef } from '@shared/types'
+import { keyToStatusId, parseEmulatorKey, prettifyCore, refKey, systemDefaultRef } from '@shared/emulators'
+import type { EmulatorStatus, SystemDef } from '@shared/types'
 
-/** Settings/override format: `retroarch:<core>` or `standalone:<id>`. */
-export function refKey(ref: EmulatorRef): string {
-  return ref.type === 'retroarch' ? `retroarch:${ref.core}` : `standalone:${ref.id}`
-}
-
-/** emulators.list() id for a ref: `core:<core>` or the standalone id. */
-export function refStatusId(ref: EmulatorRef): string {
-  return ref.type === 'retroarch' ? `core:${ref.core}` : ref.id
-}
-
-export function keyToStatusId(key: string): string {
-  const [type, id] = splitKey(key)
-  return type === 'retroarch' ? `core:${id}` : id
-}
-
-function splitKey(key: string): [string, string] {
-  const i = key.indexOf(':')
-  return i < 0 ? ['standalone', key] : [key.slice(0, i), key.slice(i + 1)]
-}
-
-export function prettifyCore(core: string): string {
-  return core
-    .replace(/_libretro$/, '')
-    .split(/[_-]/)
-    .map((w) => (w.length <= 3 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
-    .join(' ')
-}
+export { keyToStatusId, prettifyCore, refKey, refStatusId } from '@shared/emulators'
 
 export function keyLabel(key: string, statuses: EmulatorStatus[]): string {
-  const sid = keyToStatusId(key)
-  const st = statuses.find((s) => s.id === sid)
-  if (st) return key.startsWith('retroarch:') ? `${st.name} (RetroArch)` : st.name
-  const [type, id] = splitKey(key)
-  return type === 'retroarch' ? `${prettifyCore(id)} (RetroArch)` : prettifyCore(id)
+  const ref = parseEmulatorKey(key)
+  const st = statuses.find((s) => s.id === keyToStatusId(key))
+  const name = st?.name ?? prettifyCore(ref ? (ref.type === 'retroarch' ? ref.core : ref.id) : key)
+  return ref?.type === 'retroarch' ? `${name} (RetroArch)` : name
 }
 
 export function isKeyInstalled(key: string, statuses: EmulatorStatus[]): boolean {
-  const sid = keyToStatusId(key)
-  const st = statuses.find((s) => s.id === sid)
+  const st = statuses.find((s) => s.id === keyToStatusId(key))
   if (!st?.installed) return false
-  if (key.startsWith('retroarch:')) return statuses.some((s) => s.id === 'retroarch' && s.installed)
+  if (parseEmulatorKey(key)?.type === 'retroarch') return statuses.some((s) => s.id === 'retroarch' && s.installed)
   return true
 }
 
@@ -48,6 +21,6 @@ export function isKeyInstalled(key: string, statuses: EmulatorStatus[]): boolean
 export function defaultKeyForSystem(system: SystemDef, systemEmulator: Record<string, string>): string | undefined {
   const chosen = systemEmulator[system.id]
   if (chosen) return chosen
-  const ref = system.emulators.find((e) => e.default) ?? system.emulators[0]
+  const ref = systemDefaultRef(system)
   return ref ? refKey(ref) : undefined
 }

@@ -31,6 +31,27 @@
     "userData": ["bios", "memcards", "sstates", "inis", "snaps", "cheats", "patches", "textures", "covers", "gamesettings", "portable.txt"],
     "needsVcRedist": true,
     "romKind": "file",
+    "firmware": [
+      {
+        "label": "PS2 BIOS",
+        "finder": "ps2Bios",
+        "all": true,
+        "copyTo": "bios/",
+        "copyWhen": "missing",
+        "installed": { "nonEmptyDir": "bios" },
+        "required": true,
+        "message": "PS2 needs a BIOS dump. Put your PS2 BIOS (e.g. SCPH-70012.bin) in {bios}\\ps2."
+      }
+    ],
+    "config": {
+      "file": "inis/PCSX2.ini",
+      "set": [
+        { "section": "UI", "key": "SetupWizardIncomplete", "value": "false" },
+        { "section": "UI", "key": "ConfirmShutdown", "value": "false" },
+        { "section": "Folders", "key": "Bios", "value": "bios" }
+      ],
+      "hook": "pcsx2BiosFile"
+    },
     "notes": "BIOS: RetroDesk copies PS2 BIOS dumps from <bios>/ps2 (or 4 MB .bin files in <bios>) into bios/ and writes inis/PCSX2.ini [Filenames] BIOS."
   },
   {
@@ -48,6 +69,17 @@
     "userData": ["dev_hdd0", "dev_hdd1", "dev_flash", "dev_flash2", "dev_flash3", "dev_usb000", "config", "savestates", "games.yml"],
     "needsVcRedist": true,
     "romKind": "ps3",
+    "firmware": [
+      {
+        "label": "PS3 firmware",
+        "dirs": ["", "ps3"],
+        "name": "PS3UPDAT.PUP",
+        "installed": { "anyOf": ["dev_flash/vsh/module", "dev_flash/sys/external"] },
+        "required": true,
+        "message": "PS3 games need the official firmware. Download PS3UPDAT.PUP from playstation.com and put it in {bios}.",
+        "manual": "PS3 firmware is not installed in RPCS3 yet. Open RPCS3 (Settings > Emulators) and use File > Install Firmware with {file}."
+      }
+    ],
     "notes": "Always portable. {rom} = EBOOT.BIN found inside a game folder, or the ISO. Firmware: rpcs3.exe --installfw <bios>/PS3UPDAT.PUP."
   },
   {
@@ -65,6 +97,38 @@
     "userData": ["user"],
     "needsVcRedist": true,
     "romKind": "file",
+    "firmware": [
+      {
+        "label": "prod.keys",
+        "dirs": ["", "switch"],
+        "name": "prod.keys",
+        "copyTo": "user/keys/prod.keys",
+        "copyWhen": "newer",
+        "installed": { "anyOf": ["user/keys/prod.keys"] },
+        "required": true,
+        "message": "Switch games need your prod.keys. Put it in {bios} (or {bios}\\switch)."
+      },
+      {
+        "label": "title.keys",
+        "dirs": ["", "switch"],
+        "name": "title.keys",
+        "copyTo": "user/keys/title.keys",
+        "copyWhen": "newer",
+        "installed": { "anyOf": ["user/keys/title.keys"] },
+        "required": false
+      },
+      {
+        "label": "Switch firmware",
+        "dirs": ["switch/firmware"],
+        "pattern": "\\.nca$",
+        "all": true,
+        "copyTo": "user/nand/system/Contents/registered/",
+        "copyWhen": "notInstalled",
+        "installed": { "nonEmptyDir": "user/nand/system/Contents/registered" },
+        "required": true,
+        "message": "Switch firmware is not installed. Put your firmware dump (*.nca files) in {bios}\\switch\\firmware, or install it from Eden (Tools > Install Firmware)."
+      }
+    ],
     "notes": "Keys: RetroDesk copies prod.keys/title.keys from <bios> (or <bios>/switch) into user/keys/. Firmware must be installed via Eden's UI."
   },
   {
@@ -112,10 +176,33 @@
     "exe": "xemu.exe",
     "args": ["-full-screen", "-dvd_path", "{rom}"],
     "uiArgs": [],
-    "portable": [{ "path": "xemu.toml", "kind": "file" }],
+    "portable": [{ "path": "xemu.toml", "kind": "file", "content": "[general]\nshow_welcome = false\n" }],
     "userData": ["xemu.toml", "eeprom.bin"],
     "needsVcRedist": false,
     "romKind": "file",
+    "firmware": [
+      { "id": "mcpx", "label": "mcpx_1.0.bin", "dirs": ["", "xbox"], "name": "mcpx_1.0.bin", "required": true },
+      { "id": "flash", "label": "Complex_4627.bin", "dirs": ["", "xbox"], "pattern": "^complex_4627.*\\.bin$", "required": true },
+      { "id": "hdd", "label": "xbox_hdd.qcow2", "dirs": ["", "xbox"], "name": "xbox_hdd.qcow2", "required": true }
+    ],
+    "missingMessage": "Xbox needs {missing} in {bios}.",
+    "config": {
+      "file": "xemu.toml",
+      "set": [
+        { "section": "general", "key": "show_welcome", "value": "false" },
+        { "section": "sys.files", "key": "bootrom_path", "value": "{mcpx}", "quote": "toml" },
+        { "section": "sys.files", "key": "flashrom_path", "value": "{flash}", "quote": "toml" },
+        { "section": "sys.files", "key": "hdd_path", "value": "{hdd}", "quote": "toml" }
+      ]
+    },
+    "postInstall": [
+      {
+        "label": "Xbox HDD image",
+        "url": "https://github.com/xemu-project/xemu-dashboard/releases/latest/download/xbox_hdd.qcow2",
+        "to": "xbox_hdd.qcow2",
+        "unless": ["xbox_hdd.qcow2", "xbox/xbox_hdd.qcow2"]
+      }
+    ],
     "notes": "xemu.toml [sys.files] is pointed at <bios>/mcpx_1.0.bin, Complex_4627.bin, xbox_hdd.qcow2 (also accepted under <bios>/xbox)."
   },
   {
@@ -133,6 +220,16 @@
     "userData": ["portable"],
     "needsVcRedist": false,
     "romKind": "vita",
+    "firmware": [
+      {
+        "label": "Vita firmware",
+        "dirs": ["", "vita"],
+        "name": "PSVUPDAT.PUP",
+        "installed": { "dirNamed": "vs0", "depth": 3 },
+        "required": true,
+        "message": "Vita games need the official firmware. Put PSVUPDAT.PUP in {bios}, then install it from Vita3K."
+      }
+    ],
     "notes": "Installed games launch by title ID (from [PCSE00000] in the name or sce_sys/param.sfo); .vpk/.zip are passed as content path (install + run)."
   },
   {
@@ -167,6 +264,14 @@
     "userData": ["memcards", "savestates", "settings.ini", "bios", "gamesettings", "covers", "screenshots", "cheats", "portable.txt"],
     "needsVcRedist": false,
     "romKind": "file",
+    "config": {
+      "file": "settings.ini",
+      "set": [
+        { "section": "Main", "key": "SetupWizardIncomplete", "value": "false" },
+        { "section": "Main", "key": "ConfirmPowerOff", "value": "false" },
+        { "section": "BIOS", "key": "SearchDirectory", "value": "{bios}" }
+      ]
+    },
     "notes": "settings.ini [BIOS] SearchDirectory is pointed at the RetroDesk BIOS dir."
   }
 ]

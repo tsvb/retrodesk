@@ -2,7 +2,7 @@ import { useCallback, useState, type ReactNode } from 'react'
 import { Download, Settings2, ShieldCheck } from 'lucide-react'
 import type { Game } from '@shared/types'
 import { api } from '../api'
-import { playSound } from '../lib/sound'
+import { feedback } from '../lib/feedback'
 import { defaultKeyForSystem } from '../lib/emulators'
 import { systemById, useLibrary } from '../stores/library'
 import { useSettings } from '../stores/settings'
@@ -56,15 +56,18 @@ export function useLauncher(): { launch: (g: Game, skipNotice?: boolean) => Prom
     setLaunching(g.id)
     try {
       const res = await api.game.launch(g.id)
-      if (res.ok) return
+      if (res.ok) {
+        feedback('launch')
+        return
+      }
       if (res.needs === 'emulator') setProblem({ kind: 'emulator', game: g, error: res.error })
       else if (res.needs === 'bios') setProblem({ kind: 'bios', game: g, error: res.error })
       else {
-        playSound('error')
+        feedback('error')
         toast(`Couldn't start ${g.title}: ${res.error}`, 'error')
       }
     } catch (e) {
-      playSound('error')
+      feedback('error')
       toast(`Couldn't start ${g.title}: ${e instanceof Error ? e.message : String(e)}`, 'error')
     } finally {
       setLaunching(null)

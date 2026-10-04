@@ -8,7 +8,7 @@ import { selectRunning, useTasks } from '../stores/session'
 import { useUi } from '../stores/ui'
 import { Glyph } from './Glyph'
 import { Spinner } from './Controls'
-import { playSound } from '../lib/sound'
+import { feedback } from '../lib/feedback'
 
 export function Wordmark() {
   return (
@@ -70,7 +70,7 @@ export function TopBar() {
             className={`tabs__tab ${tab === t.name ? 'is-active' : ''}`}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
-              playSound('toggle')
+              feedback('toggle')
               switchTab(t.name)
             }}
           >

@@ -4,6 +4,7 @@ import { existsSync, rmSync } from 'fs'
 import { dirname, join } from 'path'
 import { app, globalShortcut, shell } from 'electron'
 import type { RetroDeskApi } from '../../shared/api'
+import { QUICK_ACTIONS, type QuickActionDef } from '../../shared/quickActions'
 import type { Game, LaunchResult, QuickAction, SessionInfo } from '../../shared/types'
 import { createTask, emitSession } from '../events'
 import { getGameById, recordPlaySession } from '../library'
@@ -18,6 +19,7 @@ import type { EmuRef } from '../emulators/keys'
 import { buildRetroArchArgs, coreDisplayName, coreDllPath, ensureCoreSystemAssets, RA_NETWORK_PORT, raDir, writeAppendConfig } from '../emulators/retroarch'
 import { expandArgs, getStandaloneDef, hasVcRedist, provisionStandalone, resolveRom, vcRedistMessage } from '../emulators/standalone'
 import { autoFetchableCore, describeMissing, missingBios } from './bios'
+import { fileWrittenSince } from './confirm'
 import { FocusHelper } from './focus'
 import { RaCommandClient } from './racommand'
 
@@ -306,16 +308,27 @@ function onOverlayChanged(activeOverlay: boolean): void {
 // Quick actions
 // ---------------------------------------------------------------------------------------------
 
-const RA_COMMANDS: Partial<Record<QuickAction, string>> = {
-  save_state: 'SAVE_STATE',
-  load_state: 'LOAD_STATE',
-  screenshot: 'SCREENSHOT',
-  reset: 'RESET'
+/**
+ * Send an action's RetroArch command. The command port never answers a command, so "sent" proves nothing:
+ * first check RetroArch is listening at all, then for actions that leave a file behind wait for that file.
+ */
+async function sendCommand(s: ActiveSession, ra: RaCommandClient, def: QuickActionDef): Promise<void> {
+  if (!def.command) return
+  if (!(await ra.getStatus(400))) throw new Error('RetroArch is not responding.')
+  const since = Date.now()
+  await ra.send(def.command)
+  if (def.writes === 'states') {
+    const file = new RegExp(`\\.state${s.info.stateSlot || ''}$`)
+    if (!(await fileWrittenSince(getPaths().states, since, file))) throw new Error('RetroArch did not write a save state. This core may not support them.')
+  } else if (def.writes === 'screenshots') {
+    if (!(await fileWrittenSince(getPaths().screenshots, since))) throw new Error('RetroArch did not save a screenshot.')
+  }
 }
 
 export async function quickAction(action: QuickAction): Promise<void> {
   const s = active
   if (!s || s.exited) return
+  const def = QUICK_ACTIONS[action]
   if (action === 'resume') {
     setOverlayActive(false)
     return
@@ -330,43 +343,21 @@ export async function quickAction(action: QuickAction): Promise<void> {
     console.info(`[launch] "${action}" is not supported for ${s.info.emulatorId}`)
     return
   }
-  switch (action) {
-    case 'retroarch_menu':
-      // Unpause + refocus first, then open the menu so RetroArch isn't left paused underneath it.
-      await (s.chain = s.chain.then(() => resumeFromOverlay(s)).catch(() => undefined))
-      setOverlayActive(false)
-      await s.ra.send('MENU_TOGGLE')
-      return
-    case 'slot_next':
-      await s.ra.send('STATE_SLOT_PLUS')
-      s.info.stateSlot = Math.min(999, s.info.stateSlot + 1)
-      emitSession(publicInfo())
-      return
-    case 'slot_prev':
-      if (s.info.stateSlot <= 0) return // RetroArch would go to the "auto" slot (-1)
-      await s.ra.send('STATE_SLOT_MINUS')
-      s.info.stateSlot -= 1
-      emitSession(publicInfo())
-      return
-    case 'pause_toggle': {
-      // The user is now in charge of pausing; don't auto-unpause on overlay close.
-      s.pausedByUs = false
-      await s.ra.send('PAUSE_TOGGLE')
-      setPaused(s, !s.info.paused)
-      // RetroArch applies the toggle on its next frame; re-sync shortly after in case it was ignored.
-      setTimeout(() => void syncPaused(s), 250)
-      return
-    }
-    case 'fast_forward':
-      await s.ra.send('FAST_FORWARD')
-      s.info.fastForward = !s.info.fastForward
-      emitSession(publicInfo())
-      return
-    default: {
-      const cmd = RA_COMMANDS[action]
-      if (cmd) await s.ra.send(cmd)
-    }
+  if (def.available && !def.available(s.info)) return
+  if (action === 'retroarch_menu') {
+    // Unpause + refocus first, then open the menu so RetroArch isn't left paused underneath it.
+    await (s.chain = s.chain.then(() => resumeFromOverlay(s)).catch(() => undefined))
+    setOverlayActive(false)
   }
+  // The user is now in charge of pausing; don't auto-unpause on overlay close.
+  if (action === 'pause_toggle') s.pausedByUs = false
+  await sendCommand(s, s.ra, def)
+  if (def.apply && !s.exited) {
+    def.apply(s.info)
+    if (active === s) emitSession(publicInfo())
+  }
+  // RetroArch applies the toggle on its next frame; re-sync shortly after in case it was ignored.
+  if (action === 'pause_toggle') setTimeout(() => void syncPaused(s), 250)
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -3,8 +3,9 @@ import { Eye, FolderOpen, FolderPlus, ImageDown, RefreshCw, Tag, Trash2, Upload 
 import type { Game, RomFolder } from '@shared/types'
 import { api } from '../../api'
 import { Button } from '../../components/Button'
-import { PickerModal, PickerRow, SettingRow, ToggleRow, type Option } from '../../components/Controls'
+import { PickerModal, SettingRow, type Option } from '../../components/Controls'
 import { ConfirmDialog } from '../../components/Modal'
+import { SchemaSetting } from '../../components/SchemaSetting'
 import { addRomFolder, fetchArtwork, importRomFiles, rescan } from '../../lib/libraryActions'
 import { useLibrary } from '../../stores/library'
 import { toast } from '../../stores/session'
@@ -84,24 +85,8 @@ export function LibraryTab() {
       </Section>
 
       <Section title="Artwork">
-        <ToggleRow
-          title="Download artwork automatically"
-          description="Fetch box art and screenshots from libretro-thumbnails after each scan."
-          value={settings.scraping.autoFetchArtwork}
-          onChange={(v) => void update({ scraping: { autoFetchArtwork: v } })}
-        />
-        <PickerRow
-          title="Preferred region"
-          description="Used when a game has artwork for several regions."
-          value={settings.scraping.preferredRegion}
-          options={[
-            { value: 'USA', label: 'USA' },
-            { value: 'Europe', label: 'Europe' },
-            { value: 'Japan', label: 'Japan' },
-            { value: 'World', label: 'World' }
-          ]}
-          onChange={(v) => void update({ scraping: { preferredRegion: v } })}
-        />
+        <SchemaSetting path="scraping.autoFetchArtwork" />
+        <SchemaSetting path="scraping.preferredRegion" />
         <div className="button-row">
           <Button
             icon={ImageDown}

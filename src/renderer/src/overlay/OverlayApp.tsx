@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
-import { BatteryCharging, BatteryMedium, Camera, Download, FastForward, Menu, Minus, Play, Plus, Power, RotateCcw, Upload } from 'lucide-react'
+import { BatteryCharging, BatteryMedium, Camera, Download, FastForward, Menu, Minus, Pause, Play, Plus, Power, RotateCcw, Upload, type LucideIcon } from 'lucide-react'
+import { QUICK_ACTIONS } from '@shared/quickActions'
 import type { PerformanceMode, QuickAction, SessionInfo, SystemStats } from '@shared/types'
 import { api, isElectron } from '../api'
-import { Button } from '../components/Button'
+import { Button, type ButtonProps } from '../components/Button'
 import { Segmented } from '../components/Controls'
+import { PadButton } from '../components/Glyph'
 import { HintBar } from '../components/HintBar'
 import { ConfirmDialog } from '../components/Modal'
 import { StatsCard } from '../components/Stats'
@@ -13,8 +15,10 @@ import { FocusScope, useActions, useFocusGroup } from '../input/hooks'
 import { installKeyboard } from '../input/keyboard'
 import { formatClock, formatDuration } from '../lib/format'
 import { useBattery, useNow } from '../lib/hooks'
-import { playSound, primeAudioOnGesture } from '../lib/sound'
+import { feedback } from '../lib/feedback'
+import { primeAudioOnGesture } from '../lib/sound'
 import { systemColor } from '../lib/color'
+import { useInputStore } from '../stores/input'
 import { systemById, useLibrary } from '../stores/library'
 import { toast } from '../stores/session'
 import { followSettingsChanges, useSettings } from '../stores/settings'
@@ -28,6 +32,56 @@ function matchesAccelerator(e: KeyboardEvent, accel: string): boolean {
   if (want('alt') !== e.altKey) return false
   if (want('shift') !== e.shiftKey) return false
   return e.key.toLowerCase() === key
+}
+
+const ICONS: Record<QuickAction, LucideIcon> = {
+  resume: Play,
+  save_state: Download,
+  load_state: Upload,
+  slot_next: Plus,
+  slot_prev: Minus,
+  screenshot: Camera,
+  fast_forward: FastForward,
+  pause_toggle: Pause,
+  reset: RotateCcw,
+  retroarch_menu: Menu,
+  quit: Power
+}
+
+/**
+ * One quick action as a button. Label, toggle state, availability and the in-game hotkey all come from
+ * QUICK_ACTIONS; the panel only decides where the button goes.
+ */
+function ActionButton({ id, session, running, onRun, iconOnly, ...button }: { id: QuickAction; session: SessionInfo; running: QuickAction | null; onRun: (id: QuickAction) => void; iconOnly?: boolean } & ButtonProps) {
+  const family = useInputStore((s) => s.pads[0]?.family ?? 'xbox')
+  const def = QUICK_ACTIONS[id]
+  const on = def.isActive?.(session) ?? false
+  const label = on && def.activeLabel ? def.activeLabel : def.label
+  const hotkey = def.hotkey
+  return (
+    <Button
+      icon={ICONS[id]}
+      size="lg"
+      label={label}
+      title={hotkey ? `${label} (in game: Select + ${hotkey.pad})` : label}
+      className={on ? 'is-active' : ''}
+      disabled={def.available ? !def.available(session) : false}
+      busy={running === id}
+      onPress={() => onRun(id)}
+      {...button}
+    >
+      {!iconOnly && (
+        <>
+          <span className="qa__actionlabel">{label}</span>
+          {hotkey?.std !== undefined && (
+            <span className="qa__hotkey">
+              <PadButton family={family} index={hotkey.std} size="sm" />
+            </span>
+          )}
+        </>
+      )}
+    </Button>
+  )
 }
 
 /**
@@ -44,7 +98,7 @@ export function OverlayApp() {
     if (activeRef.current) return
     activeRef.current = true
     setActive(true)
-    playSound('open')
+    feedback('open')
     void api.window.setOverlayActive(true)
     void api.game.getSession().then(setSession)
   }, [])
@@ -53,7 +107,7 @@ export function OverlayApp() {
     if (!activeRef.current) return
     activeRef.current = false
     setActive(false)
-    playSound('back')
+    feedback('back')
     try {
       await api.game.quickAction('resume')
     } finally {
@@ -120,17 +174,13 @@ function Panel({ session, onResume }: { session: SessionInfo | null; onResume: (
   const now = useNow(1000)
   const battery = useBattery()
   const [stats, setStats] = useState<SystemStats | null>(null)
-  const [slot, setSlot] = useState(session?.stateSlot ?? 0)
-  // Prefer the backend's state; fall back to local tracking for backends that don't report it.
-  const [localFf, setLocalFf] = useState(false)
-  const ff = session?.fastForward ?? localFf
-  const [confirm, setConfirm] = useState<'quit' | 'reset' | null>(null)
+  const [confirm, setConfirm] = useState<QuickAction | null>(null)
+  const [running, setRunning] = useState<QuickAction | null>(null)
   const perf = useSettings((s) => s.settings?.performance.inGameMode ?? 'unchanged')
   const [mode, setMode] = useState<PerformanceMode>(perf)
   const system = useLibrary((s) => systemById(s.systems, session?.systemId))
   useFocusGroup('qa-slot', { memory: false })
 
-  useEffect(() => setSlot(session?.stateSlot ?? 0), [session?.stateSlot])
   useEffect(() => setMode(perf), [perf])
 
   useEffect(() => {
@@ -154,21 +204,28 @@ function Panel({ session, onResume }: { session: SessionInfo | null; onResume: (
 
   useActions({ back: { label: 'Resume', run: () => void onResume() } })
 
-  const run = async (action: QuickAction, message?: string) => {
+  const run = async (id: QuickAction) => {
+    const def = QUICK_ACTIONS[id]
+    setRunning(id)
     try {
-      await api.game.quickAction(action)
-      if (message) toast(message, 'success')
+      await api.game.quickAction(id)
+      if (def.toast && session) toast(def.toast(session), 'success')
+      if (def.closesMenu) await (id === 'quit' ? api.window.setOverlayActive(false) : onResume())
     } catch (e) {
-      playSound('error')
+      feedback('error')
       toast(`That didn't work: ${e instanceof Error ? e.message : String(e)}`, 'error')
+    } finally {
+      setRunning(null)
     }
   }
-  const changeSlot = async (delta: 1 | -1) => {
-    const next = Math.max(0, Math.min(9, slot + delta))
-    setSlot(next)
-    await run(delta > 0 ? 'slot_next' : 'slot_prev')
+  const trigger = (id: QuickAction) => {
+    if (running) return
+    if (QUICK_ACTIONS[id].confirm) setConfirm(id)
+    else void run(id)
   }
   const ra = session?.supportsCommands ?? false
+  const common = session ? { session, running, onRun: trigger } : null
+  const dialog = confirm && session ? QUICK_ACTIONS[confirm].confirm?.(session) : undefined
   const accent = systemColor(system ?? { id: session?.systemId ?? 'none' })
   const bat = stats?.battery ?? (battery ? { percent: battery.percent, charging: battery.charging } : undefined)
 
@@ -199,54 +256,28 @@ function Panel({ session, onResume }: { session: SessionInfo | null; onResume: (
         <Button variant="primary" size="lg" icon={Play} autoFocus onPress={() => void onResume()}>
           Resume
         </Button>
-        {ra && (
+        {common && ra && (
           <>
             <div className="qa__pair">
-              <Button icon={Download} size="lg" onPress={() => void run('save_state', `State saved to slot ${slot}`)}>
-                Save state
-              </Button>
-              <Button icon={Upload} size="lg" onPress={() => void run('load_state', `Loaded state from slot ${slot}`)}>
-                Load state
-              </Button>
+              <ActionButton id="save_state" {...common} />
+              <ActionButton id="load_state" {...common} />
             </div>
             <div className="qa__slot">
-              <Button icon={Minus} size="lg" group="qa-slot" onPress={() => void changeSlot(-1)} disabled={slot <= 0} label="Previous slot" title="Previous slot" />
+              <ActionButton id="slot_prev" group="qa-slot" iconOnly {...common} />
               <span className="qa__slotlabel">
-                Slot <strong>{slot}</strong>
+                Slot <strong>{common.session.stateSlot}</strong>
               </span>
-              <Button icon={Plus} size="lg" group="qa-slot" onPress={() => void changeSlot(1)} disabled={slot >= 9} label="Next slot" title="Next slot" />
+              <ActionButton id="slot_next" group="qa-slot" iconOnly {...common} />
             </div>
             <div className="qa__pair">
-              <Button icon={Camera} size="lg" onPress={() => void run('screenshot', 'Screenshot saved')}>
-                Screenshot
-              </Button>
-              <Button
-                icon={FastForward}
-                size="lg"
-                className={ff ? 'is-active' : ''}
-                onPress={() => {
-                  setLocalFf(!ff)
-                  void run('fast_forward', ff ? 'Normal speed' : 'Fast-forward on')
-                }}
-              >
-                {ff ? 'Normal speed' : 'Fast forward'}
-              </Button>
+              <ActionButton id="screenshot" {...common} />
+              <ActionButton id="fast_forward" {...common} />
             </div>
             <div className="qa__pair">
-              <Button icon={RotateCcw} size="lg" onPress={() => setConfirm('reset')}>
-                Reset
-              </Button>
-              <Button
-                icon={Menu}
-                size="lg"
-                onPress={async () => {
-                  await run('retroarch_menu')
-                  await onResume()
-                }}
-              >
-                RetroArch menu
-              </Button>
+              <ActionButton id="reset" {...common} />
+              <ActionButton id="retroarch_menu" {...common} />
             </div>
+            <p className="qa__legend">While playing, hold Select and press the button shown.</p>
           </>
         )}
         <div className="qa__perf">
@@ -266,9 +297,7 @@ function Panel({ session, onResume }: { session: SessionInfo | null; onResume: (
             ]}
           />
         </div>
-        <Button variant="danger" size="lg" icon={Power} onPress={() => setConfirm('quit')}>
-          Quit game
-        </Button>
+        {common && <ActionButton id="quit" variant="danger" {...common} />}
       </div>
 
       <div className="qa__stats">
@@ -276,31 +305,14 @@ function Panel({ session, onResume }: { session: SessionInfo | null; onResume: (
       </div>
       <HintBar className="hintbar--overlay" />
 
-      {confirm === 'quit' && (
+      {confirm && session && dialog && (
         <ConfirmDialog
-          title={`Quit ${session?.title ?? 'the game'}?`}
-          description={ra ? 'If quick resume is on, your progress is saved before closing.' : 'Unsaved progress since your last in-game save will be lost.'}
-          confirmLabel="Quit game"
+          {...dialog}
           danger
           onCancel={() => setConfirm(null)}
-          onConfirm={async () => {
+          onConfirm={() => {
             setConfirm(null)
-            await run('quit')
-            await api.window.setOverlayActive(false)
-          }}
-        />
-      )}
-      {confirm === 'reset' && (
-        <ConfirmDialog
-          title="Reset the game?"
-          description="It restarts from the beginning, like pressing the console's reset button."
-          confirmLabel="Reset"
-          danger
-          onCancel={() => setConfirm(null)}
-          onConfirm={async () => {
-            setConfirm(null)
-            await run('reset', 'Game reset')
-            await onResume()
+            void run(confirm)
           }}
         />
       )}

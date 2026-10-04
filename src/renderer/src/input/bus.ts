@@ -1,5 +1,5 @@
 import { focusManager } from './focus'
-import { playSound } from '../lib/sound'
+import { feedback } from '../lib/feedback'
 import { useInputStore } from '../stores/input'
 import type { Action, Direction, InputSource } from './types'
 
@@ -29,6 +29,6 @@ export function emitAction(action: Action, source: InputSource): boolean {
   const top = interceptors[interceptors.length - 1]
   if (top?.({ kind: 'action', action }, source)) return true
   const handled = focusManager.dispatch(action)
-  if (handled) playSound(action === 'confirm' ? 'confirm' : action === 'back' ? 'back' : 'toggle')
+  if (handled) feedback(action === 'confirm' ? 'confirm' : action === 'back' ? 'back' : 'toggle')
   return handled
 }

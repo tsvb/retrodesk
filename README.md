@@ -80,7 +80,10 @@ Set `RETRODESK_USER_DATA` and `RETRODESK_DATA_ROOT` to run against an isolated p
 ### Layout
 
 ```
-src/shared/      IPC contract (types.ts, api.ts): the single source of truth between processes
+src/shared/      IPC contract (types.ts, api.ts): the single source of truth between processes, plus the tables
+                 the app is derived from: quickActions.ts (Game Assist actions, hotkeys, confirmations),
+                 settingsSchema.ts (choices and switches: types, defaults, validation, controls, RetroArch config)
+                 and emulators.ts (emulator key formats)
 src/preload/     Generic contextBridge proxy exposing window.retrodesk
 src/main/
   index.ts       App lifecycle, IPC registration, rdmedia:// protocol for local artwork

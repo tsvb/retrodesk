@@ -1,17 +1,23 @@
 import { BrowserWindow } from 'electron'
 import { randomUUID } from 'crypto'
-import { EVENTS } from '../shared/api'
+import { eventChannel, type ApiEvents, type EventName } from '../shared/api'
 import type { SessionInfo, TaskProgress, TaskSubject } from '../shared/types'
 
-/** Send an event to every open window (main UI + overlay). */
-export function broadcast(channel: string, payload?: unknown): void {
-  for (const w of BrowserWindow.getAllWindows()) {
-    if (!w.isDestroyed()) w.webContents.send(channel, payload)
-  }
+/** An event's payload as an argument list: none for `void` events. */
+type Payload<K extends EventName> = ApiEvents[K] extends void ? [] : [payload: ApiEvents[K]]
+
+/** Send an event to one window. */
+export function sendEvent<K extends EventName>(win: BrowserWindow, name: K, ...payload: Payload<K>): void {
+  if (!win.isDestroyed()) win.webContents.send(eventChannel(name), ...payload)
 }
 
-export const emitSession = (s: SessionInfo | null): void => broadcast(EVENTS.session, s)
-export const emitLibraryChanged = (): void => broadcast(EVENTS.libraryChanged)
+/** Send an event to every open window (main UI + overlay). */
+export function broadcast<K extends EventName>(name: K, ...payload: Payload<K>): void {
+  for (const w of BrowserWindow.getAllWindows()) sendEvent(w, name, ...payload)
+}
+
+export const emitSession = (s: SessionInfo | null): void => broadcast('session', s)
+export const emitLibraryChanged = (): void => broadcast('libraryChanged')
 
 export interface TaskHandle {
   readonly id: string
@@ -29,7 +35,7 @@ export function createTask(label: string, subject?: TaskSubject): TaskHandle {
     const now = Date.now()
     if (!force && now - last < 100) return
     last = now
-    broadcast(EVENTS.task, { ...task })
+    broadcast('task', { ...task })
   }
   send(true)
   return {

@@ -7,7 +7,7 @@ import { PickerRow, ProgressBar } from '../../components/Controls'
 import { ConfirmDialog } from '../../components/Modal'
 import { defaultKeyForSystem, isKeyInstalled, keyLabel, refKey } from '../../lib/emulators'
 import { formatBytes } from '../../lib/format'
-import { playSound } from '../../lib/sound'
+import { feedback } from '../../lib/feedback'
 import { useLibrary } from '../../stores/library'
 import { findRunningTask, toast, useTasks } from '../../stores/session'
 import { useSettings, useSettingsValue } from '../../stores/settings'
@@ -75,7 +75,7 @@ function EmulatorRow({ emu, systemNames }: { emu: EmulatorStatus; systemNames: s
       await api.emulators.install(emu.id)
       toast(`${emu.name} installed`, 'success')
     } catch (e) {
-      playSound('error')
+      feedback('error')
       toast(`Couldn't install ${emu.name}: ${e instanceof Error ? e.message : String(e)}`, 'error')
     } finally {
       setBusy(false)

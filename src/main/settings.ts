@@ -3,9 +3,10 @@ import { homedir } from 'os'
 import { isAbsolute, join } from 'path'
 import type { DeepPartial } from '../shared/api'
 import type { Settings } from '../shared/types'
+import { deepMerge as merge } from '../shared/merge'
+import { isValidSetting, settingDef, settingDefault as d } from '../shared/settingsSchema'
 import { readJson, writeJsonAtomic } from './util/json'
 import { broadcast } from './events'
-import { EVENTS } from '../shared/api'
 
 /** Folder holding the portable exe (set by electron-builder's portable launcher), else undefined. */
 export const portableDir = (): string | undefined => process.env['PORTABLE_EXECUTABLE_DIR'] || undefined
@@ -23,48 +24,36 @@ export function defaultSettings(): Settings {
     romFolders: [],
     systemEmulator: {},
     ui: {
-      theme: 'midnight',
+      theme: d('ui.theme'),
       accent: '#7c5cff',
-      density: 'comfortable',
-      sounds: true,
-      startFullscreen: false,
-      hideEmptySystems: true,
-      buttonLayout: 'xbox'
+      density: d('ui.density'),
+      sounds: d('ui.sounds'),
+      haptics: d('ui.haptics'),
+      startFullscreen: d('ui.startFullscreen'),
+      hideEmptySystems: d('ui.hideEmptySystems'),
+      buttonLayout: d('ui.buttonLayout')
     },
     retroarch: {
-      shader: 'none',
-      autoSaveState: true,
-      autoLoadState: true,
-      showFps: false,
-      runAhead: false,
-      rewind: false,
-      integerScale: false,
-      aspect: 'core',
-      videoDriver: 'vulkan'
+      shader: d('retroarch.shader'),
+      autoSaveState: d('retroarch.autoSaveState'),
+      autoLoadState: d('retroarch.autoLoadState'),
+      showFps: d('retroarch.showFps'),
+      runAhead: d('retroarch.runAhead'),
+      rewind: d('retroarch.rewind'),
+      integerScale: d('retroarch.integerScale'),
+      aspect: d('retroarch.aspect'),
+      videoDriver: d('retroarch.videoDriver')
     },
-    retroAchievements: { enabled: false, username: '', password: '', hardcore: false },
+    retroAchievements: { enabled: d('retroAchievements.enabled'), username: '', password: '', hardcore: d('retroAchievements.hardcore') },
     hotkeys: { quickMenu: 'Control+Alt+Home', quickMenuCombo: [8, 9] },
-    performance: { inGameMode: 'unchanged' },
-    scraping: { autoFetchArtwork: true, preferredRegion: 'USA' }
+    performance: { inGameMode: d('performance.inGameMode') },
+    scraping: { autoFetchArtwork: d('scraping.autoFetchArtwork'), preferredRegion: d('scraping.preferredRegion') }
   }
 }
 
 const file = () => join(app.getPath('userData'), 'settings.json')
 let current: Settings | null = null
 const listeners = new Set<(s: Settings, prev: Settings) => void>()
-
-function merge<T>(base: T, patch: unknown): T {
-  if (patch === undefined) return base
-  if (Array.isArray(patch) || patch === null || typeof patch !== 'object' || typeof base !== 'object' || base === null || Array.isArray(base)) {
-    return patch as T
-  }
-  const out: Record<string, unknown> = { ...(base as Record<string, unknown>) }
-  for (const [k, v] of Object.entries(patch as Record<string, unknown>)) {
-    // Record<string, x> maps (e.g. systemEmulator) are replaced key-by-key, which merge() does naturally.
-    out[k] = merge(out[k], v)
-  }
-  return out as T
-}
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 
@@ -75,16 +64,20 @@ const FIELD_CHECKS: Record<string, (v: unknown) => boolean> = {
     Array.isArray(v) &&
     v.every((f) => isPlainObject(f) && typeof f['path'] === 'string' && isAbsolute(f['path']) && (f['systemId'] === undefined || typeof f['systemId'] === 'string')),
   systemEmulator: (v) => isPlainObject(v) && Object.values(v).every((x) => x === undefined || typeof x === 'string'),
-  'hotkeys.quickMenuCombo': (v) => Array.isArray(v) && v.every((n) => Number.isInteger(n) && n >= 0 && n < 64)
+  'hotkeys.quickMenuCombo': (v) => Array.isArray(v) && v.every((n) => Number.isInteger(n) && n >= 0 && n < 64),
+  'ui.accent': (v) => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)
 }
 
 /**
- * Keep only the parts of `patch` that fit the shape of the defaults: known keys holding the same kind of value.
+ * Keep only the parts of `patch` that fit the shape of the defaults: known keys holding the same kind of value,
+ * and for choices declared in the settings schema, one of the declared options.
  * Settings arrive from the renderer and from a hand-editable file, so neither is taken on trust.
  */
-function conform(shape: unknown, patch: unknown, path = ''): unknown {
+export function conform(shape: unknown, patch: unknown, path = ''): unknown {
   const check = FIELD_CHECKS[path]
   if (check) return check(patch) ? patch : undefined
+  const def = settingDef(path)
+  if (def) return isValidSetting(def, patch) ? patch : undefined
   if (!isPlainObject(shape)) return typeof patch === typeof shape ? patch : undefined
   if (!isPlainObject(patch)) return undefined
   const out: Record<string, unknown> = {}
@@ -105,7 +98,7 @@ export function updateSettings(patch: DeepPartial<Settings>): Settings {
   const prev = getSettings()
   current = merge(prev, conform(defaultSettings(), patch) ?? {})
   writeJsonAtomic(file(), current)
-  broadcast(EVENTS.settingsChanged, current)
+  broadcast('settingsChanged', current)
   for (const l of listeners) {
     try {
       l(current, prev)
