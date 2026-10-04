@@ -71,11 +71,19 @@ export class GameStore {
   private searchText = new Map<string, string>()
   private timer: ReturnType<typeof setTimeout> | null = null
   private dirty = false
+  /** When the unsaved changes started piling up (Date.now()). */
+  private dirtySince = 0
   private writing: Promise<void> = Promise.resolve()
 
+  /**
+   * @param debounceMs save this long after the last change...
+   * @param maxWaitMs ...but no later than this after the first unsaved one, so a steady stream of changes
+   *   (artwork downloads) still reaches the disk regularly instead of only once it stops.
+   */
   constructor(
     readonly file: string,
-    private readonly debounceMs = 1000
+    private readonly debounceMs = 1000,
+    private readonly maxWaitMs = 10_000
   ) {}
 
   /** Synchronous load (startup). A corrupt file is moved aside, never thrown. */
@@ -143,12 +151,15 @@ export class GameStore {
   }
 
   markDirty(): void {
+    const now = Date.now()
+    if (!this.dirty) this.dirtySince = now
     this.dirty = true
     if (this.timer) clearTimeout(this.timer)
+    const wait = Math.max(0, Math.min(this.debounceMs, this.dirtySince + this.maxWaitMs - now))
     this.timer = setTimeout(() => {
       this.timer = null
       void this.flush()
-    }, this.debounceMs)
+    }, wait)
   }
 
   private serialize(): string {
@@ -208,7 +219,7 @@ export class GameStore {
 
   query(q: GameQuery = {}): Game[] {
     const tokens = q.search ? fold(q.search).split(/\s+/).filter(Boolean) : []
-    let list = this.all().filter((g) => {
+    const list = this.all().filter((g) => {
       if (q.systemId && g.systemId !== q.systemId) return false
       if (q.favoritesOnly && !g.favorite) return false
       if (!q.includeHidden && g.hidden) return false
@@ -218,27 +229,55 @@ export class GameStore {
       }
       return true
     })
-    list = sortGames(list, q.sort ?? 'title')
-    if (q.limit !== undefined && q.limit >= 0) list = list.slice(0, q.limit)
-    return list
+    const cmp = comparator(q.sort ?? 'title')
+    // Home asks for the first 16/30 of everything: pick those without sorting the whole library.
+    if (q.limit !== undefined && q.limit >= 0) return firstSorted(list, q.limit, cmp)
+    return list.sort(cmp)
   }
 
   recent(limit = 20): Game[] {
-    return this.all()
-      .filter((g) => g.lastPlayedAt && !g.hidden)
-      .sort((a, b) => (b.lastPlayedAt ?? 0) - (a.lastPlayedAt ?? 0))
-      .slice(0, Math.max(0, limit))
+    const played = this.all().filter((g) => g.lastPlayedAt && !g.hidden)
+    return firstSorted(played, Math.max(0, limit), (a, b) => (b.lastPlayedAt ?? 0) - (a.lastPlayedAt ?? 0))
   }
 }
 
+const byTitle = (a: Game, b: Game): number => collator.compare(a.title, b.title) || collator.compare(a.rawName, b.rawName)
+const COMPARATORS: Record<SortKey, (a: Game, b: Game) => number> = {
+  title: byTitle,
+  lastPlayed: (a, b) => (b.lastPlayedAt ?? 0) - (a.lastPlayedAt ?? 0) || byTitle(a, b),
+  playTime: (a, b) => b.playTimeSec - a.playTimeSec || byTitle(a, b),
+  added: (a, b) => b.addedAt - a.addedAt || byTitle(a, b),
+  system: (a, b) => systemOrder(a.systemId) - systemOrder(b.systemId) || byTitle(a, b)
+}
+
+function comparator(sort: SortKey): (a: Game, b: Game) => number {
+  return COMPARATORS[sort] ?? byTitle
+}
+
 export function sortGames(list: Game[], sort: SortKey): Game[] {
-  const byTitle = (a: Game, b: Game): number => collator.compare(a.title, b.title) || collator.compare(a.rawName, b.rawName)
-  const cmp: Record<SortKey, (a: Game, b: Game) => number> = {
-    title: byTitle,
-    lastPlayed: (a, b) => (b.lastPlayedAt ?? 0) - (a.lastPlayedAt ?? 0) || byTitle(a, b),
-    playTime: (a, b) => b.playTimeSec - a.playTimeSec || byTitle(a, b),
-    added: (a, b) => b.addedAt - a.addedAt || byTitle(a, b),
-    system: (a, b) => systemOrder(a.systemId) - systemOrder(b.systemId) || byTitle(a, b)
+  return list.sort(comparator(sort))
+}
+
+/**
+ * The first `k` items of `list` in `cmp` order, the same ones a stable sort followed by slice(0, k) gives, in
+ * O(n log k) instead of O(n log n). Keeps a sorted window of the best k seen so far.
+ */
+export function firstSorted<T>(list: readonly T[], k: number, cmp: (a: T, b: T) => number): T[] {
+  if (k <= 0) return []
+  if (k >= list.length) return list.slice().sort(cmp)
+  const out: T[] = []
+  for (const x of list) {
+    if (out.length === k && cmp(x, out[k - 1] as T) >= 0) continue
+    // After any equal items already in the window, as a stable sort would place it.
+    let lo = 0
+    let hi = out.length
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (cmp(x, out[mid] as T) < 0) hi = mid
+      else lo = mid + 1
+    }
+    out.splice(lo, 0, x)
+    if (out.length > k) out.pop()
   }
-  return list.sort(cmp[sort] ?? byTitle)
+  return out
 }
