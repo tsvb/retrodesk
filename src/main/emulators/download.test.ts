@@ -380,4 +380,11 @@ describe('isTrustedDownloadUrl', () => {
       if (def.fallback) expect(isTrustedDownloadUrl(def.fallback.url), def.id).toBe(true)
     }
   })
+
+  it('gives every emulator a pinned fallback that its asset pattern accepts (installs survive a GitHub rate limit)', () => {
+    for (const def of standaloneEmulators) {
+      expect(def.fallback, def.id).toBeTruthy()
+      expect(new RegExp(def.assetPattern).test(def.fallback!.url.split('/').pop()!), def.id).toBe(true)
+    }
+  })
 })
