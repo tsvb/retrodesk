@@ -4,13 +4,44 @@ directories:
   output: dist
   buildResources: build
 icon: build/icon.png
+# Only the three build outputs: anything else that ends up under out/ must not ship.
 files:
-  - out/**
+  - out/main/**
+  - out/preload/**
+  - out/renderer/**
   - package.json
   - '!**/*.test.*'
+  # 7zip-bin carries binaries for every platform; only win/x64/7za.exe is used.
+  - '!**/node_modules/7zip-bin/{linux,mac}/**'
+  - '!**/node_modules/7zip-bin/win/{ia32,arm64}/**'
+  - '!**/node_modules/7zip-bin/7x.sh'
 # 7za.exe must live on disk (not inside app.asar) to be spawned.
 asarUnpack:
   - node_modules/7zip-bin/**
+# Licence texts for everything bundled, next to the app in resources/.
+extraResources:
+  - from: LICENSE
+    to: LICENSE.txt
+  - from: THIRD-PARTY-NOTICES.txt
+    to: THIRD-PARTY-NOTICES.txt
+  - from: node_modules/@fontsource-variable/bricolage-grotesque/LICENSE
+    to: licenses/bricolage-grotesque-OFL.txt
+  - from: node_modules/@fontsource-variable/figtree/LICENSE
+    to: licenses/figtree-OFL.txt
+  - from: node_modules/@fontsource-variable/pixelify-sans/LICENSE
+    to: licenses/pixelify-sans-OFL.txt
+  - from: node_modules/react/LICENSE
+    to: licenses/react-MIT.txt
+  - from: node_modules/react-dom/LICENSE
+    to: licenses/react-dom-MIT.txt
+  - from: node_modules/scheduler/LICENSE
+    to: licenses/scheduler-MIT.txt
+  - from: node_modules/zustand/LICENSE
+    to: licenses/zustand-MIT.txt
+  - from: node_modules/lucide-react/LICENSE
+    to: licenses/lucide-ISC.txt
+  - from: node_modules/7zip-bin/LICENSE.txt
+    to: licenses/7zip-bin-MIT.txt
 win:
   target:
     - target: nsis

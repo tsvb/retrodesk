@@ -2,10 +2,52 @@ import { mkdtempSync, readFileSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { buildThumbIndex, LibretroIndexCache, matchThumbnail, parseFbneoDat, parseListing, pickBest, thumbnailUrl } from './artwork'
+import type { Game } from '../../shared/types'
+import { buildThumbIndex, fetchArtworkForGames, LibretroIndexCache, matchThumbnail, parseFbneoDat, parseListing, pickBest, thumbnailUrl } from './artwork'
+import { writeFile } from './testutil'
 
 const tmp = mkdtempSync(join(tmpdir(), 'rd-art-'))
 afterAll(() => rmSync(tmp, { recursive: true, force: true }))
+
+describe('fetchArtworkForGames', () => {
+  it('brings artwork left under a previous data folder into the media folder without downloading', async () => {
+    const old = join(tmp, 'old-data', 'media', 'snes')
+    const mediaDir = join(tmp, 'new-data', 'media')
+    const media = {
+      boxart: join(old, 'boxart', 'Game (USA).png'),
+      snap: join(old, 'snap', 'Game (USA).png'),
+      title: join(old, 'title', 'Game (USA).jpg')
+    }
+    for (const [kind, p] of Object.entries(media)) writeFile(p, kind)
+    const game = { id: 'g1', systemId: 'snes', path: 'C:\\roms\\snes\\Game (USA).sfc', rawName: 'Game (USA)', title: 'Game', media } as Game
+
+    const res = await fetchArtworkForGames([game], { mediaDir, isServable: (p) => p.startsWith(mediaDir) })
+
+    expect(res.downloaded).toBe(0)
+    expect(res.errors).toEqual([])
+    const moved = res.updates.get('g1')
+    expect(moved).toEqual({
+      boxart: join(mediaDir, 'snes', 'boxart', 'Game (USA).png'),
+      snap: join(mediaDir, 'snes', 'snap', 'Game (USA).png'),
+      title: join(mediaDir, 'snes', 'title', 'Game (USA).jpg')
+    })
+    expect(readFileSync(moved!.title!, 'utf8')).toBe('title')
+  })
+
+  it('leaves servable artwork alone', async () => {
+    const mediaDir = join(tmp, 'kept', 'media')
+    const media = {
+      boxart: join(mediaDir, 'snes', 'boxart', 'Kept (USA).png'),
+      snap: join(mediaDir, 'snes', 'snap', 'Kept (USA).png'),
+      title: join(mediaDir, 'snes', 'title', 'Kept (USA).png')
+    }
+    for (const p of Object.values(media)) writeFile(p, 'img')
+    const game = { id: 'g2', systemId: 'snes', path: 'C:\\roms\\snes\\Kept (USA).sfc', rawName: 'Kept (USA)', title: 'Kept', media } as Game
+    const res = await fetchArtworkForGames([game], { mediaDir, isServable: () => true })
+    expect(res.updates.size).toBe(0)
+    expect(res.downloaded).toBe(0)
+  })
+})
 
 const LISTING = `<tr><td><a href="/Nintendo%20-%20Super%20Nintendo%20Entertainment%20System/">Parent Directory</a></td></tr>
 <tr><td><a href="?C=N;O=D">Name</a></td></tr>

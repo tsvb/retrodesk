@@ -4,7 +4,7 @@ import { existsSync } from 'fs'
 import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'fs/promises'
 import { basename, dirname, extname, join } from 'path'
 import defsJson from '../data/standalone-emulators.json'
-import { dolphinLatest, downloadFile, forgejoLatestRelease, githubRelease, type ResolvedRelease } from './download'
+import { dolphinLatest, downloadTrusted, forgejoLatestRelease, githubRelease, isTrustedDownloadUrl, type ResolvedRelease } from './download'
 import { dirSize, extractArchive, findFile, moveMerge, singleTopFolder } from './extract'
 import { downloadDetail, type ProgressSink } from './retroarch'
 
@@ -51,17 +51,24 @@ export interface InstallPaths {
 
 export const standaloneDir = (paths: Pick<InstallPaths, 'emulators'>, id: string): string => join(paths.emulators, id)
 
+function lookupRelease(def: StandaloneDef, pattern: RegExp, signal?: AbortSignal): Promise<ResolvedRelease> {
+  switch (def.source.type) {
+    case 'github':
+      return githubRelease(def.source.repo, pattern, def.source.tag, signal)
+    case 'forgejo':
+      return forgejoLatestRelease(def.source.api, def.source.repo, pattern, signal)
+    case 'dolphin':
+      return dolphinLatest(def.source.url, signal)
+  }
+}
+
 export async function resolveRelease(def: StandaloneDef, signal?: AbortSignal): Promise<ResolvedRelease> {
   const pattern = new RegExp(def.assetPattern)
   try {
-    switch (def.source.type) {
-      case 'github':
-        return await githubRelease(def.source.repo, pattern, def.source.tag, signal)
-      case 'forgejo':
-        return await forgejoLatestRelease(def.source.api, def.source.repo, pattern, signal)
-      case 'dolphin':
-        return await dolphinLatest(def.source.url, signal)
-    }
+    const rel = await lookupRelease(def, pattern, signal)
+    // The feed chooses the URL; if it points somewhere unexpected, prefer the pinned fallback over failing later.
+    if (!isTrustedDownloadUrl(rel.asset.url)) throw new Error(`${def.name} release feed returned an untrusted download URL: ${rel.asset.url}`)
+    return rel
   } catch (e) {
     if (signal?.aborted || !def.fallback) throw e
     console.warn(`[emulators] release lookup for ${def.id} failed, using pinned fallback`, e)
@@ -74,7 +81,12 @@ export async function installStandalone(def: StandaloneDef, paths: InstallPaths,
   task.update(-1, `Finding latest ${def.name}`)
   const rel = await resolveRelease(def, signal)
   const archive = join(paths.downloads, rel.asset.name.replace(/[^\w.-]+/g, '_'))
-  await downloadFile(rel.asset.url, archive, { signal, onProgress: (r, t) => task.update(t ? (r / t) * 0.8 : -1, downloadDetail(r, t)) })
+  await downloadTrusted(rel.asset.url, archive, {
+    signal,
+    size: rel.asset.size,
+    sha256: rel.asset.sha256,
+    onProgress: (r, t) => task.update(t ? (r / t) * 0.8 : -1, downloadDetail(r, t))
+  })
   const dir = standaloneDir(paths, def.id)
   const staging = join(paths.emulators, `.staging-${def.id}-${Date.now()}`)
   try {
@@ -426,7 +438,7 @@ export async function postInstall(def: StandaloneDef, paths: InstallPaths, task:
     if (!existsSync(hdd) && !existsSync(join(paths.bios, 'xbox', 'xbox_hdd.qcow2'))) {
       task.update(-1, 'Downloading Xbox HDD image')
       try {
-        await downloadFile('https://github.com/xemu-project/xemu-dashboard/releases/latest/download/xbox_hdd.qcow2', hdd, { signal, onProgress: (r, t) => task.update(t ? r / t : -1, downloadDetail(r, t)) })
+        await downloadTrusted('https://github.com/xemu-project/xemu-dashboard/releases/latest/download/xbox_hdd.qcow2', hdd, { signal, onProgress: (r, t) => task.update(t ? r / t : -1, downloadDetail(r, t)) })
       } catch (e) {
         console.warn('[emulators] xbox_hdd.qcow2 download failed', e)
       }

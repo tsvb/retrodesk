@@ -1,0 +1,65 @@
+RetroDesk third-party notices
+=============================
+
+RetroDesk itself is MIT licensed (see LICENSE). It bundles the components below. The full licence text of each
+is installed next to the app, in the "licenses" folder inside "resources".
+
+
+Bundled with RetroDesk
+----------------------
+
+7-Zip (7za.exe), via the 7zip-bin package
+  Copyright (C) Igor Pavlov
+  Licence: GNU LGPL, with parts under the BSD 3-clause licence
+  Licence text and source code: https://www.7-zip.org
+  RetroDesk runs 7za.exe as a separate program to unpack emulator archives.
+  The 7zip-bin wrapper package is Copyright (c) 2016 Vladimir Krivosheev, MIT licence (licenses/7zip-bin-MIT.txt).
+
+Bricolage Grotesque (font)
+  Copyright 2022 The Bricolage Grotesque Project Authors (https://github.com/ateliertriay/bricolage)
+  Licence: SIL Open Font License 1.1 (licenses/bricolage-grotesque-OFL.txt)
+
+Figtree (font)
+  Copyright 2022 The Figtree Project Authors (https://github.com/erikdkennedy/figtree)
+  Licence: SIL Open Font License 1.1 (licenses/figtree-OFL.txt)
+
+Pixelify Sans (font)
+  Copyright 2021 The Pixelify Sans Project Authors (https://github.com/eifetx/Pixelify-Sans)
+  Licence: SIL Open Font License 1.1 (licenses/pixelify-sans-OFL.txt)
+
+React, React DOM and Scheduler
+  Copyright (c) Meta Platforms, Inc. and affiliates.
+  Licence: MIT (licenses/react-MIT.txt, licenses/react-dom-MIT.txt, licenses/scheduler-MIT.txt)
+
+Zustand
+  Copyright (c) 2019 Paul Henschel
+  Licence: MIT (licenses/zustand-MIT.txt)
+
+Lucide icons
+  Copyright (c) Lucide Icons and Contributors
+  Licence: ISC (licenses/lucide-ISC.txt)
+
+Electron and Chromium
+  See LICENSE.electron.txt and LICENSES.chromium.html in the RetroDesk install folder.
+
+
+Downloaded at your request, not part of RetroDesk
+-------------------------------------------------
+
+When you install an emulator from inside RetroDesk, it is downloaded from that project's own servers and stays
+under that project's licence. RetroDesk does not redistribute any of them:
+
+  RetroArch and libretro cores   https://buildbot.libretro.com
+  Dolphin                        https://dolphin-emu.org
+  PCSX2                          https://github.com/PCSX2/pcsx2
+  RPCS3                          https://github.com/RPCS3/rpcs3-binaries-win
+  Eden                           https://git.eden-emu.dev/eden-emu/eden
+  Azahar                         https://github.com/azahar-emu/azahar
+  Cemu                           https://github.com/cemu-project/Cemu
+  xemu                           https://github.com/xemu-project/xemu
+  Vita3K                         https://github.com/Vita3K/Vita3K
+  PPSSPP                         https://github.com/hrydgard/ppsspp
+  DuckStation                    https://github.com/stenzek/duckstation
+
+Game artwork comes from the libretro-thumbnails project (https://github.com/libretro-thumbnails) and, for Steam
+games, from Steam.

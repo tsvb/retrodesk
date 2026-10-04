@@ -3,7 +3,7 @@ import { existsSync } from 'fs'
 import { mkdir, readdir, rename, rm, writeFile } from 'fs/promises'
 import { join } from 'path'
 import type { Settings } from '../../shared/types'
-import { coreUrl, downloadFile, fetchText, fileSize, lastModifiedToVersion, retroArchLatestStable, retroArchUrl, USER_AGENT } from './download'
+import { coreUrl, downloadTrusted, fetchText, fileSize, lastModifiedToVersion, retroArchLatestStable, retroArchUrl, USER_AGENT } from './download'
 import { extractArchive, findFile, moveMerge, singleTopFolder } from './extract'
 
 export const RA_ID = 'retroarch'
@@ -117,7 +117,7 @@ export async function installRetroArch(paths: RaPaths, task: ProgressSink, signa
   task.update(-1, 'Finding latest RetroArch')
   const version = await retroArchLatestStable(signal)
   const archive = join(paths.downloads, `RetroArch-${version}.7z`)
-  await downloadFile(retroArchUrl(version), archive, {
+  await downloadTrusted(retroArchUrl(version), archive, {
     signal,
     onProgress: (r, t) => task.update(t ? (r / t) * 0.8 : -1, downloadDetail(r, t))
   })
@@ -151,7 +151,7 @@ export async function installCore(core: string, paths: RaPaths, task: ProgressSi
   } catch {
     /* non-fatal */
   }
-  await downloadFile(coreUrl(base), zip, { signal, onProgress: (r, t) => task.update(t ? (r / t) * 0.85 : -1, downloadDetail(r, t)) })
+  await downloadTrusted(coreUrl(base), zip, { signal, onProgress: (r, t) => task.update(t ? (r / t) * 0.85 : -1, downloadDetail(r, t)) })
   const staging = join(paths.emulators, `.staging-${base}-${Date.now()}`)
   const dest = coreDllPath(paths, base)
   try {
@@ -190,7 +190,7 @@ export async function ensureCoreSystemAssets(core: string, paths: Pick<RaPaths, 
   const zip = join(paths.downloads, name)
   task?.update(-1, `Downloading ${name}`)
   try {
-    await downloadFile(asset.url, zip, { signal, onProgress: (r, t) => task?.update(t ? r / t : -1, downloadDetail(r, t)) })
+    await downloadTrusted(asset.url, zip, { signal, onProgress: (r, t) => task?.update(t ? r / t : -1, downloadDetail(r, t)) })
     task?.update(-1, `Extracting ${name}`)
     await extractArchive(zip, paths.bios, { signal })
   } finally {
@@ -281,7 +281,9 @@ export function buildRetroArchConfig({ settings, paths, shaderPath, uiMode }: Ra
     sort_screenshots_by_content_enable: 'false',
 
     // Frontend integration
-    network_cmd_enable: 'true',
+    // The command port has no authentication and RetroArch binds it on every interface, so only open it for
+    // game sessions. UI mode saves its config on exit and must not leave the port enabled for later runs.
+    network_cmd_enable: b(!uiMode),
     network_cmd_port: String(RA_NETWORK_PORT),
     config_save_on_exit: b(!!uiMode),
     pause_nonactive: 'false',

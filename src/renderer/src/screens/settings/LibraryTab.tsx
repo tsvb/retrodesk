@@ -22,6 +22,7 @@ export function LibraryTab() {
   const [fetching, setFetching] = useState(false)
   const [assigning, setAssigning] = useState<RomFolder | null>(null)
   const [removing, setRemoving] = useState<RomFolder | null>(null)
+  const [newDataRoot, setNewDataRoot] = useState<string | null>(null)
   const [hidden, setHidden] = useState<Game[]>([])
 
   useEffect(() => {
@@ -125,10 +126,7 @@ export function LibraryTab() {
             size="sm"
             onPress={async () => {
               const p = await api.system.pickFolder('Choose the RetroDesk data folder')
-              if (p) {
-                await update({ dataRoot: p })
-                toast(`Data folder set to ${p}. Restart RetroDesk to move existing data.`, 'info')
-              }
+              if (p && p !== settings.dataRoot) setNewDataRoot(p)
             }}
           >
             Change
@@ -166,6 +164,20 @@ export function LibraryTab() {
             const target = assigning
             setAssigning(null)
             void setFolders(settings.romFolders.map((f) => (f.path === target.path ? (v === AUTO ? { path: f.path } : { path: f.path, systemId: v }) : f)))
+          }}
+        />
+      )}
+      {newDataRoot && (
+        <ConfirmDialog
+          title="Switch to this data folder?"
+          description={`RetroDesk will use ${newDataRoot} from now on. Artwork is copied across. Emulators, BIOS files and saves are not: they stay in ${settings.dataRoot} and will no longer be used. Games in its roms folder leave your library, with their play time, on the next scan.`}
+          confirmLabel="Switch folder"
+          danger
+          onCancel={() => setNewDataRoot(null)}
+          onConfirm={() => {
+            const target = newDataRoot
+            setNewDataRoot(null)
+            void update({ dataRoot: target }).then(() => toast(`Data folder set to ${target}.`, 'info'))
           }}
         />
       )}

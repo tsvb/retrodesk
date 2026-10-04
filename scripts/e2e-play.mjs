@@ -10,7 +10,8 @@ import { createRequire } from 'module'
 
 const require = createRequire(import.meta.url)
 const root = resolve(import.meta.dirname, '..')
-const work = resolve(process.argv[2] ?? join(root, 'out', 'e2e-play'))
+// Not under out/: electron-builder packages that folder, and this one holds a downloaded RetroArch.
+const work = resolve(process.argv[2] ?? join(root, '.e2e', 'play'))
 const shots = join(work, 'shots')
 const roms = join(work, 'roms', 'gb')
 mkdirSync(shots, { recursive: true })

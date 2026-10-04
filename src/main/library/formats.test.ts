@@ -1,0 +1,27 @@
+import { mkdtempSync, rmSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
+import { afterAll, describe, expect, it } from 'vitest'
+import { referencedFiles } from './formats'
+import { writeFile } from './testutil'
+
+const tmp = mkdtempSync(join(tmpdir(), 'rd-formats-'))
+afterAll(() => rmSync(tmp, { recursive: true, force: true }))
+
+describe('referencedFiles', () => {
+  it('resolves references next to and below the entry file', async () => {
+    const cue = join(tmp, 'game.cue')
+    writeFile(cue, 'FILE "game (Track 1).bin" BINARY\nFILE "audio/track 2.bin" BINARY\n')
+    expect(await referencedFiles(cue)).toEqual([join(tmp, 'game (Track 1).bin'), join(tmp, 'audio', 'track 2.bin')])
+  })
+
+  it('drops references that leave the entry file folder (absolute, UNC, parent)', async () => {
+    const cue = join(tmp, 'evil.cue')
+    writeFile(cue, ['FILE "\\\\203.0.113.5\\share\\t.bin" BINARY', 'FILE "C:\\Windows\\win.ini" BINARY', 'FILE "..\\outside.bin" BINARY', 'FILE "ok.bin" BINARY'].join('\n'))
+    expect(await referencedFiles(cue)).toEqual([join(tmp, 'ok.bin')])
+
+    const m3u = join(tmp, 'evil.m3u')
+    writeFile(m3u, '//203.0.113.5/share/disc1.cue\ndisc2.cue\n')
+    expect(await referencedFiles(m3u)).toEqual([join(tmp, 'disc2.cue')])
+  })
+})

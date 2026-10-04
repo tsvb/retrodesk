@@ -1,9 +1,10 @@
 import { app, dialog, ipcMain, net, protocol, shell, BrowserWindow } from 'electron'
-import { isAbsolute, resolve } from 'path'
+import { stat } from 'fs/promises'
+import { isAbsolute, join, resolve } from 'path'
 import { pathToFileURL } from 'url'
 import { API_SHAPE, type RetroDeskApi } from '../shared/api'
 import { MEDIA_SCHEME, pathFromMediaUrl } from '../shared/media'
-import { getSettings, updateSettings } from './settings'
+import { defaultSettings, getSettings, portableDataDir, updateSettings } from './settings'
 import { getPaths } from './paths'
 import { createMainWindow, focusMainWindow, getMainWindow, setOverlayActive } from './windows'
 import { initLibrary, libraryHandlers, biosHandlers } from './library'
@@ -16,8 +17,13 @@ import { getStats, setPerformanceMode } from './system'
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
 app.commandLine.appendSwitch('disable-background-timer-throttling')
 app.setAppUserModelId('com.retrodesk.app')
-// Test/portable hook: isolate all app state (settings, library DB) in a given folder.
+// Where app state (settings, library DB) lives: RETRODESK_USER_DATA is the test hook; the portable build keeps
+// it next to the exe so nothing is left behind in %APPDATA%.
+const portableData = portableDataDir()
 if (process.env['RETRODESK_USER_DATA']) app.setPath('userData', process.env['RETRODESK_USER_DATA'])
+else if (portableData) app.setPath('userData', join(portableData, 'app'))
+
+process.on('unhandledRejection', (reason) => console.error('[main] unhandled rejection', reason))
 
 protocol.registerSchemesAsPrivileged([
   { scheme: MEDIA_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }
@@ -43,7 +49,10 @@ const systemHandlers: RetroDeskApi['system'] = {
     return r.canceled ? [] : r.filePaths
   },
   async openPath(p) {
-    await shell.openPath(p)
+    // The UI only opens folders RetroDesk manages. Never hand the shell an arbitrary path (it would run an .exe).
+    if (typeof p !== 'string' || !isManagedPath(p)) return
+    const st = await stat(p).catch(() => null)
+    if (st?.isDirectory()) await shell.openPath(p)
   },
   async openExternal(url) {
     if (/^https?:\/\//i.test(url)) await shell.openExternal(url)
@@ -115,19 +124,19 @@ function registerIpc(): void {
   }
 }
 
-/** Only serve files from the data root or configured ROM folders. */
-function isAllowedMediaPath(p: string): boolean {
+/** True for the data root, the configured ROM folders and anything inside them. Nothing else is served or opened. */
+function isManagedPath(p: string): boolean {
   if (!isAbsolute(p)) return false
   const full = resolve(p).toLowerCase()
   const s = getSettings()
-  const roots = [s.dataRoot, ...s.romFolders.map((f) => f.path)].map((r) => resolve(r).toLowerCase())
+  const roots = [s.dataRoot, ...s.romFolders.map((f) => f.path)].filter((r) => r && isAbsolute(r)).map((r) => resolve(r).toLowerCase())
   return roots.some((r) => full === r || full.startsWith(r.endsWith('\\') ? r : `${r}\\`))
 }
 
 function registerMediaProtocol(): void {
   protocol.handle(MEDIA_SCHEME, async (req) => {
     const p = pathFromMediaUrl(req.url)
-    if (!isAllowedMediaPath(p)) return new Response('Forbidden', { status: 403 })
+    if (!isManagedPath(p)) return new Response('Forbidden', { status: 403 })
     try {
       return await net.fetch(pathToFileURL(p).toString())
     } catch {
@@ -136,21 +145,55 @@ function registerMediaProtocol(): void {
   })
 }
 
+/**
+ * Create the data folders. The data root may be on a drive that is not connected right now, so ask instead of
+ * failing with no window. Returns false when the user chooses to quit.
+ */
+function ensureDataRoot(): boolean {
+  for (;;) {
+    try {
+      getPaths()
+      return true
+    } catch (e) {
+      const choice = dialog.showMessageBoxSync({
+        type: 'error',
+        title: 'RetroDesk',
+        message: 'The RetroDesk data folder is not available.',
+        detail: `${getSettings().dataRoot}\n\n${e instanceof Error ? e.message : String(e)}`,
+        buttons: ['Try again', 'Use the default folder', 'Quit'],
+        defaultId: 0,
+        cancelId: 2,
+        noLink: true
+      })
+      if (choice === 2) return false
+      if (choice === 1) updateSettings({ dataRoot: defaultSettings().dataRoot })
+    }
+  }
+}
+
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
 } else {
   app.on('second-instance', () => focusMainWindow())
 
-  app.whenReady().then(async () => {
-    getPaths()
-    registerMediaProtocol()
-    registerIpc()
-    await initLibrary()
-    await initEmulators()
-    initLaunch()
-    createMainWindow()
-  })
+  app
+    .whenReady()
+    .then(async () => {
+      if (!ensureDataRoot()) return app.quit()
+      registerMediaProtocol()
+      registerIpc()
+      await initLibrary()
+      await initEmulators()
+      initLaunch()
+      createMainWindow()
+    })
+    .catch((err: unknown) => {
+      // Without this the process would sit there with no window, holding the single-instance lock.
+      console.error('[main] startup failed', err)
+      dialog.showErrorBox('RetroDesk could not start', err instanceof Error ? err.message : String(err))
+      app.exit(1)
+    })
 
   app.on('window-all-closed', () => app.quit())
 }

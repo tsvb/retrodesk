@@ -1,4 +1,4 @@
-import { BrowserWindow, screen, shell } from 'electron'
+import { app, BrowserWindow, screen, shell } from 'electron'
 import { join } from 'path'
 import { EVENTS } from '../shared/api'
 import { getSettings } from './settings'
@@ -8,8 +8,20 @@ let overlayWindow: BrowserWindow | null = null
 let overlayActive = false
 const overlayListeners = new Set<(active: boolean) => void>()
 
+/** The windows only ever show the bundled UI: no navigating away, no new windows; http(s) links open in the browser. */
+function lockDown(win: BrowserWindow): void {
+  win.webContents.on('will-navigate', (e, url) => {
+    if (url.split('#')[0] !== win.webContents.getURL().split('#')[0]) e.preventDefault()
+  })
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) void shell.openExternal(url)
+    return { action: 'deny' }
+  })
+}
+
 function loadRenderer(win: BrowserWindow, hash = ''): void {
-  if (process.env['ELECTRON_RENDERER_URL']) {
+  // The dev-server override is for `electron-vite dev` only; an installed build always loads its own files.
+  if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}${hash ? `#${hash}` : ''}`)
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'), hash ? { hash } : undefined)
@@ -35,10 +47,7 @@ export function createMainWindow(): BrowserWindow {
     webPreferences: { preload: preload(), backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' }
   })
   mainWindow.once('ready-to-show', () => mainWindow?.show())
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
-    return { action: 'deny' }
-  })
+  lockDown(mainWindow)
   mainWindow.on('closed', () => {
     mainWindow = null
   })
@@ -78,6 +87,7 @@ export function showOverlay(): void {
     })
     overlayWindow.setAlwaysOnTop(true, 'screen-saver')
     overlayWindow.setIgnoreMouseEvents(true)
+    lockDown(overlayWindow)
     overlayWindow.on('closed', () => {
       overlayWindow = null
     })

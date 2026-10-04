@@ -1,5 +1,5 @@
 import { copyFile, mkdir, readFile, rename, stat, writeFile } from 'fs/promises'
-import { dirname, join } from 'path'
+import { dirname, extname, join } from 'path'
 import type { Game, MediaKind, Settings } from '../../shared/types'
 import { getSystemDef } from '../systems'
 import { appIdFromPath, findLocalSteamArt } from './steam'
@@ -280,6 +280,8 @@ export interface ArtworkOptions {
   onProgress?: (done: number, total: number, detail: string) => void
   /** Called as soon as a game's media changed (lets the caller persist/notify incrementally). */
   onUpdate?: (id: string, media: Game['media']) => void
+  /** Can the UI load this path? Artwork left under a previous data folder cannot be, so it is copied into mediaDir. */
+  isServable?: (p: string) => boolean
   /** Injected for tests. */
   index?: LibretroIndexCache
 }
@@ -308,6 +310,24 @@ async function nonEmptyFile(p: string | undefined): Promise<boolean> {
   }
 }
 
+/**
+ * The image already recorded for a game, if it can still be used. One left under a previous data folder exists
+ * on disk but is no longer served: copy it next to `dest` instead of downloading it again.
+ */
+async function usableExisting(current: string | undefined, dest: string, opts: ArtworkOptions): Promise<string | undefined> {
+  if (!current || !(await nonEmptyFile(current))) return undefined
+  if (!opts.isServable || opts.isServable(current)) return current
+  const ext = extname(current).toLowerCase()
+  const target = ext && ext !== extname(dest).toLowerCase() ? `${dest.slice(0, dest.length - extname(dest).length)}${ext}` : dest
+  try {
+    await mkdir(dirname(target), { recursive: true })
+    await copyFile(current, target)
+    return target
+  } catch {
+    return undefined
+  }
+}
+
 async function steamArtwork(game: Game, opts: ArtworkOptions, res: ArtworkResult): Promise<Game['media']> {
   const appid = appIdFromPath(game.path)
   const media: Game['media'] = { ...game.media }
@@ -319,9 +339,12 @@ async function steamArtwork(game: Game, opts: ArtworkOptions, res: ArtworkResult
   ]
   for (const step of plan) {
     const dest = join(opts.mediaDir, 'steam', step.kind, `${appid}.jpg`)
-    if (!opts.force && ((await nonEmptyFile(media[step.kind])) || (await nonEmptyFile(dest)))) {
-      if (!media[step.kind] && (await nonEmptyFile(dest))) media[step.kind] = dest
-      continue
+    if (!opts.force) {
+      const kept = (await usableExisting(media[step.kind], dest, opts)) ?? ((await nonEmptyFile(dest)) ? dest : undefined)
+      if (kept) {
+        media[step.kind] = kept
+        continue
+      }
     }
     if (step.local) {
       try {
@@ -365,7 +388,11 @@ async function libretroArtwork(game: Game, opts: ArtworkOptions, index: Libretro
   for (const kind of KINDS) {
     const dest = mediaPath(opts.mediaDir, game.systemId, kind, game.rawName)
     if (!opts.force) {
-      if (await nonEmptyFile(media[kind])) continue
+      const kept = await usableExisting(media[kind], dest, opts)
+      if (kept) {
+        media[kind] = kept
+        continue
+      }
       if (await nonEmptyFile(dest)) {
         media[kind] = dest
         continue

@@ -69,6 +69,8 @@ export interface ScanOutput {
   games: ScannedGame[]
   /** Roots that could not be read (offline drive etc.): callers should keep their games. */
   unreachableRoots: string[]
+  /** Sub-folders that could not be read this time (permissions, a network hiccup): their games are not "gone" either. */
+  unreadableDirs: string[]
   /** Arcade BIOS zips seen in ROM folders (neogeo.zip etc.), absolute paths. */
   biosFiles: string[]
   errors: string[]
@@ -245,6 +247,7 @@ export async function scanFolders(opts: ScanOptions): Promise<ScanOutput> {
   const maxDepth = opts.maxDepth ?? 12
   const errors: string[] = []
   const unreachableRoots: string[] = []
+  const unreadableDirs: string[] = []
   const biosFiles: string[] = []
   const excluded = new Set((opts.excludeDirs ?? []).map(normPath))
 
@@ -272,7 +275,10 @@ export async function scanFolders(opts: ScanOptions): Promise<ScanOutput> {
       entries = await readdir(job.path, { withFileTypes: true })
     } catch (e) {
       if (isRoot) unreachableRoots.push(job.path)
-      else errors.push(`${job.path}: ${errMsg(e)}`)
+      else {
+        unreadableDirs.push(job.path)
+        errors.push(`${job.path}: ${errMsg(e)}`)
+      }
       return []
     }
     dirsSeen++
@@ -483,7 +489,7 @@ export async function scanFolders(opts: ScanOptions): Promise<ScanOutput> {
   })
 
   games.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
-  return { games, unreachableRoots, biosFiles, errors }
+  return { games, unreachableRoots, unreadableDirs, biosFiles, errors }
 }
 
 /**
