@@ -16,6 +16,7 @@ import { useInputStore } from '../stores/input'
 import { systemById, useLibrary } from '../stores/library'
 import { toast } from '../stores/session'
 import { useSettingsValue } from '../stores/settings'
+import { acceleratorKeys } from '../lib/platform'
 
 /** Shown in the main window while a game runs (the game is normally in front of it). */
 export function NowPlaying({ session }: { session: SessionInfo }) {
@@ -34,7 +35,7 @@ export function NowPlaying({ session }: { session: SessionInfo }) {
 
   const art = mediaUrl(game?.media.snap ?? game?.media.boxart, { w: COVER_THUMB.backdrop })
   const combo = settings.hotkeys.quickMenuCombo
-  const accel = settings.hotkeys.quickMenu.split('+').map((k) => (k === 'Control' ? 'Ctrl' : k))
+  const accel = acceleratorKeys(settings.hotkeys.quickMenu)
 
   const quit = async () => {
     setConfirm(false)
