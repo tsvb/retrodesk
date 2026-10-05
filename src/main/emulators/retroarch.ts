@@ -6,6 +6,7 @@ import { mkdir, readdir, rename, rm, writeFile } from 'fs/promises'
 import { homedir } from 'os'
 import { join } from 'path'
 import { prettifyCore } from '../../shared/emulators'
+import { padFamily, resolveButtonLayout } from '../../shared/pads'
 import { hotkeyBindings, padBinding, type PadDriver } from '../../shared/quickActions'
 import { retroArchCfgFromSettings, settingOptions } from '../../shared/settingsSchema'
 import type { Settings } from '../../shared/types'
@@ -275,10 +276,12 @@ export interface RaConfigInput {
   uiMode?: boolean
   /** Defaults to the host. */
   os?: HostOs
+  /** Name of the controller in use, if known: resolves the "Automatic" button layout. */
+  padName?: string
 }
 
 /** Build the RetroDesk-managed append config. Pure (no I/O) so it can be unit tested. */
-export function buildRetroArchConfig({ settings, paths, shaderPath, uiMode, os = hostOs() }: RaConfigInput): Record<string, string> {
+export function buildRetroArchConfig({ settings, paths, shaderPath, uiMode, os = hostOs(), padName }: RaConfigInput): Record<string, string> {
   const ra = settings.retroarch
   const driver = padDriver(os)
   const rewind = padBinding(driver, 'LT')
@@ -357,7 +360,7 @@ export function buildRetroArchConfig({ settings, paths, shaderPath, uiMode, os =
     input_rewind_axis: ra.rewind ? rewind.axis : 'nul',
     input_menu_toggle_gamepad_combo: comboUsesSticks ? '0' : '2', // L3+R3 as a no-modifier fallback
     input_quit_gamepad_combo: '0',
-    menu_swap_ok_cancel_buttons: b(settings.ui.buttonLayout === 'nintendo'),
+    menu_swap_ok_cancel_buttons: b(resolveButtonLayout(settings.ui.buttonLayout, padName ? padFamily(padName) : undefined) === 'nintendo'),
 
     // RetroAchievements
     cheevos_enable: b(cheevos.enabled && !!cheevos.username),
@@ -390,13 +393,13 @@ export function parseCfg(text: string): Record<string, string> {
 }
 
 /** Write <retroarch>/retrodesk.cfg from current settings. Returns the cfg path and the shader to apply. */
-export async function writeAppendConfig(settings: Settings, paths: RaConfigInput['paths'], uiMode = false): Promise<{ cfgPath: string; shaderPath?: string; mainCfg?: string }> {
+export async function writeAppendConfig(settings: Settings, paths: RaConfigInput['paths'], uiMode = false, padName?: string): Promise<{ cfgPath: string; shaderPath?: string; mainCfg?: string }> {
   const dir = raDir(paths)
   const shaderPath = resolveShaderPreset(shaderDirs(paths), settings.retroarch.shader)
   if (settings.retroarch.shader !== 'none' && !shaderPath) console.warn(`[retroarch] no preset found for shader "${settings.retroarch.shader}", running without`)
   const cfgPath = uiMode ? join(dir, 'retrodesk-ui.cfg') : raAppendCfgPath(paths)
   await mkdir(join(dir, 'logs'), { recursive: true })
-  await writeFile(cfgPath, serializeCfg(buildRetroArchConfig({ settings, paths, shaderPath, uiMode })))
+  await writeFile(cfgPath, serializeCfg(buildRetroArchConfig({ settings, paths, shaderPath, uiMode, padName })))
   if (hostOs() !== 'macos') return { cfgPath, shaderPath }
   // Its own config next to it, not the one in ~/Library a separately installed RetroArch uses.
   const mainCfg = raMainCfgPath(paths)

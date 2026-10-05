@@ -89,6 +89,8 @@ export interface RomFolder {
 
 export type PerformanceMode = SettingValue<'performance.inGameMode'>
 
+export type ButtonLayout = SettingValue<'ui.buttonLayout'>
+
 /** The operating systems RetroDesk runs on. */
 export type HostOs = 'windows' | 'macos'
 
@@ -112,8 +114,8 @@ export interface Settings {
     startFullscreen: boolean
     /** Show only systems that have games. */
     hideEmptySystems: boolean
-    /** Gamepad face-button layout: 'xbox' => A confirms (bottom), 'nintendo' => swap A/B. */
-    buttonLayout: SettingValue<'ui.buttonLayout'>
+    /** Gamepad face-button layout: 'xbox' => bottom confirms, 'nintendo' => right confirms, 'auto' => by controller. */
+    buttonLayout: ButtonLayout
   }
   retroarch: {
     shader: SettingValue<'retroarch.shader'>
@@ -210,6 +212,17 @@ export interface SessionInfo {
 }
 
 export type QuickAction = 'resume' | 'save_state' | 'load_state' | 'slot_next' | 'slot_prev' | 'screenshot' | 'fast_forward' | 'pause_toggle' | 'reset' | 'retroarch_menu' | 'quit'
+
+/**
+ * A controller read natively by the main process (macOS, where Chromium's Gamepad API misses common pads), in the
+ * W3C Standard Gamepad layout: 17 button values (0..1, 16 = Guide) and 4 stick axes.
+ */
+export interface NativePad {
+  index: number
+  id: string
+  buttons: number[]
+  axes: number[]
+}
 
 export interface SystemStats {
   cpuPercent: number

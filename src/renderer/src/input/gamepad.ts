@@ -1,11 +1,13 @@
 import { emitAction, emitNav } from './bus'
 import { padFamily, useInputStore, type PadInfo } from '../stores/input'
+import { getPads, onPadsChanged } from './pads'
 import type { Action, Direction } from './types'
 
 /**
  * Gamepad polling (standard mapping). D-pad and left stick navigate with an initial delay then repeat;
  * face/shoulder buttons fire on press. In the main window input is ignored while the window is not
- * focused (XInput is global and a game is running on top). The overlay window instead watches for the
+ * focused (XInput is global and a game is running on top). Controllers come from input/pads.ts: the Gamepad API,
+ * or on macOS the main process, which reads them natively. The overlay window instead watches for the
  * quick-menu combo while inactive.
  *
  * Chromium's background throttling is off for both windows (so the overlay can watch the pad over a fullscreen
@@ -63,16 +65,17 @@ export function installGamepad(opts: GamepadOptions): () => void {
 
   const refreshPads = () => {
     const pads: PadInfo[] = []
-    for (const gp of navigator.getGamepads()) if (gp && gp.connected) pads.push({ index: gp.index, id: gp.id, family: padFamily(gp.id) })
+    for (const gp of getPads()) if (gp && gp.connected) pads.push({ index: gp.index, id: gp.id, family: padFamily(gp.id) })
     useInputStore.getState().setPads(pads)
     return pads
   }
-  const onConnect = () => {
-    refreshPads()
-    useInputStore.getState().setSource('pad')
+  let padCount = 0
+  const onPadsChange = () => {
+    const now = refreshPads().length
+    if (now > padCount) useInputStore.getState().setSource('pad')
+    padCount = now
   }
-  window.addEventListener('gamepadconnected', onConnect)
-  window.addEventListener('gamepaddisconnected', refreshPads)
+  const offPads = onPadsChanged(onPadsChange)
 
   const fire = (key: Logical) => {
     if (key === 'up' || key === 'down' || key === 'left' || key === 'right') {
@@ -137,7 +140,7 @@ export function installGamepad(opts: GamepadOptions): () => void {
       refreshPads()
     }
     pads.length = 0
-    for (const g of navigator.getGamepads()) if (g && g.connected) pads.push(g)
+    for (const g of getPads()) if (g && g.connected) pads.push(g)
     if (!pads.length) {
       states.clear()
       return
@@ -241,7 +244,6 @@ export function installGamepad(opts: GamepadOptions): () => void {
     cancelAnimationFrame(raf)
     clearTimeout(timer)
     window.removeEventListener('focus', onFocus)
-    window.removeEventListener('gamepadconnected', onConnect)
-    window.removeEventListener('gamepaddisconnected', refreshPads)
+    offPads()
   }
 }

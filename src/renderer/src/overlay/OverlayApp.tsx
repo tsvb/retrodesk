@@ -19,7 +19,7 @@ import { feedback } from '../lib/feedback'
 import { canSwitchPowerPlan } from '../lib/platform'
 import { primeAudioOnGesture } from '../lib/sound'
 import { systemColor } from '../lib/color'
-import { useInputStore } from '../stores/input'
+import { currentButtonLayout, useInputStore } from '../stores/input'
 import { toast, useToasts } from '../stores/session'
 import { followSettingsChanges, useSettings } from '../stores/settings'
 
@@ -162,7 +162,7 @@ export function OverlayApp() {
       }),
       installGamepad({
         mode: 'overlay',
-        getLayout: () => useSettings.getState().settings?.ui.buttonLayout ?? 'xbox',
+        getLayout: currentButtonLayout,
         getCombo: () => useSettings.getState().settings?.hotkeys.quickMenuCombo ?? [8, 9],
         isActive: () => activeRef.current,
         onCombo: () => (activeRef.current ? void resume() : open())

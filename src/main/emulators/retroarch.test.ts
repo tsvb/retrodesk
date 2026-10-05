@@ -130,6 +130,13 @@ describe('buildRetroArchConfig', () => {
     expect(buildRetroArchConfig({ settings: metal, paths, os: 'windows' }).video_driver).toBe('vulkan')
   })
 
+  it('resolves an "Automatic" button layout from the controller in use', () => {
+    const auto = settings((s) => (s.ui.buttonLayout = 'auto'))
+    expect(buildRetroArchConfig({ settings: auto, paths, padName: 'Nintendo Switch Pro Controller' }).menu_swap_ok_cancel_buttons).toBe('true')
+    expect(buildRetroArchConfig({ settings: auto, paths, padName: 'Xbox Wireless Controller' }).menu_swap_ok_cancel_buttons).toBe('false')
+    expect(buildRetroArchConfig({ settings: auto, paths }).menu_swap_ok_cancel_buttons).toBe('false')
+  })
+
   it('UI mode lets RetroArch persist menu changes', () => {
     expect(buildRetroArchConfig({ settings: settings(), paths, uiMode: true }).config_save_on_exit).toBe('true')
   })

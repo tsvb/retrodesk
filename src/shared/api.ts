@@ -1,4 +1,19 @@
-import type { BiosStatus, EmulatorStatus, Game, GameQuery, LaunchResult, PerformanceMode, QuickAction, ScanResult, SessionInfo, Settings, SystemStats, SystemSummary, TaskProgress } from './types'
+import type {
+  BiosStatus,
+  EmulatorStatus,
+  Game,
+  GameQuery,
+  LaunchResult,
+  NativePad,
+  PerformanceMode,
+  QuickAction,
+  ScanResult,
+  SessionInfo,
+  Settings,
+  SystemStats,
+  SystemSummary,
+  TaskProgress
+} from './types'
 
 /**
  * The API exposed to the renderer as `window.retrodesk` (see src/preload/index.ts).
@@ -56,6 +71,10 @@ export interface RetroDeskApi {
     openExternal(url: string): Promise<void>
     getPaths(): Promise<{ dataRoot: string; roms: string; bios: string; saves: string; states: string; screenshots: string; emulators: string; media: string }>
     getVersion(): Promise<string>
+    /** Controllers the main process reads natively (macOS), or null where the renderer uses the Gamepad API itself. */
+    getGamepads(): Promise<NativePad[] | null>
+    /** Rumble natively read controllers (0..1 each). */
+    rumbleGamepads(light: number, heavy: number, durationMs: number): Promise<void>
   }
   window: {
     toggleFullscreen(): Promise<boolean>
@@ -85,6 +104,8 @@ export interface ApiEvents {
   overlay: boolean
   /** Settings changed (from any window). */
   settingsChanged: Settings
+  /** Natively read controllers changed (macOS): the full current state. */
+  gamepads: NativePad[]
 }
 
 /** A libraryChanged event that is cheaper to apply than a reload. */
@@ -101,7 +122,7 @@ export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? (T[K] exte
 type AssertAllListed<Missing extends never> = Missing
 
 /** Event names, used by preload to build `on` generically. */
-export const EVENT_NAMES = ['task', 'session', 'libraryChanged', 'overlay', 'settingsChanged'] as const satisfies readonly EventName[]
+export const EVENT_NAMES = ['task', 'session', 'libraryChanged', 'overlay', 'settingsChanged', 'gamepads'] as const satisfies readonly EventName[]
 export type AllEventsListed = AssertAllListed<Exclude<EventName, (typeof EVENT_NAMES)[number]>>
 
 /** Channel an event is pushed on via webContents.send. */
@@ -114,7 +135,7 @@ export const API_SHAPE = {
   bios: ['check', 'importFiles'],
   game: ['launch', 'getSession', 'quickAction'],
   settings: ['get', 'set'],
-  system: ['getStats', 'setPerformanceMode', 'pickFolder', 'pickFiles', 'openPath', 'openExternal', 'getPaths', 'getVersion'],
+  system: ['getStats', 'setPerformanceMode', 'pickFolder', 'pickFiles', 'openPath', 'openExternal', 'getPaths', 'getVersion', 'getGamepads', 'rumbleGamepads'],
   window: ['toggleFullscreen', 'isFullscreen', 'minimize', 'quit', 'setOverlayActive', 'setOverlayHold']
 } as const satisfies { [K in Exclude<keyof RetroDeskApi, 'on'>]: readonly (keyof RetroDeskApi[K])[] }
 

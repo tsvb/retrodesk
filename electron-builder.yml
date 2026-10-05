@@ -17,9 +17,10 @@ files:
 # The UI is English-only: ship one Chromium locale pack instead of ~50 MB of them.
 electronLanguages:
   - en-US
-# 7za must live on disk (not inside app.asar) to be spawned.
+# 7za must live on disk (not inside app.asar) to be spawned, and SDL's native binding next to its dylib.
 asarUnpack:
   - node_modules/7zip-bin/**
+  - node_modules/@kmamal/sdl/**
 # Licence texts for everything bundled, next to the app in resources/.
 extraResources:
   - from: LICENSE
@@ -53,6 +54,8 @@ win:
   files:
     - '!**/node_modules/7zip-bin/mac/**'
     - '!**/node_modules/7zip-bin/win/{ia32,arm64}/**'
+    # Native controller input is macOS-only (the Gamepad API works on Windows).
+    - '!**/node_modules/@kmamal/sdl/**'
 # Separate Apple Silicon and Intel builds (Electron is per architecture; both 7za binaries are small enough to keep).
 mac:
   target:
@@ -71,6 +74,9 @@ mac:
     - en
   files:
     - '!**/node_modules/7zip-bin/win/**'
+    # SDL's sources and build scripts; the binding and its dylib are in dist/.
+    - '!**/node_modules/@kmamal/sdl/{src/native,scripts,sdl,build}/**'
+    - '!**/node_modules/@kmamal/sdl/binding.gyp'
 dmg:
   artifactName: ${productName}-${version}-mac-${arch}.${ext}
 nsis:
@@ -80,3 +86,6 @@ nsis:
 portable:
   artifactName: ${productName}-Portable-${version}.${ext}
 npmRebuild: false
+# Ship the @kmamal/sdl binding for each macOS package's own architecture (scripts/sdl-arch.cjs).
+beforePack: scripts/sdl-before-pack.cjs
+afterPack: scripts/sdl-after-pack.cjs

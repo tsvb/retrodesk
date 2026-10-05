@@ -1,5 +1,9 @@
 import { create } from 'zustand'
+import { padFamily, resolveButtonLayout } from '@shared/pads'
 import type { InputSource, PadFamily } from '../input/types'
+import { useSettings } from './settings'
+
+export { padFamily }
 
 export interface PadInfo {
   index: number
@@ -30,12 +34,16 @@ export const useInputStore = create<InputState>((set, get) => ({
   }
 }))
 
-export function padFamily(id: string): PadFamily {
-  const s = id.toLowerCase()
-  if (s.includes('054c') || s.includes('dualsense') || s.includes('dualshock') || s.includes('wireless controller') || s.includes('playstation')) return 'playstation'
-  if (s.includes('057e') || s.includes('pro controller') || s.includes('joy-con') || s.includes('nintendo')) return 'nintendo'
-  if (s.includes('xinput') || s.includes('xbox') || s.includes('045e') || s.includes('standard gamepad')) return 'xbox'
-  return 'generic'
+/** Which button confirms right now: the setting, with "Automatic" following the first connected controller. */
+export function currentButtonLayout(): 'xbox' | 'nintendo' {
+  return resolveButtonLayout(useSettings.getState().settings?.ui.buttonLayout ?? 'auto', useInputStore.getState().pads[0]?.family)
+}
+
+/** currentButtonLayout as a hook. */
+export function useButtonLayout(): 'xbox' | 'nintendo' {
+  const setting = useSettings((s) => s.settings?.ui.buttonLayout ?? 'auto')
+  const family = useInputStore((s) => s.pads[0]?.family)
+  return resolveButtonLayout(setting, family)
 }
 
 /** Which glyph set the hint bar should use. */

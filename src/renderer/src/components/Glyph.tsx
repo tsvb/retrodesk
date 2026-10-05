@@ -1,6 +1,5 @@
 import type { Action, PadFamily } from '../input/types'
-import { useGlyphFamily } from '../stores/input'
-import { useSettings } from '../stores/settings'
+import { useButtonLayout, useGlyphFamily } from '../stores/input'
 
 /** Physical button index (standard mapping) for an action, honouring the A/B layout swap. */
 export function buttonForAction(action: Action, layout: 'xbox' | 'nintendo'): number {
@@ -110,7 +109,7 @@ export function KeyCap({ label, size = 'md' }: { label: string; size?: 'sm' | 'm
 /** Glyph for an action using the connected controller's family (or keyboard keys). */
 export function Glyph({ action, size = 'md' }: { action: Action; size?: 'sm' | 'md' | 'lg' }) {
   const family = useGlyphFamily()
-  const layout = useSettings((s) => s.settings?.ui.buttonLayout ?? 'xbox')
+  const layout = useButtonLayout()
   if (family === 'keyboard') return <KeyCap label={KEYS[action]} size={size} />
   return <PadButton family={family} index={buttonForAction(action, layout)} size={size} />
 }

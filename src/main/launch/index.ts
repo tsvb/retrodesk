@@ -22,6 +22,7 @@ import { hostOs } from '../platform'
 import { autoFetchableCore, describeMissing, missingBios } from './bios'
 import { fileWrittenSince } from './confirm'
 import { createFocusHelper } from './focus'
+import { getNativeGamepads } from '../gamepads'
 import { RaCommandClient } from './racommand'
 
 const QUIT_GRACE_MS = 4000
@@ -103,7 +104,8 @@ export async function planLaunch(game: Game): Promise<PlanResult> {
 
   if (ref.type === 'retroarch') {
     const exe = retroArchExe()!
-    const { cfgPath, shaderPath, mainCfg } = await writeAppendConfig(settings, paths)
+    // The controller main reads natively (macOS) resolves an "Automatic" button layout for RetroArch's menu too.
+    const { cfgPath, shaderPath, mainCfg } = await writeAppendConfig(settings, paths, false, getNativeGamepads()?.[0]?.id)
     return {
       ok: true,
       plan: { exe, cwd: dirname(exe), ref, supportsCommands: true, args: buildRetroArchArgs({ coreDll: coreLibPath(paths, ref.core), rom: game.path, appendCfg: cfgPath, shaderPath, mainCfg }) }

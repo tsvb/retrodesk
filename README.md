@@ -10,7 +10,7 @@ The Retroid Pocket 6 experience, rebuilt for a Windows or macOS desktop: a contr
 | Pick an emulator per system | One-click install of RetroArch 1.22 + the best libretro core per system, or a standalone emulator (Dolphin, PCSX2, RPCS3, Eden, Azahar, Cemu, xemu, Vita3K, PPSSPP, DuckStation). Override per system or per game |
 | Game Assist side bar (FPS, temps, shortcuts) | Transparent always-on-top overlay. Open with **Back + Start** on a controller (or Guide), or **Ctrl+Alt+Home**. Offers resume, save/load state, slot ±, screenshot, fast-forward, reset, RetroArch menu, performance mode and quit, plus live CPU/GPU/temperature/RAM/battery stats |
 | Performance profiles (Standard → High Performance) | Windows 11 power modes (Quiet / Balanced / Max) applied while you play, then restored afterwards. On a Mac, macOS manages power itself; Low Power Mode is shown in the quick menu |
-| Xbox / Nintendo button layout swap | Same, for the UI and confirm/back. Controller glyphs match Xbox, PlayStation or Nintendo pads |
+| Xbox / Nintendo button layout swap | Same, for the UI and confirm/back, chosen automatically from the controller unless you pick one. Controller glyphs match Xbox, PlayStation or Nintendo pads |
 | Hold-Select hotkeys | RetroArch hotkeys: Select + RB save, + LB load, + RT fast-forward, + D-pad ← → slot, + Y screenshot, + X menu |
 | Quick resume | Auto save state on exit and auto load on launch |
 | Box art scraping | libretro-thumbnails box art, snaps and title screens, matched fuzzily to No-Intro/Redump names (no API key). Arcade names resolved via the FBNeo DAT. Local art next to ROMs is used first |
@@ -51,7 +51,7 @@ RetroDesk goes online only to download the emulators you install (from the libre
 | | Gamepad | Keyboard |
 |---|---|---|
 | Move | D-pad / left stick | Arrows |
-| Select / back | A / B (swapped on the Nintendo layout) | Enter / Esc |
+| Select / back | Bottom / right button (right / bottom on Nintendo controllers) | Enter / Esc |
 | Favourite | X | F |
 | Search | Y | `/` or Ctrl+F |
 | Switch section | LB / RB | Q / E or PgUp / PgDn |
@@ -105,6 +105,7 @@ src/main/
   launch/        Session lifecycle, RetroArch UDP network commands, BIOS pre-flight, emulator window refocus
   system/        CPU/RAM/GPU (nvidia-smi)/battery stats (Win32_Battery, pmset), Windows power modes
   platform.ts    Host OS and CPU architecture: Windows and macOS builds differ in downloads, paths and OS services
+  gamepads.ts    macOS: controllers read natively through SDL (@kmamal/sdl), since Chromium misses common ones there
 src/renderer/    React 19 UI: input/ (gamepad + keyboard + spatial focus), screens/, overlay/, stores/ (zustand)
 docs/research/   Retroid Pocket 6 feature research and the verified emulator technical reference
 ```
@@ -118,6 +119,7 @@ docs/research/   Retroid Pocket 6 feature research and the verified emulator tec
   - Standalone emulators are found inside their app bundles.
 
   Please report anything that misbehaves.
+- **Controllers on macOS** are read through SDL rather than Chromium's Gamepad API, which on current macOS misses controllers such as the Switch Pro Controller. `npm run dist:mac` fetches SDL's native binding for each package's architecture, which needs network access while packaging.
 - **Power modes** are Windows-only. macOS needs administrator rights to change power settings, so RetroDesk leaves them alone there.
 - **On macOS, not every emulator has a build for every Mac:** Eden (Switch) is Apple Silicon only, and Cemu (Wii U) is an Intel build that runs through Rosetta. A few libretro cores are missing from the buildbot for one architecture; installing one of those says so.
 

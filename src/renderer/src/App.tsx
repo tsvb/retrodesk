@@ -20,6 +20,7 @@ import { SystemsScreen } from './screens/Systems'
 import { followLibraryChanges, useLibrary } from './stores/library'
 import { currentTab, useNav, type Route, type StackEntry } from './stores/nav'
 import { followGameIdle, useSession, useTasks } from './stores/session'
+import { currentButtonLayout } from './stores/input'
 import { followSettingsChanges, useSettings } from './stores/settings'
 import { useUi } from './stores/ui'
 
@@ -50,7 +51,7 @@ function useBoot(): boolean {
       installKeyboard({
         onFullscreen: () => void api.window.toggleFullscreen().then((f) => useUi.getState().setFullscreen(f))
       }),
-      installGamepad({ mode: 'main', getLayout: () => useSettings.getState().settings?.ui.buttonLayout ?? 'xbox' })
+      installGamepad({ mode: 'main', getLayout: currentButtonLayout })
     ]
     primeAudioOnGesture()
     void (async () => {

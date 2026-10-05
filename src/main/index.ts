@@ -12,6 +12,7 @@ import { ThumbCache, thumbWidth } from './library/thumbs'
 import { initEmulators, emulatorsHandlers } from './emulators'
 import { initLaunch, gameHandlers } from './launch'
 import { getStats, setPerformanceMode } from './system'
+import { getNativeGamepads, initNativeGamepads, rumbleNativeGamepads } from './gamepads'
 
 // Keep the frontend + overlay "visible" to Chromium while a fullscreen emulator covers them,
 // otherwise Windows (or macOS) occlusion tracking hides the page and gamepad polling / timers stop.
@@ -62,6 +63,12 @@ const systemHandlers: RetroDeskApi['system'] = {
   },
   async getVersion() {
     return app.getVersion()
+  },
+  async getGamepads() {
+    return getNativeGamepads()
+  },
+  async rumbleGamepads(light, heavy, durationMs) {
+    rumbleNativeGamepads(light, heavy, durationMs)
   }
 }
 
@@ -196,6 +203,7 @@ if (!gotLock) {
       if (!ensureDataRoot()) return app.quit()
       registerMediaProtocol()
       registerIpc()
+      initNativeGamepads()
       // Open the window first so it paints (and loads settings) while the library loads.
       createMainWindow()
       try {

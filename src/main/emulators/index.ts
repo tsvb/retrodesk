@@ -7,6 +7,7 @@ import type { RetroDeskApi } from '../../shared/api'
 import type { EmulatorStatus } from '../../shared/types'
 import { createTask } from '../events'
 import { getPaths } from '../paths'
+import { getNativeGamepads } from '../gamepads'
 import { getSettings } from '../settings'
 import { getSystemDef, getSystemDefs } from '../systems'
 import { dirSize, removeExcept } from './extract'
@@ -286,7 +287,7 @@ export async function openEmulatorUi(rawId: string): Promise<void> {
   if (id === RA_ID || id.startsWith('core:')) {
     const exe = retroArchExe()
     if (!exe) throw new Error('RetroArch is not installed')
-    const { cfgPath, mainCfg } = await writeAppendConfig(getSettings(), getPaths(), true)
+    const { cfgPath, mainCfg } = await writeAppendConfig(getSettings(), getPaths(), true, getNativeGamepads()?.[0]?.id)
     spawnDetached(exe, buildRetroArchArgs({ appendCfg: cfgPath, mainCfg }), dirname(exe))
     return
   }
