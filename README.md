@@ -71,7 +71,9 @@ npm run dev
 | `npm run dev` | Electron + Vite with hot reload |
 | `npm run typecheck` | `tsc` for main/preload and renderer |
 | `npm test` | Vitest unit tests (library, scanner, titles, artwork, emulators, launcher, UDP client, system) |
-| `npm run check` | Typecheck, then the unit tests. Run it before pushing |
+| `npm run lint` | oxlint (`.oxlintrc.json`): correctness rules for TypeScript and React |
+| `npm run format` | Prettier (`.prettierrc.json`) rewrites the source in place; `npm run format:check` only reports |
+| `npm run check` | Lint, format check, typecheck, then the unit tests. Run it before pushing |
 | `npm run e2e` | Builds, launches the real app on a throwaway data folder with fake ROMs, screenshots every screen into `.e2e/smoke` |
 | `npm run e2e:play -- <dir>` | Real play session: installs RetroArch + Gambatte, runs a zlib-licensed homebrew Game Boy ROM, exercises save state, the overlay, pause/resume and quit, and checks play time was recorded. `<dir>` (default `.e2e/play`) caches the ~200 MB download |
 | `npm run dist` | Production build + NSIS installer + portable exe in `dist/` |

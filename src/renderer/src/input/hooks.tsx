@@ -125,10 +125,10 @@ export function useFocusable<T extends HTMLElement = HTMLElement>(
 }
 
 /** Configure a navigation group (e.g. rows that remember their last focused card). */
-export function useFocusGroup(id: string, cfg: { memory?: boolean }): void {
+export function useFocusGroup(id: string, { memory }: { memory?: boolean }): void {
   useLayoutEffect(() => {
-    focusManager.configureGroup(id, cfg)
-  }, [id, cfg.memory])
+    focusManager.configureGroup(id, { memory })
+  }, [id, memory])
 }
 
 /**

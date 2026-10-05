@@ -1,5 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync } from 'fs'
-import { tmpdir } from 'os'
+import { existsSync, readFileSync, rmSync, unlinkSync } from 'fs'
 import { join } from 'path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { Settings } from '../../shared/types'

@@ -33,7 +33,7 @@ describe('conform', () => {
     })
   })
   it('drops unknown keys and wrongly shaped fields', () => {
-    expect(conform(shape, { nope: 1, dataRoot: 'relative\path', ui: { accent: 'red' }, hotkeys: { quickMenuCombo: [8, 'x'] } })).toEqual({ ui: {}, hotkeys: {} })
+    expect(conform(shape, { nope: 1, dataRoot: 'relative\\path', ui: { accent: 'red' }, hotkeys: { quickMenuCombo: [8, 'x'] } })).toEqual({ ui: {}, hotkeys: {} })
     expect(conform(shape, { ui: { accent: '#ff8a3d' } })).toEqual({ ui: { accent: '#ff8a3d' } })
   })
 })

@@ -19,6 +19,7 @@ const ORDER = new Map<string, number>(SYSTEMS.map((s, i) => [s.id, i]))
  * software like Markdown, macOS disk images or Doom WADs). Never used for the unique-extension fallback,
  * and files with these extensions under 1 KB are ignored by the scanner.
  */
+// prettier-ignore
 export const GENERIC_EXTENSIONS: ReadonlySet<string> = new Set([
   '.zip', '.7z', '.bin', '.iso', '.img', '.chd', '.cue', '.ccd', '.toc', '.m3u', '.mdf', '.gz', '.pkg', '.rom', '.dsk',
   '.cas', '.o', '.md', '.dmg', '.wad', '.dol', '.st', '.cso', '.pbp', '.ciso', '.gcz', '.rvz', '.wia'

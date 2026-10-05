@@ -92,18 +92,21 @@ export interface ScanOutput {
 }
 
 /** Folder names never entered. */
+// prettier-ignore
 const ALWAYS_SKIP = new Set([
   'system volume information', '$recycle.bin', 'recycler', 'downloaded_media', 'media', 'images', 'videos', 'manuals',
   'snaps', 'boxart', 'boxarts', 'covers', 'thumbnails', 'screenshots', 'saves', 'savestates', 'states', 'cheats',
   'shaders', 'overlays', 'node_modules', 'bios'
 ])
 /** Folder names skipped while we don't yet know which system we're in (emulator installs, OS folders). */
+// prettier-ignore
 const UNKNOWN_SKIP = new Set([
   'emulators', 'retroarch', 'system', 'tools', 'storage', 'windows', 'program files', 'program files (x86)', 'programdata',
   'appdata', 'steamapps', 'steamlibrary', 'es-de', 'emulationstation', 'launchbox', 'playnite'
 ])
 
 /** Arcade BIOS / device sets that are not games. */
+// prettier-ignore
 export const ARCADE_BIOS_ZIPS = new Set([
   'neogeo', 'pgm', 'skns', 'decocass', 'isgsm', 'nmk004', 'cchip', 'qsound', 'bubsys', 'midssio', 'megatech', 'megaplay',
   'stvbios', 'hng64', 'naomi', 'naomi2', 'awbios', 'cpzn1', 'cpzn2', 'coh1000c', 'coh1000t', 'coh3002c', 'konamigx',

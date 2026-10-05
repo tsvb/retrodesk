@@ -1,0 +1,10 @@
+out/
+dist/
+.e2e/
+.claude/
+node_modules/
+package-lock.json
+# Hand-laid-out catalogs and prose: their line breaks carry meaning.
+src/main/data/
+docs/
+*.md

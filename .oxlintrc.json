@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "oxc"],
+  "categories": { "correctness": "error" },
+  "env": { "browser": true, "node": true, "es2023": true },
+  "rules": {
+    // The input system keeps the latest handlers in a ref that is assigned during render, on purpose,
+    // so callers can pass fresh closures every render without re-registering (see input/hooks.tsx).
+    "react/refs": "off",
+    // Several screens reset local state from an effect when a prop or query changes.
+    "react/set-state-in-effect": "off"
+  },
+  "ignorePatterns": ["out", "dist", ".e2e", "node_modules"]
+}

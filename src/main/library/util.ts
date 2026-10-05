@@ -83,6 +83,7 @@ export function thumbnailSafeName(name: string): string {
 /** File-system safe name for media files (thumbnail substitution + Windows trailing dot/space rules). */
 export function mediaFileName(name: string): string {
   const s = thumbnailSafeName(name)
+    // oxlint-disable-next-line no-control-regex -- control characters are exactly what must not reach a file name
     .replace(/[\x00-\x1f]/g, '_')
     .replace(/[. ]+$/, '')
     .slice(0, 180)
