@@ -7,6 +7,7 @@ import { PickerModal, SettingRow, type Option } from '../../components/Controls'
 import { ConfirmDialog } from '../../components/Modal'
 import { SchemaSetting } from '../../components/SchemaSetting'
 import { addRomFolder, fetchArtwork, importRomFiles, rescan } from '../../lib/libraryActions'
+import { sep } from '../../lib/platform'
 import { useLibrary } from '../../stores/library'
 import { toast } from '../../stores/session'
 import { useSettings, useSettingsValue } from '../../stores/settings'
@@ -78,7 +79,7 @@ export function LibraryTab() {
             Import ROM files
           </Button>
         </div>
-        <p className="settings-section__note">Imported files are copied to {settings.dataRoot}\roms\&lt;system&gt;. You can also drop files onto the window.</p>
+        <p className="settings-section__note">Imported files are copied to {[settings.dataRoot, 'roms', '<system>'].join(sep)}. You can also drop files onto the window.</p>
       </Section>
 
       <Section title="Artwork">
