@@ -594,7 +594,8 @@
   font-stretch: 85%;
   font-size: 2.3rem;
   letter-spacing: -0.03em;
-  margin: 0 0 1rem 0.9rem;
+  /* Flush with the items below, so the heading and their highlights share one left edge. */
+  margin: 0 0 1rem;
 }
 .settings-nav__item {
   display: flex;
