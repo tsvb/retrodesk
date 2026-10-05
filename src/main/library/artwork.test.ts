@@ -49,7 +49,10 @@ describe('fetchArtworkForGames', () => {
   })
 
   const SNES = 'Nintendo - Super Nintendo Entertainment System'
-  const listings = (snaps: string): ((url: string) => Promise<string>) => async (url) => (url.includes('Named_Snaps') ? snaps : LISTING)
+  const listings =
+    (snaps: string): ((url: string) => Promise<string>) =>
+    async (url) =>
+      url.includes('Named_Snaps') ? snaps : LISTING
 
   it("downloads a game's images in parallel, snap and title following the boxart's match", async () => {
     const mediaDir = join(tmp, 'parallel', 'media')
@@ -76,7 +79,16 @@ describe('fetchArtworkForGames', () => {
 
   it('remembers artwork libretro does not list until the listing changes', async () => {
     const mediaDir = join(tmp, 'misses', 'media')
-    const game = { id: 'g4', systemId: 'snes', path: 'C:\\roms\\Super Mario World (USA).sfc', rawName: 'Super Mario World (USA)', title: 'Super Mario World', regions: ['USA'], tags: [], media: {} } as unknown as Game
+    const game = {
+      id: 'g4',
+      systemId: 'snes',
+      path: 'C:\\roms\\Super Mario World (USA).sfc',
+      rawName: 'Super Mario World (USA)',
+      title: 'Super Mario World',
+      regions: ['USA'],
+      tags: [],
+      media: {}
+    } as unknown as Game
     const calls: string[] = []
     // Boxart and title are listed but fail to download; the snap is not listed at all.
     const download = async (url: string): Promise<boolean> => {
@@ -240,7 +252,9 @@ describe('ArtworkMissCache', () => {
 
 describe('FBNeo DAT', () => {
   it('maps short names to descriptions', () => {
-    const m = parseFbneoDat('<game name="mslug" romof="neogeo"><description>Metal Slug - Super Vehicle-001</description></game><game name="sf2"><description>Street Fighter II - The World Warrior (World 910522)</description></game><game name="x"><description>A &amp; B</description></game>')
+    const m = parseFbneoDat(
+      '<game name="mslug" romof="neogeo"><description>Metal Slug - Super Vehicle-001</description></game><game name="sf2"><description>Street Fighter II - The World Warrior (World 910522)</description></game><game name="x"><description>A &amp; B</description></game>'
+    )
     expect(m.get('mslug')).toBe('Metal Slug - Super Vehicle-001')
     expect(m.get('x')).toBe('A & B')
   })

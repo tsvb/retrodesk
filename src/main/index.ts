@@ -26,9 +26,7 @@ else if (portableData) app.setPath('userData', join(portableData, 'app'))
 
 process.on('unhandledRejection', (reason) => console.error('[main] unhandled rejection', reason))
 
-protocol.registerSchemesAsPrivileged([
-  { scheme: MEDIA_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }
-])
+protocol.registerSchemesAsPrivileged([{ scheme: MEDIA_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }])
 
 const systemHandlers: RetroDeskApi['system'] = {
   getStats,

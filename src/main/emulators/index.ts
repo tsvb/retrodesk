@@ -12,18 +12,7 @@ import { getSystemDef, getSystemDefs } from '../systems'
 import { dirSize, removeExcept } from './extract'
 import { allRefs, systemChosenRef, type EmuRef } from './keys'
 import { getEntry, getInstalled, loadManifest, recordInstall, removeEntry } from './manifest'
-import {
-  buildRetroArchArgs,
-  coreDisplayName,
-  coreDllPath,
-  coreFileBase,
-  installCore,
-  installRetroArch,
-  RA_ID,
-  raDir,
-  raExe,
-  writeAppendConfig
-} from './retroarch'
+import { buildRetroArchArgs, coreDisplayName, coreDllPath, coreFileBase, installCore, installRetroArch, RA_ID, raDir, raExe, writeAppendConfig } from './retroarch'
 import { getStandaloneDef, hasVcRedist, installStandalone, postInstall, STANDALONE_DEFS, standaloneDir, type StandaloneDef } from './standalone'
 
 export { parseEmulatorKey, refKey, refStatusId, resolveGameRef } from './keys'
@@ -265,10 +254,7 @@ export async function installForSystem(systemId: string): Promise<void> {
   try {
     if (ref.type === 'retroarch') {
       // RetroArch and the core install side by side (retroarch.ts serializes their moves into the RetroArch folder).
-      const jobs = [
-        ...(retroArchExe() ? [] : [{ name: 'RetroArch', id: RA_ID }]),
-        ...(isCoreInstalled(ref.core) ? [] : [{ name: coreDisplayName(ref.core), id: `core:${ref.core}` }])
-      ]
+      const jobs = [...(retroArchExe() ? [] : [{ name: 'RetroArch', id: RA_ID }]), ...(isCoreInstalled(ref.core) ? [] : [{ name: coreDisplayName(ref.core), id: `core:${ref.core}` }])]
       const pending = new Set(jobs.map((j) => j.name))
       const report = () => task.update((jobs.length - pending.size) / jobs.length, `Installing ${[...pending].join(' and ')}`)
       report()
@@ -343,4 +329,3 @@ export const emulatorsHandlers: RetroDeskApi['emulators'] = {
   installForSystem,
   openEmulatorUi
 }
-

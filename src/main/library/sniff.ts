@@ -57,7 +57,9 @@ async function readIsoRootFile(fh: FileHandle, l: IsoLayout, pvd: Buffer, name: 
     }
     if (i + 33 > dir.length) break
     const nameLen = dir[i + 32] ?? 0
-    const fname = ascii(dir, i + 33, nameLen).replace(/;\d+$/, '').toUpperCase()
+    const fname = ascii(dir, i + 33, nameLen)
+      .replace(/;\d+$/, '')
+      .toUpperCase()
     if (fname === name.toUpperCase()) {
       const lba = dir.readUInt32LE(i + 2)
       const size = Math.min(dir.readUInt32LE(i + 10), max)

@@ -41,7 +41,10 @@ export function parseCueText(text: string): string[] {
 /** GDI: first line is the track count, then "<n> <lba> <type> <sector size> <file> <offset>" (file may be quoted). */
 export function parseGdiText(text: string): string[] {
   const out: string[] = []
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
   for (const line of lines.slice(1)) {
     const m = /^\d+\s+\d+\s+\d+\s+\d+\s+(?:"([^"]+)"|(\S+))/.exec(line)
     const f = m?.[1] ?? m?.[2]

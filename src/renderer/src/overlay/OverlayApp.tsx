@@ -51,7 +51,14 @@ const ICONS: Record<QuickAction, LucideIcon> = {
  * One quick action as a button. Label, toggle state, availability and the in-game hotkey all come from
  * QUICK_ACTIONS; the panel only decides where the button goes.
  */
-function ActionButton({ id, session, running, onRun, iconOnly, ...button }: { id: QuickAction; session: SessionInfo; running: QuickAction | null; onRun: (id: QuickAction) => void; iconOnly?: boolean } & ButtonProps) {
+function ActionButton({
+  id,
+  session,
+  running,
+  onRun,
+  iconOnly,
+  ...button
+}: { id: QuickAction; session: SessionInfo; running: QuickAction | null; onRun: (id: QuickAction) => void; iconOnly?: boolean } & ButtonProps) {
   const family = useInputStore((s) => s.pads[0]?.family ?? 'xbox')
   const def = QUICK_ACTIONS[id]
   const on = def.isActive?.(session) ?? false
@@ -346,4 +353,3 @@ function MockGame() {
     </div>
   )
 }
-

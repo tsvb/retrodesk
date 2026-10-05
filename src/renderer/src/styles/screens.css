@@ -43,8 +43,7 @@
   z-index: -1;
   overflow: hidden;
   background:
-    radial-gradient(80% 120% at 85% 10%, color-mix(in oklab, var(--c-base) 55%, transparent), transparent 65%),
-    linear-gradient(180deg, color-mix(in oklab, var(--c-deep) 70%, var(--bg)), var(--bg));
+    radial-gradient(80% 120% at 85% 10%, color-mix(in oklab, var(--c-base) 55%, transparent), transparent 65%), linear-gradient(180deg, color-mix(in oklab, var(--c-deep) 70%, var(--bg)), var(--bg));
   mask-image: linear-gradient(to bottom, #000 55%, transparent);
 }
 .hero__backdrop img {
@@ -373,8 +372,7 @@
   z-index: -1;
   overflow: hidden;
   background:
-    radial-gradient(60% 80% at 20% 30%, color-mix(in oklab, var(--c-base) 40%, transparent), transparent 70%),
-    linear-gradient(120deg, color-mix(in oklab, var(--c-deep) 60%, var(--bg)), var(--bg) 70%);
+    radial-gradient(60% 80% at 20% 30%, color-mix(in oklab, var(--c-base) 40%, transparent), transparent 70%), linear-gradient(120deg, color-mix(in oklab, var(--c-deep) 60%, var(--bg)), var(--bg) 70%);
 }
 .detail__backdrop img {
   position: absolute;
@@ -796,13 +794,19 @@
 }
 .bios__row[data-focused] td {
   background: var(--surface-2);
-  box-shadow: inset 0 0.14rem 0 var(--accent), inset 0 -0.14rem 0 var(--accent);
+  box-shadow:
+    inset 0 0.14rem 0 var(--accent),
+    inset 0 -0.14rem 0 var(--accent);
 }
 .bios__row[data-focused] td:first-child {
-  box-shadow: inset 0.14rem 0.14rem 0 var(--accent), inset 0 -0.14rem 0 var(--accent);
+  box-shadow:
+    inset 0.14rem 0.14rem 0 var(--accent),
+    inset 0 -0.14rem 0 var(--accent);
 }
 .bios__row[data-focused] td:last-child {
-  box-shadow: inset -0.14rem 0.14rem 0 var(--accent), inset 0 -0.14rem 0 var(--accent);
+  box-shadow:
+    inset -0.14rem 0.14rem 0 var(--accent),
+    inset 0 -0.14rem 0 var(--accent);
 }
 .bios__file {
   display: block;
@@ -1180,8 +1184,7 @@
   inset: 0;
   overflow: hidden;
   background:
-    radial-gradient(70% 90% at 75% 20%, color-mix(in oklab, var(--c-base) 45%, transparent), transparent 70%),
-    linear-gradient(160deg, color-mix(in oklab, var(--c-deep) 60%, var(--bg)), var(--bg));
+    radial-gradient(70% 90% at 75% 20%, color-mix(in oklab, var(--c-base) 45%, transparent), transparent 70%), linear-gradient(160deg, color-mix(in oklab, var(--c-deep) 60%, var(--bg)), var(--bg));
 }
 .nowplaying__backdrop img {
   position: absolute;
@@ -1315,8 +1318,7 @@
 :root[data-theme='light'] .detail__backdrop,
 :root[data-theme='light'] .nowplaying__backdrop {
   background:
-    radial-gradient(70% 100% at 85% 10%, color-mix(in oklab, var(--c-base) 30%, transparent), transparent 70%),
-    linear-gradient(180deg, color-mix(in oklab, var(--c-light) 22%, var(--bg)), var(--bg));
+    radial-gradient(70% 100% at 85% 10%, color-mix(in oklab, var(--c-base) 30%, transparent), transparent 70%), linear-gradient(180deg, color-mix(in oklab, var(--c-light) 22%, var(--bg)), var(--bg));
 }
 :root[data-theme='light'] .hero__backdrop img,
 :root[data-theme='light'] .detail__backdrop img,

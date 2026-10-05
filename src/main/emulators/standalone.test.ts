@@ -65,7 +65,13 @@ describe('expandArgs', () => {
 })
 
 describe('emulator keys', () => {
-  const sys = { id: 'psx', emulators: [{ type: 'retroarch', core: 'mednafen_psx_hw_libretro', default: true }, { type: 'standalone', id: 'duckstation' }] } as unknown as SystemDef
+  const sys = {
+    id: 'psx',
+    emulators: [
+      { type: 'retroarch', core: 'mednafen_psx_hw_libretro', default: true },
+      { type: 'standalone', id: 'duckstation' }
+    ]
+  } as unknown as SystemDef
   it('parses all key formats', () => {
     expect(parseEmulatorKey('retroarch:snes9x_libretro')).toEqual({ type: 'retroarch', core: 'snes9x_libretro' })
     expect(parseEmulatorKey('core:snes9x')).toEqual({ type: 'retroarch', core: 'snes9x' })
@@ -76,7 +82,10 @@ describe('emulator keys', () => {
   it('resolves override -> settings -> default', () => {
     expect(resolveGameRef({}, sys, { systemEmulator: {} })).toEqual({ type: 'retroarch', core: 'mednafen_psx_hw_libretro' })
     expect(resolveGameRef({}, sys, { systemEmulator: { psx: 'standalone:duckstation' } })).toEqual({ type: 'standalone', id: 'duckstation' })
-    expect(resolveGameRef({ emulatorOverride: 'retroarch:swanstation_libretro' }, sys, { systemEmulator: { psx: 'standalone:duckstation' } })).toEqual({ type: 'retroarch', core: 'swanstation_libretro' })
+    expect(resolveGameRef({ emulatorOverride: 'retroarch:swanstation_libretro' }, sys, { systemEmulator: { psx: 'standalone:duckstation' } })).toEqual({
+      type: 'retroarch',
+      core: 'swanstation_libretro'
+    })
   })
 })
 

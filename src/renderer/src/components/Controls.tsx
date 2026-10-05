@@ -115,7 +115,21 @@ export function PickerRow<T extends string>({
   )
 }
 
-export function PickerModal<T extends string>({ title, options, value, onPick, onClose, description }: { title: string; options: Option<T>[]; value?: T; onPick: (v: T) => void; onClose: () => void; description?: ReactNode }) {
+export function PickerModal<T extends string>({
+  title,
+  options,
+  value,
+  onPick,
+  onClose,
+  description
+}: {
+  title: string
+  options: Option<T>[]
+  value?: T
+  onPick: (v: T) => void
+  onClose: () => void
+  description?: ReactNode
+}) {
   return (
     <Modal title={title} description={description} onClose={onClose} size="sm">
       <div className="picker">

@@ -2,13 +2,7 @@ import { create } from 'zustand'
 
 export type SettingsTab = 'library' | 'emulators' | 'bios' | 'controls' | 'display' | 'ingame' | 'performance' | 'achievements' | 'about'
 
-export type Route =
-  | { name: 'home' }
-  | { name: 'systems' }
-  | { name: 'games'; systemId: string }
-  | { name: 'game'; gameId: string }
-  | { name: 'search' }
-  | { name: 'settings'; tab?: SettingsTab }
+export type Route = { name: 'home' } | { name: 'systems' } | { name: 'games'; systemId: string } | { name: 'game'; gameId: string } | { name: 'search' } | { name: 'settings'; tab?: SettingsTab }
 
 export type TabName = 'home' | 'systems' | 'search' | 'settings'
 export const TABS: { name: TabName; label: string }[] = [

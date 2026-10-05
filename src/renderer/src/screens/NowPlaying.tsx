@@ -90,7 +90,9 @@ export function NowPlaying({ session }: { session: SessionInfo }) {
       {confirm && (
         <ConfirmDialog
           title={`Quit ${session.title}?`}
-          description={settings.retroarch.autoSaveState && session.supportsCommands ? 'Your progress is saved to a quick-resume state first.' : 'Unsaved progress since your last in-game save will be lost.'}
+          description={
+            settings.retroarch.autoSaveState && session.supportsCommands ? 'Your progress is saved to a quick-resume state first.' : 'Unsaved progress since your last in-game save will be lost.'
+          }
           confirmLabel="Quit game"
           danger
           onCancel={() => setConfirm(false)}

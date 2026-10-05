@@ -6,16 +6,16 @@ import { ProgressBar, Spinner } from './Controls'
 export function TaskTray() {
   const tasks = useTasks((s) => s.tasks)
   const dismiss = useTasks((s) => s.dismiss)
-  const list = Object.values(tasks).sort((a, b) => a.updatedAt - b.updatedAt).slice(-4)
+  const list = Object.values(tasks)
+    .sort((a, b) => a.updatedAt - b.updatedAt)
+    .slice(-4)
   if (!list.length) return null
   return (
     <div className="tasktray" aria-live="polite">
       {list.map((t) => (
         <div key={t.id} className={`task task--${t.state}`}>
           <div className="task__head">
-            <span className="task__icon">
-              {t.state === 'running' ? <Spinner size="sm" /> : t.state === 'error' ? <AlertTriangle size="1em" /> : <CheckCircle2 size="1em" />}
-            </span>
+            <span className="task__icon">{t.state === 'running' ? <Spinner size="sm" /> : t.state === 'error' ? <AlertTriangle size="1em" /> : <CheckCircle2 size="1em" />}</span>
             <span className="task__label">{t.label}</span>
             {t.state === 'running' && t.progress >= 0 && <span className="task__pct">{Math.round(t.progress * 100)}%</span>}
             {t.state !== 'running' && (

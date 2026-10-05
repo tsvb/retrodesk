@@ -131,7 +131,11 @@ export async function dirSize(p: string): Promise<number> {
       entries.map((e) => {
         const full = join(dir, e.name)
         if (e.isDirectory()) return walk(full)
-        if (e.isFile()) return io(() => stat(full)).then((s) => s.size, () => 0)
+        if (e.isFile())
+          return io(() => stat(full)).then(
+            (s) => s.size,
+            () => 0
+          )
         return 0
       })
     )

@@ -61,8 +61,7 @@ const isPlainObject = (v: unknown): v is Record<string, unknown> => typeof v ===
 const FIELD_CHECKS: Record<string, (v: unknown) => boolean> = {
   dataRoot: (v) => typeof v === 'string' && isAbsolute(v),
   romFolders: (v) =>
-    Array.isArray(v) &&
-    v.every((f) => isPlainObject(f) && typeof f['path'] === 'string' && isAbsolute(f['path']) && (f['systemId'] === undefined || typeof f['systemId'] === 'string')),
+    Array.isArray(v) && v.every((f) => isPlainObject(f) && typeof f['path'] === 'string' && isAbsolute(f['path']) && (f['systemId'] === undefined || typeof f['systemId'] === 'string')),
   systemEmulator: (v) => isPlainObject(v) && Object.values(v).every((x) => x === undefined || typeof x === 'string'),
   'hotkeys.quickMenuCombo': (v) => Array.isArray(v) && v.every((n) => Number.isInteger(n) && n >= 0 && n < 64),
   'ui.accent': (v) => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)

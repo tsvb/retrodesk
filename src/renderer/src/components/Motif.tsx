@@ -5,6 +5,12 @@ export type MotifKind = 'cross' | 'shapes' | 'arcs' | 'buttons' | 'stripes' | 'p
 
 const HANDHELDS = new Set(['gb', 'gbc', 'gba', 'nds', '3ds', 'psp', 'psvita', 'vita', 'gamegear', 'gg', 'lynx', 'ngp', 'ngpc', 'wonderswan', 'wsc', 'virtualboy', 'pokemini'])
 
+/** Cells of the "pixels" motif on a 6x6 grid, as [x, y]. */
+// prettier-ignore
+const PIXELS = [
+  [2, 0], [3, 0], [1, 1], [2, 1], [3, 1], [4, 1], [0, 2], [1, 2], [3, 2], [4, 2], [5, 2], [0, 3], [1, 3], [2, 3], [3, 3], [4, 3], [5, 3], [2, 4], [3, 4], [1, 5], [4, 5]
+]
+
 /** Pick a geometric motif from the manufacturer (no logo assets, just a family resemblance). */
 export function motifFor(manufacturer: string | undefined, id: string): MotifKind {
   const m = (manufacturer ?? '').toLowerCase()
@@ -60,9 +66,7 @@ export const Motif = memo(function Motif({ kind, className }: { kind: MotifKind;
       )}
       {kind === 'buttons' && (
         <>
-          {[0, 1, 2].map((r) =>
-            [0, 1, 2].map((c) => <circle key={`${r}${c}`} cx={22 + c * 28 + (r % 2) * 8} cy={24 + r * 26} r="9" />)
-          )}
+          {[0, 1, 2].map((r) => [0, 1, 2].map((c) => <circle key={`${r}${c}`} cx={22 + c * 28 + (r % 2) * 8} cy={24 + r * 26} r="9" />))}
           <path d="M14 92h72" />
         </>
       )}
@@ -75,9 +79,7 @@ export const Motif = memo(function Motif({ kind, className }: { kind: MotifKind;
       )}
       {kind === 'pixels' && (
         <g fill="currentColor" stroke="none">
-          {[
-            [2, 0], [3, 0], [1, 1], [2, 1], [3, 1], [4, 1], [0, 2], [1, 2], [3, 2], [4, 2], [5, 2], [0, 3], [1, 3], [2, 3], [3, 3], [4, 3], [5, 3], [2, 4], [3, 4], [1, 5], [4, 5]
-          ].map(([x, y]) => (
+          {PIXELS.map(([x, y]) => (
             <rect key={`${x}-${y}`} x={20 + (x ?? 0) * 10} y={20 + (y ?? 0) * 10} width="9" height="9" rx="1" />
           ))}
         </g>

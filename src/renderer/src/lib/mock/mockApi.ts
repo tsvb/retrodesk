@@ -44,7 +44,10 @@ function rng(seed: number): () => number {
 
 function parseRaw(raw: string): { title: string; regions: string[]; tags: string[] } {
   const groups = [...raw.matchAll(/\(([^)]*)\)/g)].map((m) => m[1] ?? '')
-  const title = raw.replace(/\s*\([^)]*\)/g, '').replace(/ - /g, ': ').trim()
+  const title = raw
+    .replace(/\s*\([^)]*\)/g, '')
+    .replace(/ - /g, ': ')
+    .trim()
   const regions: string[] = []
   const tags: string[] = []
   for (const g of groups) {
@@ -112,7 +115,10 @@ export function createMockApi(): RetroDeskApi {
   function makeGame(systemId: string, raw: string): Game {
     const { title, regions, tags } = parseRaw(raw)
     const played = rand() < 0.35
-    const id = `${systemId}-${raw}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 48)
+    const id = `${systemId}-${raw}`
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .slice(0, 48)
     const ext = systems.find((s) => s.id === systemId)?.extensions[0] ?? '.bin'
     return {
       id,
@@ -136,11 +142,9 @@ export function createMockApi(): RetroDeskApi {
   if (!params.has('empty') && !params.has('onboarding')) games = buildLibrary()
 
   const isInstalled = (id: string) => emulators.some((e) => e.id === id && e.installed)
-  const systemPlayable = (s: SystemDef) =>
-    s.emulators.some((ref) => (ref.type === 'retroarch' ? isInstalled('retroarch') && isInstalled(`core:${ref.core}`) : isInstalled(ref.id)))
+  const systemPlayable = (s: SystemDef) => s.emulators.some((ref) => (ref.type === 'retroarch' ? isInstalled('retroarch') && isInstalled(`core:${ref.core}`) : isInstalled(ref.id)))
 
-  const summaries = (): SystemSummary[] =>
-    systems.map((s) => ({ ...s, gameCount: games.filter((g) => g.systemId === s.id && !g.hidden).length, playable: systemPlayable(s) }))
+  const summaries = (): SystemSummary[] => systems.map((s) => ({ ...s, gameCount: games.filter((g) => g.systemId === s.id && !g.hidden).length, playable: systemPlayable(s) }))
 
   let taskSeq = 0
   async function runTask(label: string, ms: number, details: string[] = [], subject?: TaskSubject): Promise<void> {
@@ -241,7 +245,12 @@ export function createMockApi(): RetroDeskApi {
       async scan(): Promise<ScanResult> {
         const t0 = Date.now()
         const before = games.length
-        await runTask('Scanning ROM folders', 2200, systems.map((s) => `Looking in ${s.shortName ?? s.name}`), { kind: 'scan' })
+        await runTask(
+          'Scanning ROM folders',
+          2200,
+          systems.map((s) => `Looking in ${s.shortName ?? s.name}`),
+          { kind: 'scan' }
+        )
         if (games.length === 0 && settings.romFolders.length) games = buildLibrary()
         changed()
         return { added: games.length - before, removed: 0, total: games.length, durationMs: Date.now() - t0 }
@@ -264,7 +273,12 @@ export function createMockApi(): RetroDeskApi {
         return { ...g }
       },
       async fetchArtwork() {
-        await runTask('Downloading artwork', 3000, games.slice(0, 30).map((g) => g.title), { kind: 'artwork' })
+        await runTask(
+          'Downloading artwork',
+          3000,
+          games.slice(0, 30).map((g) => g.title),
+          { kind: 'artwork' }
+        )
         changed()
       },
       async importFiles(paths) {

@@ -71,11 +71,7 @@ export const selectRunning = (s: TasksState): TrackedTask[] => Object.values(s.t
  * Find the running task for a subject. Tasks that carry `subject` are matched by kind (and id when given);
  * tasks without one (older backends) fall back to a label test.
  */
-export function findRunningTask(
-  s: TasksState,
-  match: { kinds: TaskSubject['kind'][]; id?: string; ids?: string[] },
-  fallback: (label: string) => boolean
-): TrackedTask | undefined {
+export function findRunningTask(s: TasksState, match: { kinds: TaskSubject['kind'][]; id?: string; ids?: string[] }, fallback: (label: string) => boolean): TrackedTask | undefined {
   const running = selectRunning(s)
   const wanted = match.ids ?? (match.id !== undefined ? [match.id] : undefined)
   const bySubject = running.find((t) => t.subject && match.kinds.includes(t.subject.kind) && (!wanted || (t.subject.id !== undefined && wanted.includes(t.subject.id))))

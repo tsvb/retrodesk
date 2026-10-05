@@ -2,14 +2,7 @@ import type { Dirent } from 'fs'
 import { readdir, stat } from 'fs/promises'
 import { basename, dirname, extname, join } from 'path'
 import type { MediaKind } from '../../shared/types'
-import {
-  ENTRY_POINT_EXTENSIONS,
-  GENERIC_EXTENSIONS,
-  getSystemDef,
-  matchFolderToSystem,
-  systemsForExtension,
-  uniqueSystemForExtension
-} from '../systems'
+import { ENTRY_POINT_EXTENSIONS, GENERIC_EXTENSIONS, getSystemDef, matchFolderToSystem, systemsForExtension, uniqueSystemForExtension } from '../systems'
 import { readParamSfoTitle, readWiiUTitle, referencedFiles } from './formats'
 import { looksLikeText, sniffSystem } from './sniff'
 import { parseRomName } from './titles'
@@ -92,18 +85,21 @@ export interface ScanOutput {
 }
 
 /** Folder names never entered. */
+// prettier-ignore
 const ALWAYS_SKIP = new Set([
   'system volume information', '$recycle.bin', 'recycler', 'downloaded_media', 'media', 'images', 'videos', 'manuals',
   'snaps', 'boxart', 'boxarts', 'covers', 'thumbnails', 'screenshots', 'saves', 'savestates', 'states', 'cheats',
   'shaders', 'overlays', 'node_modules', 'bios'
 ])
 /** Folder names skipped while we don't yet know which system we're in (emulator installs, OS folders). */
+// prettier-ignore
 const UNKNOWN_SKIP = new Set([
   'emulators', 'retroarch', 'system', 'tools', 'storage', 'windows', 'program files', 'program files (x86)', 'programdata',
   'appdata', 'steamapps', 'steamlibrary', 'es-de', 'emulationstation', 'launchbox', 'playnite'
 ])
 
 /** Arcade BIOS / device sets that are not games. */
+// prettier-ignore
 export const ARCADE_BIOS_ZIPS = new Set([
   'neogeo', 'pgm', 'skns', 'decocass', 'isgsm', 'nmk004', 'cchip', 'qsound', 'bubsys', 'midssio', 'megatech', 'megaplay',
   'stvbios', 'hng64', 'naomi', 'naomi2', 'awbios', 'cpzn1', 'cpzn2', 'coh1000c', 'coh1000t', 'coh3002c', 'konamigx',
@@ -553,7 +549,6 @@ export async function detectFileSystem(path: string): Promise<string | undefined
   }
   return sniffSystem(path, among)
 }
-
 
 /** If `dir` is a directory-format game (PS3 folder, Wii U loose files), return its system and launch path. */
 export async function detectDirectoryGame(dir: string): Promise<{ systemId: string; path: string } | undefined> {

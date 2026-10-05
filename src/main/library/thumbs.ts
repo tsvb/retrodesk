@@ -47,7 +47,10 @@ export function isThumbable(p: string): boolean {
 
 /** Cache file name for one version of a source image (changes when the file does). */
 export function thumbKey(p: string, size: number, mtimeMs: number): string {
-  return createHash('sha1').update(`${normPath(p)}|${size}|${mtimeMs}`).digest('hex').slice(0, 32)
+  return createHash('sha1')
+    .update(`${normPath(p)}|${size}|${mtimeMs}`)
+    .digest('hex')
+    .slice(0, 32)
 }
 
 /** True when any pixel of a 32-bit bitmap (BGRA or RGBA: alpha is the 4th byte either way) is not opaque. */

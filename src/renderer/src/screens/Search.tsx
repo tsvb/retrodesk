@@ -95,20 +95,10 @@ export function SearchScreen() {
             </div>
           ) : (
             <>
-              <p className="search__count">
-                {results.length >= LIMIT ? `First ${LIMIT} matches` : plural(results.length, 'match', 'matches')}
-              </p>
+              <p className="search__count">{results.length >= LIMIT ? `First ${LIMIT} matches` : plural(results.length, 'match', 'matches')}</p>
               <div className="search__grid">
                 {results.map((g) => (
-                  <GameCard
-                    key={g.id}
-                    game={g}
-                    system={systemById(systems, g.systemId)}
-                    group="search-results"
-                    showSystem
-                    onActivate={openGame}
-                    onFocus={focusGame}
-                  />
+                  <GameCard key={g.id} game={g} system={systemById(systems, g.systemId)} group="search-results" showSystem onActivate={openGame} onFocus={focusGame} />
                 ))}
               </div>
             </>

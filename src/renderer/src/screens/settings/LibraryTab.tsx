@@ -44,10 +44,7 @@ export function LibraryTab() {
 
   return (
     <>
-      <Section
-        title="ROM folders"
-        description="RetroDesk looks inside these folders for games. Give each system its own sub-folder, or assign a whole folder to one system."
-      >
+      <Section title="ROM folders" description="RetroDesk looks inside these folders for games. Give each system its own sub-folder, or assign a whole folder to one system.">
         {settings.romFolders.length === 0 && <p className="muted">No folders yet. Add the folder that holds your games.</p>}
         {settings.romFolders.map((f) => (
           <div className="folder" key={f.path}>

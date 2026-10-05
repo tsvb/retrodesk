@@ -318,9 +318,7 @@ async function resumeFromOverlay(s: ActiveSession): Promise<void> {
 function onOverlayChanged(activeOverlay: boolean): void {
   const s = active
   if (!s || s.exited) return
-  s.chain = s.chain
-    .then(() => (activeOverlay ? pauseForOverlay(s) : resumeFromOverlay(s)))
-    .catch((e) => console.warn('[launch] overlay pause/resume failed', e))
+  s.chain = s.chain.then(() => (activeOverlay ? pauseForOverlay(s) : resumeFromOverlay(s))).catch((e) => console.warn('[launch] overlay pause/resume failed', e))
 }
 
 // ---------------------------------------------------------------------------------------------

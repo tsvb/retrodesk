@@ -73,7 +73,12 @@ await win.screenshot({ path: join(shots, '10-main-now-playing.png') })
 await api(() => window.retrodesk.game.quickAction('save_state'))
 await sleep(1500)
 const statesDir = join(work, 'data', 'states')
-const findStates = (d) => (existsSync(d) ? readdirSync(d, { recursive: true }).map(String).filter((f) => /\.state\d*$/.test(f)) : [])
+const findStates = (d) =>
+  existsSync(d)
+    ? readdirSync(d, { recursive: true })
+        .map(String)
+        .filter((f) => /\.state\d*$/.test(f))
+    : []
 log('state files', findStates(statesDir).join(', ') || '(none)')
 
 if (overlay) {

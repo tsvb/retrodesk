@@ -14,7 +14,15 @@ export function useSetting<P extends SettingPath>(path: P): [SettingValue<P>, (v
 /** A choice setting as a bare segmented control, for sections that supply their own heading. */
 export function SchemaSegmented<P extends SettingPath>({ path, size }: { path: P; size?: 'md' | 'lg' }) {
   const [value, set] = useSetting(path)
-  return <Segmented group={`setting-${path}`} size={size} value={value as string} onChange={(v) => set(v as SettingValue<P>)} options={settingOptions(path) as readonly Option<string>[] as Option<string>[]} />
+  return (
+    <Segmented
+      group={`setting-${path}`}
+      size={size}
+      value={value as string}
+      onChange={(v) => set(v as SettingValue<P>)}
+      options={settingOptions(path) as readonly Option<string>[] as Option<string>[]}
+    />
+  )
 }
 
 /**

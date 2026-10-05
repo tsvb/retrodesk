@@ -9,10 +9,7 @@ import { dolphinLatest, downloadTrusted, forgejoLatestRelease, githubRelease, is
 import { dirSize, extractArchive, findFile, moveMerge, singleTopFolder } from './extract'
 import { downloadDetail, type ProgressSink, waitingFor } from './retroarch'
 
-export type ReleaseSource =
-  | { type: 'github'; repo: string; tag?: string }
-  | { type: 'forgejo'; api: string; repo: string }
-  | { type: 'dolphin'; url: string }
+export type ReleaseSource = { type: 'github'; repo: string; tag?: string } | { type: 'forgejo'; api: string; repo: string } | { type: 'dolphin'; url: string }
 
 /** A BIOS / firmware / key file an emulator needs, and what to do with it. */
 export interface FirmwareItem {
@@ -262,7 +259,8 @@ export async function resolveRom(def: StandaloneDef, gamePath: string): Promise<
       if (titleId) return { vars: { titleId, rom: gamePath } }
       const ext = extname(gamePath).toLowerCase()
       if (ext === '.vpk' || ext === '.zip') return { vars: { rom: gamePath }, argsOverride: ['-F', gamePath] }
-      if (ext === '.pkg') throw new Error('Vita .pkg files need a zRIF license key. Install the game once from Vita3K (Settings > Emulators > Vita3K), then add its title ID (e.g. [PCSE00123]) to the file name.')
+      if (ext === '.pkg')
+        throw new Error('Vita .pkg files need a zRIF license key. Install the game once from Vita3K (Settings > Emulators > Vita3K), then add its title ID (e.g. [PCSE00123]) to the file name.')
       throw new Error('Unknown Vita title ID. Name the file or folder with its title ID, e.g. "Game [PCSE00123]", or use a .vpk to install it.')
     }
     default:

@@ -52,17 +52,7 @@ export const GameCover = memo(function GameCover({ game, system, kind = 'boxart'
   return <GeneratedCover title={game.title} system={system} systemId={game.systemId} className={className} />
 })
 
-export const GeneratedCover = memo(function GeneratedCover({
-  title,
-  system,
-  systemId,
-  className = ''
-}: {
-  title: string
-  system?: CoverProps['system']
-  systemId: string
-  className?: string
-}) {
+export const GeneratedCover = memo(function GeneratedCover({ title, system, systemId, className = '' }: { title: string; system?: CoverProps['system']; systemId: string; className?: string }) {
   const p = paletteFor(variantOf(systemColor(system ?? { id: systemId }), title))
   const style = {
     '--c-light': p.light,

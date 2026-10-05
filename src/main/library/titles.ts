@@ -22,6 +22,7 @@ export interface ParsedName {
 }
 
 /** Full region names as No-Intro/Redump write them (canonical output form). */
+// prettier-ignore
 const REGION_NAMES = [
   'USA', 'Europe', 'Japan', 'World', 'Korea', 'Brazil', 'Germany', 'France', 'Spain', 'Italy', 'Australia', 'Asia',
   'Canada', 'China', 'Hong Kong', 'Taiwan', 'Netherlands', 'Sweden', 'Russia', 'Scandinavia', 'UK', 'Denmark',
@@ -35,6 +36,7 @@ REGION_BY_LOWER.set('united states', 'USA')
 REGION_BY_LOWER.set('us', 'USA')
 
 /** TOSEC ISO-3166 style codes (upper-case, may be joined with "-"), e.g. "(US)", "(US-EU)". */
+// prettier-ignore
 const TOSEC_CODES: Record<string, string> = {
   US: 'USA', EU: 'Europe', JP: 'Japan', DE: 'Germany', FR: 'France', ES: 'Spain', IT: 'Italy', GB: 'UK', UK: 'UK',
   KR: 'Korea', BR: 'Brazil', AU: 'Australia', NL: 'Netherlands', SE: 'Sweden', CN: 'China', TW: 'Taiwan', HK: 'Hong Kong',
@@ -43,6 +45,7 @@ const TOSEC_CODES: Record<string, string> = {
 }
 
 /** GoodTools single/multi-letter codes, e.g. "(U)", "(JUE)". */
+// prettier-ignore
 const GOODTOOLS_CODES: Record<string, string[]> = {
   U: ['USA'], E: ['Europe'], J: ['Japan'], W: ['World'], K: ['Korea'], G: ['Germany'], F: ['France'], S: ['Spain'],
   I: ['Italy'], A: ['Australia'], B: ['Brazil'], C: ['China'], NL: ['Netherlands'], SW: ['Sweden'], HK: ['Hong Kong'],
@@ -110,7 +113,10 @@ export function parseRomName(rawName: string): ParsedName {
   }
 
   const base = stripGroups(name)
-  const segments = base.split(/\s+-\s+/).map(moveTrailingArticle).filter((s) => s.length > 0)
+  const segments = base
+    .split(/\s+-\s+/)
+    .map(moveTrailingArticle)
+    .filter((s) => s.length > 0)
   let title = segments[0] ?? ''
   if (segments.length > 1) title += `: ${segments.slice(1).join(' - ')}`
   title = title.replace(/\s+/g, ' ').trim()

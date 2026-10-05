@@ -411,10 +411,7 @@ async function writeJsonFile(file: string, value: unknown): Promise<void> {
  * without asking; an older one is revalidated with If-None-Match. When the server rate-limits us, can't be
  * reached or sends garbage, any cached copy beats failing the install.
  */
-export async function fetchJsonCached<T>(
-  url: string,
-  init: { headers?: Record<string, string>; signal?: AbortSignal; cacheDir?: string; maxAgeMs?: number } = {}
-): Promise<T> {
+export async function fetchJsonCached<T>(url: string, init: { headers?: Record<string, string>; signal?: AbortSignal; cacheDir?: string; maxAgeMs?: number } = {}): Promise<T> {
   if (!init.cacheDir) return fetchJson<T>(url, init)
   const file = cacheFile(init.cacheDir, url)
   const hit = await readJsonFile<CachedResponse>(file)
@@ -593,7 +590,13 @@ async function discoverRetroArchStable(signal?: AbortSignal, cacheDir?: string):
   })
   const github = (async () => {
     // Settles only when the buildbot fails; a buildbot answer leaves GitHub waiting until it is called off.
-    await Promise.race([sleep(GITHUB_HEAD_START_MS, sig), buildbot.then(() => new Promise<never>(() => undefined), () => undefined)])
+    await Promise.race([
+      sleep(GITHUB_HEAD_START_MS, sig),
+      buildbot.then(
+        () => new Promise<never>(() => undefined),
+        () => undefined
+      )
+    ])
     const rel = await fetchJsonCached<{ tag_name: string }>('https://api.github.com/repos/libretro/RetroArch/releases/latest', { headers: GITHUB_API_HEADERS, signal: sig, cacheDir })
     const version = tagToVersion(rel.tag_name)
     // GitHub can tag a release before the buildbot folder RetroArch is downloaded from exists.

@@ -136,7 +136,12 @@ export function GameListScreen({ systemId }: { systemId: string }) {
     [view, system]
   )
 
-  if (!system) return <div className="screen screen--games"><p className="muted">This system isn't in your library.</p></div>
+  if (!system)
+    return (
+      <div className="screen screen--games">
+        <p className="muted">This system isn't in your library.</p>
+      </div>
+    )
 
   const sortLabel = SORTS.find((s) => s.key === sort)?.label ?? 'Title'
   const focusedGame = games[Math.min(index, games.length - 1)]
@@ -162,10 +167,25 @@ export function GameListScreen({ systemId }: { systemId: string }) {
           <Button icon={ArrowDownUp} group="gl-controls" onPress={cycleSort} label="Change sort">
             {sortLabel}
           </Button>
-          <Button icon={Heart} group="gl-controls" className={favOnly ? 'is-active' : ''} onPress={() => { setFavOnly((f) => !f); setIndex(0) }} label={favOnly ? 'Show all' : 'Favourites only'}>
+          <Button
+            icon={Heart}
+            group="gl-controls"
+            className={favOnly ? 'is-active' : ''}
+            onPress={() => {
+              setFavOnly((f) => !f)
+              setIndex(0)
+            }}
+            label={favOnly ? 'Show all' : 'Favourites only'}
+          >
             Favourites
           </Button>
-          <Button icon={view === 'grid' ? List : LayoutGrid} group="gl-controls" onPress={toggleView} label={view === 'grid' ? 'List view' : 'Grid view'} title={view === 'grid' ? 'List view' : 'Grid view'} />
+          <Button
+            icon={view === 'grid' ? List : LayoutGrid}
+            group="gl-controls"
+            onPress={toggleView}
+            label={view === 'grid' ? 'List view' : 'Grid view'}
+            title={view === 'grid' ? 'List view' : 'Grid view'}
+          />
         </div>
       </header>
 
@@ -188,9 +208,7 @@ export function GameListScreen({ systemId }: { systemId: string }) {
           onReady={onReady}
           itemActions={itemActions}
           pageActions={
-            sort === 'title' && letters.length > 1
-              ? { pageUp: { label: 'Jump letter', run: () => jumpLetter(-1) }, pageDown: { label: 'Jump letter', run: () => jumpLetter(1) } }
-              : undefined
+            sort === 'title' && letters.length > 1 ? { pageUp: { label: 'Jump letter', run: () => jumpLetter(-1) }, pageDown: { label: 'Jump letter', run: () => jumpLetter(1) } } : undefined
           }
           renderCell={renderCell}
         />
@@ -270,7 +288,8 @@ function EmptySystem({ system, favOnly }: { system: SystemSummary; favOnly: bool
         <>
           <h2>No {system.name} games yet</h2>
           <p>
-            Put {system.extensions.join(', ')} files in <code>{dataRoot ? `${dataRoot}\\roms\\${folder}` : `roms\\${folder}`}</code> or any ROM folder sub-folder named <code>{folder}</code>, then rescan from Settings.
+            Put {system.extensions.join(', ')} files in <code>{dataRoot ? `${dataRoot}\\roms\\${folder}` : `roms\\${folder}`}</code> or any ROM folder sub-folder named <code>{folder}</code>, then
+            rescan from Settings.
           </p>
         </>
       )}

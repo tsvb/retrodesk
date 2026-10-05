@@ -48,7 +48,25 @@ const OVERSCAN_ROWS = 2
  * the header controls). Only the visible rows (+ overscan) are rendered, so 5,000+ items stay smooth.
  */
 export function VirtualGrid<T>(props: VirtualGridProps<T>) {
-  const { items, getKey, renderCell, layout, minCellRem, cellAspect, captionRem = 0, listRowRem = 4.2, gapRem = 1.4, index, onIndexChange, onActivate, itemActions, pageActions, autoFocus, className = '', activateLabel = 'Open' } = props
+  const {
+    items,
+    getKey,
+    renderCell,
+    layout,
+    minCellRem,
+    cellAspect,
+    captionRem = 0,
+    listRowRem = 4.2,
+    gapRem = 1.4,
+    index,
+    onIndexChange,
+    onActivate,
+    itemActions,
+    pageActions,
+    autoFocus,
+    className = '',
+    activateLabel = 'Open'
+  } = props
   const scrollerRef = useRef<HTMLDivElement | null>(null)
   const [size, setSize] = useState({ w: 0, h: 0 })
   const [scrollTop, setScrollTop] = useState(0)
@@ -273,12 +291,7 @@ export function VirtualGrid<T>(props: VirtualGridProps<T>) {
   }
 
   return (
-    <div
-      ref={setRefs}
-      className={`vgrid vgrid--${layout} ${className}`}
-      onScroll={onScroll}
-      data-focusable=""
-    >
+    <div ref={setRefs} className={`vgrid vgrid--${layout} ${className}`} onScroll={onScroll} data-focusable="">
       <div className="vgrid__inner" style={{ height: totalH }}>
         {cells}
       </div>
