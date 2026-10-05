@@ -715,13 +715,14 @@
   display: flex;
   align-items: center;
   gap: 1.2rem;
-  padding: 0.75rem 1rem;
+  /* Same insets and spacing as .setting rows, so content lines up from tab to tab. */
+  padding: 0.75rem 1.1rem;
   border-radius: var(--radius-m);
   background: var(--surface);
   border: 1px solid var(--line);
 }
 .emu + .emu {
-  margin-top: 0.45rem;
+  margin-top: 0.5rem;
 }
 .emu__text {
   flex: 1;
@@ -768,7 +769,7 @@
 .bios {
   width: 100%;
   border-collapse: separate;
-  border-spacing: 0 0.35rem;
+  border-spacing: 0 0.5rem;
 }
 .bios th {
   text-align: left;
@@ -781,6 +782,15 @@
   padding: 0.7rem 1rem;
   background: var(--surface);
   vertical-align: middle;
+}
+.bios th:first-child,
+.bios td:first-child {
+  /* The row's outer insets match .setting rows (whose 1px border these cells don't have). */
+  padding-left: calc(1.1rem + 1px);
+}
+.bios th:last-child,
+.bios td:last-child {
+  padding-right: calc(1.1rem + 1px);
 }
 .bios td:first-child {
   border-radius: var(--radius-m) 0 0 var(--radius-m);
