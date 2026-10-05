@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { dirSize, extractArchive, findFile, moveMerge, parse7zProgress, removeExcept, sevenZipPath, singleTopFolder } from './extract'
+import { dirSize, extractArchive, extractorFor, findFile, moveMerge, parse7zProgress, removeExcept, sevenZipPath, singleTopFolder } from './extract'
 
 const dir = mkdtempSync(join(tmpdir(), 'rd-extract-'))
 afterAll(() => rmSync(dir, { recursive: true, force: true }))
@@ -15,6 +15,34 @@ describe('7za progress parsing', () => {
   })
   it('maps app.asar to app.asar.unpacked', () => {
     expect(sevenZipPath()).not.toMatch(/app\.asar[\\/]/)
+  })
+})
+
+describe('macOS archives', () => {
+  it('uses the system tools that keep bundle symlinks, and 7za for the rest', () => {
+    expect(extractorFor('RetroArch-1.22.2.dmg', 'macos')).toBe('hdiutil')
+    expect(extractorFor('azahar-macos-universal-2126.1.2.zip', 'macos')).toBe('ditto')
+    expect(extractorFor('pcsx2-v2.8.2-macos-Qt.tar.xz', 'macos')).toBe('tar')
+    expect(extractorFor('rpcs3_macos_aarch64.7z', 'macos')).toBe('7za')
+    expect(extractorFor('RetroArch.7z', 'windows')).toBe('7za')
+    expect(extractorFor('emu.zip', 'windows')).toBe('7za')
+  })
+
+  it('never flattens or merges into an app bundle', async () => {
+    const out = join(dir, 'bundle-out')
+    mkdirSync(join(out, 'Emu.app', 'Contents', 'MacOS'), { recursive: true })
+    writeFileSync(join(out, 'Emu.app', 'Contents', 'MacOS', 'Emu'), 'new')
+    expect(await singleTopFolder(out)).toBe(out)
+
+    const install = join(dir, 'bundle-install')
+    mkdirSync(join(install, 'Emu.app', 'Contents', 'Resources'), { recursive: true })
+    writeFileSync(join(install, 'Emu.app', 'Contents', 'Resources', 'stale.dat'), 'old version only')
+    mkdirSync(join(install, 'cores'), { recursive: true })
+    writeFileSync(join(install, 'cores', 'a_libretro.dylib'), 'core')
+    await moveMerge(out, install)
+    expect(readFileSync(join(install, 'Emu.app', 'Contents', 'MacOS', 'Emu'), 'utf8')).toBe('new')
+    expect(existsSync(join(install, 'Emu.app', 'Contents', 'Resources', 'stale.dat'))).toBe(false)
+    expect(existsSync(join(install, 'cores', 'a_libretro.dylib'))).toBe(true)
   })
 })
 

@@ -30,6 +30,8 @@ async function ensureRom() {
 
 /** Capture the whole primary screen (to verify the transparent overlay really composites over the game). */
 function screenGrab(file) {
+  // macOS asks once for Screen Recording permission for the terminal running this.
+  if (process.platform === 'darwin') return execFileSync('screencapture', ['-x', file])
   const ps = `Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetProcessDPIAware();' -Name U -Namespace W; [W.U]::SetProcessDPIAware() | Out-Null; Add-Type -AssemblyName System.Windows.Forms,System.Drawing; $b=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bmp=New-Object System.Drawing.Bitmap $b.Width,$b.Height; $g=[System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen($b.Location,[System.Drawing.Point]::Empty,$b.Size); $bmp.Save('${file}'); $g.Dispose(); $bmp.Dispose()`
   execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps])
 }

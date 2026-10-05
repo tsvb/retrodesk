@@ -3,11 +3,14 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 
+// These tests describe the Windows builds; macOS cases pass the OS explicitly.
+vi.mock('../platform', async (importOriginal) => ({ ...(await importOriginal<typeof import('../platform')>()), hostOs: () => 'windows', isMac: () => false }))
+
 vi.mock('electron', () => ({ app: { getPath: () => tmpdir() } }))
 
 import { defaultSettings } from '../settings'
 import type { Settings } from '../../shared/types'
-import { buildRetroArchArgs, buildRetroArchConfig, coreDisplayName, coreFileBase, parseCfg, resolveShaderPreset, serializeCfg } from './retroarch'
+import { buildRetroArchArgs, buildRetroArchConfig, coreBasenames, coreDisplayName, coreFileBase, coreLibPath, parseCfg, raExe, resolveShaderPreset, serializeCfg, shaderDirs } from './retroarch'
 
 const paths = { bios: 'C:\\RD\\bios', saves: 'C:\\RD\\saves', states: 'C:\\RD\\states', screenshots: 'C:\\RD\\screenshots', emulators: 'C:\\RD\\emulators' }
 
@@ -97,6 +100,36 @@ describe('buildRetroArchConfig', () => {
     expect(parseCfg(text)).toEqual(cfg)
   })
 
+  it('uses the mFi joypad driver and its button indices on macOS', () => {
+    const cfg = buildRetroArchConfig({ settings: settings((s) => (s.retroarch.rewind = true)), paths, os: 'macos' })
+    expect(cfg).toMatchObject({
+      input_joypad_driver: 'mfi',
+      input_enable_hotkey_btn: '2',
+      input_save_state_btn: '11',
+      input_load_state_btn: '10',
+      input_screenshot_btn: '9',
+      input_menu_toggle_btn: '1',
+      input_state_slot_increase_btn: '7',
+      input_state_slot_decrease_btn: '6',
+      // Triggers are buttons on mFi, not axes.
+      input_toggle_fast_forward_btn: '13',
+      input_toggle_fast_forward_axis: 'nul',
+      input_rewind_btn: '12',
+      input_rewind_axis: 'nul'
+    })
+    const noCombo = buildRetroArchConfig({ settings: settings((s) => (s.hotkeys.quickMenuCombo = [16])), paths, os: 'macos' })
+    expect(noCombo.input_exit_emulator_btn).toBe('3')
+  })
+
+  it('falls back to the default video driver when the chosen one is not on this OS', () => {
+    const d3d = settings((s) => (s.retroarch.videoDriver = 'd3d11'))
+    expect(buildRetroArchConfig({ settings: d3d, paths, os: 'macos' }).video_driver).toBe('vulkan')
+    expect(buildRetroArchConfig({ settings: d3d, paths, os: 'windows' }).video_driver).toBe('d3d11')
+    const metal = settings((s) => (s.retroarch.videoDriver = 'metal'))
+    expect(buildRetroArchConfig({ settings: metal, paths, os: 'macos' }).video_driver).toBe('metal')
+    expect(buildRetroArchConfig({ settings: metal, paths, os: 'windows' }).video_driver).toBe('vulkan')
+  })
+
   it('UI mode lets RetroArch persist menu changes', () => {
     expect(buildRetroArchConfig({ settings: settings(), paths, uiMode: true }).config_save_on_exit).toBe('true')
   })
@@ -119,10 +152,36 @@ describe('launch args', () => {
     expect(buildRetroArchArgs({ appendCfg: 'x.cfg', shaderPath: 's.slangp' })).toEqual(['--appendconfig', 'x.cfg', '--set-shader', 's.slangp'])
   })
 
+  it('passes its own --config first on macOS', () => {
+    expect(buildRetroArchArgs({ mainCfg: '/ra/retroarch.cfg', coreDll: '/ra/cores/a_libretro.dylib', appendCfg: '/ra/retrodesk.cfg', rom: '/r/a.gb' })).toEqual([
+      '--config',
+      '/ra/retroarch.cfg',
+      '-L',
+      '/ra/cores/a_libretro.dylib',
+      '--appendconfig',
+      '/ra/retrodesk.cfg',
+      '/r/a.gb'
+    ])
+  })
+
+  it('finds RetroArch and its cores where each OS keeps them', () => {
+    const p = { emulators: '/RD/emulators' }
+    expect(raExe(p, 'macos')).toBe(join('/RD/emulators', 'retroarch', 'RetroArch.app', 'Contents', 'MacOS', 'RetroArch'))
+    expect(raExe(p, 'windows')).toBe(join('/RD/emulators', 'retroarch', 'retroarch.exe'))
+    expect(coreLibPath(p, 'snes9x', 'macos')).toBe(join('/RD/emulators', 'retroarch', 'cores', 'snes9x_libretro.dylib'))
+    expect(coreLibPath(p, 'snes9x', 'windows')).toBe(join('/RD/emulators', 'retroarch', 'cores', 'snes9x_libretro.dll'))
+    // Only libraries this OS can load count as installed cores.
+    expect([...coreBasenames(['a_libretro.dylib', 'b_libretro.dll', 'C_libretro.DYLIB'], 'macos')]).toEqual(['a_libretro', 'c_libretro'])
+    expect([...coreBasenames(['a_libretro.dylib', 'b_libretro.dll'], 'windows')]).toEqual(['b_libretro'])
+    expect(shaderDirs(p, 'windows')).toEqual([join('/RD/emulators', 'retroarch')])
+    expect(shaderDirs(p, 'macos')[1]).toBe(join('/RD/emulators', 'retroarch', 'RetroArch.app', 'Contents', 'Resources'))
+  })
+
   it('normalises core names', () => {
     expect(coreFileBase('snes9x')).toBe('snes9x_libretro')
     expect(coreFileBase('snes9x_libretro')).toBe('snes9x_libretro')
     expect(coreFileBase('mesen-s_libretro.dll')).toBe('mesen-s_libretro')
+    expect(coreFileBase('mesen-s_libretro.dylib')).toBe('mesen-s_libretro')
     expect(coreDisplayName('mednafen_psx_hw_libretro')).toBe('Beetle PSX HW')
     expect(coreDisplayName('some_new_core_libretro')).toBe('Some NEW Core')
   })
@@ -140,5 +199,12 @@ describe('shader presets', () => {
     expect(resolveShaderPreset(dir, 'crt')).toBe(join(dir, 'shaders', 'shaders_slang', 'crt', 'crt-royale.slangp'))
     writeFileSync(join(dir, 'shaders', 'shaders_slang', 'crt', 'crt-geom.slangp'), '')
     expect(resolveShaderPreset(dir, 'crt')).toBe(join(dir, 'shaders', 'shaders_slang', 'crt', 'crt-geom.slangp'))
+  })
+
+  it('looks through every folder, best preset first', () => {
+    const other = join(dir, 'bundle')
+    mkdirSync(join(other, 'shaders', 'shaders_slang', 'handheld'), { recursive: true })
+    writeFileSync(join(other, 'shaders', 'shaders_slang', 'handheld', 'lcd3x.slangp'), '')
+    expect(resolveShaderPreset([dir, other], 'lcd')).toBe(join(other, 'shaders', 'shaders_slang', 'handheld', 'lcd3x.slangp'))
   })
 })

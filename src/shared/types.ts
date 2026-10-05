@@ -89,11 +89,14 @@ export interface RomFolder {
 
 export type PerformanceMode = SettingValue<'performance.inGameMode'>
 
+/** The operating systems RetroDesk runs on. */
+export type HostOs = 'windows' | 'macos'
+
 /** Choices and switches are declared in settingsSchema.ts; their types, defaults and validation come from there. */
 export interface Settings {
   /** First-run wizard completed. */
   onboarded: boolean
-  /** Root data directory for emulators, saves, bios, media. Default: %USERPROFILE%\RetroDesk */
+  /** Root data directory for emulators, saves, bios, media. Default: <home>/RetroDesk */
   dataRoot: string
   romFolders: RomFolder[]
   /** Per-system default emulator: `retroarch:<core>` or `standalone:<id>`. */
@@ -137,7 +140,7 @@ export interface Settings {
     quickMenuCombo: number[]
   }
   performance: {
-    /** Windows power plan to apply while a game is running. */
+    /** Power plan to apply while a game is running (Windows only; macOS leaves it unchanged). */
     inGameMode: PerformanceMode
   }
   scraping: {

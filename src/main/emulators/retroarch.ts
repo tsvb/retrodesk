@@ -1,12 +1,16 @@
 // RetroArch: portable install, nightly core install, managed append-config generation and launch args.
+// Windows gets the portable 7z build; macOS the universal app bundle (RetroArch.app inside <emulators>/retroarch),
+// started with --config so it keeps its settings next to it like the portable build does.
 import { existsSync } from 'fs'
 import { mkdir, readdir, rename, rm, writeFile } from 'fs/promises'
+import { homedir } from 'os'
 import { join } from 'path'
 import { prettifyCore } from '../../shared/emulators'
-import { hotkeyBindings, XI } from '../../shared/quickActions'
+import { hotkeyBindings, padBinding, type PadDriver } from '../../shared/quickActions'
 import { retroArchCfgFromSettings, settingOptions } from '../../shared/settingsSchema'
 import type { Settings } from '../../shared/types'
-import { coreUrl, downloadTrusted, fetchText, fileSize, lastModifiedToVersion, releaseCacheDir, retroArchLatestStable, retroArchUrl } from './download'
+import { hostOs, type HostOs } from '../platform'
+import { coreLibExt, coreUrl, downloadTrusted, fetchText, HttpError, fileSize, lastModifiedToVersion, releaseCacheDir, retroArchLatestStable, retroArchUrl } from './download'
 import { extractArchive, findFile, moveMerge, singleTopFolder } from './extract'
 import { createLimiter } from './limit'
 
@@ -23,17 +27,24 @@ export interface RaPaths {
 }
 
 export const raDir = (p: Pick<RaPaths, 'emulators'>): string => join(p.emulators, 'retroarch')
-export const raExe = (p: Pick<RaPaths, 'emulators'>): string => join(raDir(p), 'retroarch.exe')
+/** The macOS app bundle. */
+export const raApp = (p: Pick<RaPaths, 'emulators'>): string => join(raDir(p), 'RetroArch.app')
+export const raExe = (p: Pick<RaPaths, 'emulators'>, os: HostOs = hostOs()): string => (os === 'macos' ? join(raApp(p), 'Contents', 'MacOS', 'RetroArch') : join(raDir(p), 'retroarch.exe'))
 export const raCoresDir = (p: Pick<RaPaths, 'emulators'>): string => join(raDir(p), 'cores')
 export const raAppendCfgPath = (p: Pick<RaPaths, 'emulators'>): string => join(raDir(p), 'retrodesk.cfg')
+/** RetroArch's own config. The portable Windows build finds it next to the exe; on macOS it is passed with --config. */
+export const raMainCfgPath = (p: Pick<RaPaths, 'emulators'>): string => join(raDir(p), 'retroarch.cfg')
 
-/** systems.json may say "snes9x_libretro" or "snes9x"; files are always "<x>_libretro.dll". */
+/** systems.json may say "snes9x_libretro" or "snes9x"; files are always "<x>_libretro.dll" (".dylib" on macOS). */
 export function coreFileBase(core: string): string {
-  const c = core.replace(/\.dll$/i, '')
+  const c = core.replace(/\.(dll|dylib)$/i, '')
   return c.endsWith('_libretro') ? c : `${c}_libretro`
 }
 
-export const coreDllPath = (p: Pick<RaPaths, 'emulators'>, core: string): string => join(raCoresDir(p), `${coreFileBase(core)}.dll`)
+export const coreLibPath = (p: Pick<RaPaths, 'emulators'>, core: string, os: HostOs = hostOs()): string => join(raCoresDir(p), `${coreFileBase(core)}${coreLibExt(os)}`)
+
+/** RetroArch's joypad driver: XInput on Windows, the GameController framework on macOS. */
+export const padDriver = (os: HostOs = hostOs()): PadDriver => (os === 'macos' ? 'mfi' : 'xinput')
 
 /** Friendly names for cores (fallback: prettified basename). */
 const CORE_NAMES: Record<string, string> = {
@@ -124,7 +135,7 @@ const raDirLock = createLimiter(1)
 export async function installRetroArch(paths: RaPaths, task: ProgressSink, signal?: AbortSignal): Promise<{ version: string; exePath: string }> {
   task.update(-1, 'Finding latest RetroArch')
   const version = await retroArchLatestStable(signal, releaseCacheDir(paths.downloads))
-  const archive = join(paths.downloads, `RetroArch-${version}.7z`)
+  const archive = join(paths.downloads, `RetroArch-${version}${hostOs() === 'macos' ? '.dmg' : '.7z'}`)
   await downloadTrusted(retroArchUrl(version), archive, {
     signal,
     onQueued: waitingFor(task, 'download'),
@@ -149,14 +160,15 @@ export async function installRetroArch(paths: RaPaths, task: ProgressSink, signa
     await rm(archive, { force: true }).catch(() => undefined)
   }
   const exePath = raExe(paths)
-  if (!existsSync(exePath)) throw new Error('retroarch.exe not found after extraction')
+  if (!existsSync(exePath)) throw new Error(`${hostOs() === 'macos' ? 'RetroArch.app' : 'retroarch.exe'} not found after extraction`)
   return { version, exePath }
 }
 
 /** Install a libretro core from the nightly buildbot into <retroarch>/cores (+ its .info file and system assets). */
 export async function installCore(core: string, paths: RaPaths, task: ProgressSink, signal?: AbortSignal): Promise<{ version: string; exePath: string; sizeBytes: number }> {
   const base = coreFileBase(core)
-  const zip = join(paths.downloads, `${base}.dll.zip`)
+  const lib = `${base}${coreLibExt()}`
+  const zip = join(paths.downloads, `${lib}.zip`)
   task.update(-1, `Downloading ${base}`)
   // Core info file (display name, system id for GET_STATUS, firmware list), fetched alongside the core. Best effort.
   const infoDir = join(raDir(paths), 'info')
@@ -171,14 +183,18 @@ export async function installCore(core: string, paths: RaPaths, task: ProgressSi
     signal,
     onQueued: waitingFor(task, 'download'),
     onProgress: (r, t) => task.update(t ? (r / t) * 0.85 : -1, downloadDetail(r, t))
+  }).catch((e: unknown) => {
+    // The macOS buildbot does not build every core for both architectures.
+    if (e instanceof HttpError && e.status === 404 && hostOs() === 'macos') throw new Error(`${coreDisplayName(base)} is not available for this Mac (${process.arch}) yet.`)
+    throw e
   })
   const staging = join(paths.emulators, `.staging-${base}-${Date.now()}`)
-  const dest = coreDllPath(paths, base)
+  const dest = coreLibPath(paths, base)
   try {
     task.update(0.88, 'Extracting')
     await extractArchive(zip, staging, { signal, onQueued: waitingFor(task, 'extract') })
-    const dll = await findFile(staging, `${base}.dll`, 2)
-    if (!dll) throw new Error(`${base}.dll not found in core archive`)
+    const dll = await findFile(staging, lib, 2)
+    if (!dll) throw new Error(`${lib} not found in core archive`)
     await raDirLock(async () => {
       await mkdir(raCoresDir(paths), { recursive: true })
       await rm(dest, { force: true })
@@ -220,14 +236,26 @@ export async function ensureCoreSystemAssets(core: string, paths: Pick<RaPaths, 
 // Configuration
 // ---------------------------------------------------------------------------------------------
 
-export function resolveShaderPreset(dir: string, shader: Settings['retroarch']['shader'], exists: (p: string) => boolean = existsSync): string | undefined {
+/** First preset for `shader` found in any of `dirs` (the RetroArch dir first). */
+export function resolveShaderPreset(dirs: string | string[], shader: Settings['retroarch']['shader'], exists: (p: string) => boolean = existsSync): string | undefined {
   if (shader === 'none') return undefined
   // Candidates are declared with the shader setting's options, best first.
   for (const rel of settingOptions('retroarch.shader').find((o) => o.value === shader)?.presets ?? []) {
-    const p = join(dir, ...rel.split('/'))
-    if (exists(p)) return p
+    for (const dir of typeof dirs === 'string' ? [dirs] : dirs) {
+      const p = join(dir, ...rel.split('/'))
+      if (exists(p)) return p
+    }
   }
   return undefined
+}
+
+/**
+ * Where shader presets may be. On macOS, RetroArch keeps them in its app bundle's resources or, once its online
+ * updater has fetched them, in its Application Support folder.
+ */
+export function shaderDirs(p: Pick<RaPaths, 'emulators'>, os: HostOs = hostOs()): string[] {
+  if (os !== 'macos') return [raDir(p)]
+  return [raDir(p), join(raApp(p), 'Contents', 'Resources'), join(homedir(), 'Library', 'Application Support', 'RetroArch')]
 }
 
 /** W3C Standard Gamepad indices used by Settings.hotkeys.quickMenuCombo. */
@@ -245,11 +273,15 @@ export interface RaConfigInput {
   shaderPath?: string
   /** UI mode (openEmulatorUi): let RetroArch persist menu changes. */
   uiMode?: boolean
+  /** Defaults to the host. */
+  os?: HostOs
 }
 
 /** Build the RetroDesk-managed append config. Pure (no I/O) so it can be unit tested. */
-export function buildRetroArchConfig({ settings, paths, shaderPath, uiMode }: RaConfigInput): Record<string, string> {
+export function buildRetroArchConfig({ settings, paths, shaderPath, uiMode, os = hostOs() }: RaConfigInput): Record<string, string> {
   const ra = settings.retroarch
+  const driver = padDriver(os)
+  const rewind = padBinding(driver, 'LT')
   const cheevos = settings.retroAchievements
   const dir = raDir(paths)
   const combo = settings.hotkeys.quickMenuCombo ?? []
@@ -293,7 +325,7 @@ export function buildRetroArchConfig({ settings, paths, shaderPath, uiMode }: Ra
     log_dir: join(dir, 'logs'),
 
     // Everything the In-game settings map to directly (video driver, aspect, scaling, FPS, quick resume, run-ahead).
-    ...retroArchCfgFromSettings(settings),
+    ...retroArchCfgFromSettings(settings, os),
 
     // Video: borderless fullscreen so the always-on-top overlay can draw over the game.
     video_fullscreen: 'true',
@@ -312,16 +344,17 @@ export function buildRetroArchConfig({ settings, paths, shaderPath, uiMode }: Ra
     run_ahead_secondary_instance: 'true',
     rewind_enable: b(ra.rewind && !(cheevos.enabled && cheevos.hardcore)),
 
-    // Controller hotkeys (Retroid style: hold Select + button). XInput driver gives stable indices.
-    input_joypad_driver: 'xinput',
+    // Controller hotkeys (Retroid style: hold Select + button). XInput (Windows) and mFi (macOS) give stable indices.
+    input_joypad_driver: driver,
     input_autodetect_enable: 'true',
     input_enable_hotkey: 'nul', // keyboard hotkeys (F1/F2/F4/Esc...) work without a modifier
-    input_enable_hotkey_btn: XI.BACK,
+    input_enable_hotkey_btn: padBinding(driver, 'BACK').btn,
     input_enable_hotkey_axis: 'nul',
     input_hotkey_block_delay: '5',
-    ...hotkeyBindings(),
-    input_exit_emulator_btn: comboUsesBackStart ? 'nul' : XI.START,
-    input_rewind_axis: ra.rewind ? XI.LT : 'nul',
+    ...hotkeyBindings(driver),
+    input_exit_emulator_btn: comboUsesBackStart ? 'nul' : padBinding(driver, 'START').btn,
+    input_rewind_btn: ra.rewind ? rewind.btn : 'nul',
+    input_rewind_axis: ra.rewind ? rewind.axis : 'nul',
     input_menu_toggle_gamepad_combo: comboUsesSticks ? '0' : '2', // L3+R3 as a no-modifier fallback
     input_quit_gamepad_combo: '0',
     menu_swap_ok_cancel_buttons: b(settings.ui.buttonLayout === 'nintendo'),
@@ -357,18 +390,23 @@ export function parseCfg(text: string): Record<string, string> {
 }
 
 /** Write <retroarch>/retrodesk.cfg from current settings. Returns the cfg path and the shader to apply. */
-export async function writeAppendConfig(settings: Settings, paths: RaConfigInput['paths'], uiMode = false): Promise<{ cfgPath: string; shaderPath?: string }> {
+export async function writeAppendConfig(settings: Settings, paths: RaConfigInput['paths'], uiMode = false): Promise<{ cfgPath: string; shaderPath?: string; mainCfg?: string }> {
   const dir = raDir(paths)
-  const shaderPath = resolveShaderPreset(dir, settings.retroarch.shader)
+  const shaderPath = resolveShaderPreset(shaderDirs(paths), settings.retroarch.shader)
   if (settings.retroarch.shader !== 'none' && !shaderPath) console.warn(`[retroarch] no preset found for shader "${settings.retroarch.shader}", running without`)
   const cfgPath = uiMode ? join(dir, 'retrodesk-ui.cfg') : raAppendCfgPath(paths)
   await mkdir(join(dir, 'logs'), { recursive: true })
   await writeFile(cfgPath, serializeCfg(buildRetroArchConfig({ settings, paths, shaderPath, uiMode })))
-  return { cfgPath, shaderPath }
+  if (hostOs() !== 'macos') return { cfgPath, shaderPath }
+  // Its own config next to it, not the one in ~/Library a separately installed RetroArch uses.
+  const mainCfg = raMainCfgPath(paths)
+  if (!existsSync(mainCfg)) await writeFile(mainCfg, '', { flag: 'wx' }).catch(() => undefined)
+  return { cfgPath, shaderPath, mainCfg }
 }
 
-export function buildRetroArchArgs(o: { coreDll?: string; rom?: string; appendCfg: string; shaderPath?: string }): string[] {
+export function buildRetroArchArgs(o: { coreDll?: string; rom?: string; appendCfg: string; shaderPath?: string; mainCfg?: string }): string[] {
   const args: string[] = []
+  if (o.mainCfg) args.push('--config', o.mainCfg)
   if (o.coreDll) args.push('-L', o.coreDll)
   args.push('--appendconfig', o.appendCfg)
   if (o.shaderPath) args.push('--set-shader', o.shaderPath)
@@ -376,11 +414,16 @@ export function buildRetroArchArgs(o: { coreDll?: string; rom?: string; appendCf
   return args
 }
 
+/** Core basenames among the files of a cores folder (only libraries this OS can load). */
+export function coreBasenames(files: string[], os: HostOs = hostOs()): Set<string> {
+  const ext = coreLibExt(os)
+  return new Set(files.filter((f) => f.toLowerCase().endsWith(ext)).map((f) => f.slice(0, -ext.length).toLowerCase()))
+}
+
 /** Core basenames present in <retroarch>/cores (installed via RetroDesk or RetroArch's own updater). */
 export async function listInstalledCoreFiles(paths: Pick<RaPaths, 'emulators'>): Promise<Set<string>> {
   try {
-    const files = await readdir(raCoresDir(paths))
-    return new Set(files.filter((f) => f.toLowerCase().endsWith('.dll')).map((f) => f.slice(0, -4).toLowerCase()))
+    return coreBasenames(await readdir(raCoresDir(paths)))
   } catch {
     return new Set()
   }

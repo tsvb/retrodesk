@@ -233,7 +233,7 @@ function rescanned(g: Game, sg: ScannedGame): Partial<Game> | undefined {
   return { systemId, path, fileName, rawName, title, regions, tags, sizeBytes, media }
 }
 
-/** Installed Steam games, reusing the Steam folder found before (finding it runs reg.exe). */
+/** Installed Steam games, reusing the Steam folder found before (finding it on Windows runs reg.exe). */
 async function scanSteam(): ReturnType<typeof listSteamGames> {
   await detectSteam()
   const known = steamPath && (await dirExists(join(steamPath, 'steamapps'))) ? steamPath : undefined

@@ -1,8 +1,27 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { afterAll, describe, expect, it } from 'vitest'
-import { ensurePortable, expandArgs, getStandaloneDef, parseSfo, provisionStandalone, readIniValue, resolveRom, STANDALONE_DEFS, titleIdFromName, upsertIni } from './standalone'
+import { afterAll, describe, expect, it, vi } from 'vitest'
+
+// These tests describe the Windows builds; macOS cases pass the OS explicitly.
+vi.mock('../platform', async (importOriginal) => ({ ...(await importOriginal<typeof import('../platform')>()), hostOs: () => 'windows', isMac: () => false }))
+import {
+  ensurePortable,
+  expandArgs,
+  findAppExecutable,
+  getStandaloneDef,
+  parseSfo,
+  provisionStandalone,
+  RAW_STANDALONE_DEFS,
+  readIniValue,
+  resolveRom,
+  resolveStandaloneDef,
+  STANDALONE_DEFS,
+  standaloneDataDir,
+  titleIdFromName,
+  upsertIni
+} from './standalone'
+import { isTrustedDownloadUrl } from './download'
 import { parseEmulatorKey, resolveGameRef } from './keys'
 import type { SystemDef } from '../../shared/types'
 
@@ -50,6 +69,60 @@ describe('definitions', () => {
       expect(() => new RegExp(d.assetPattern)).not.toThrow()
     }
     expect(getStandaloneDef('ppsspp')?.exe).toBe('PPSSPPWindows64.exe')
+  })
+
+  it('every macOS build is an app bundle from a trusted host, matched by its own asset pattern', () => {
+    for (const arch of ['arm64', 'x64'] as const) {
+      for (const raw of RAW_STANDALONE_DEFS) {
+        const d = resolveStandaloneDef(raw, 'macos', arch)
+        if (!d) continue
+        expect(d.exe, d.id).toMatch(/^[^/]+\.app\/Contents\/MacOS\/[^/]+$/)
+        expect(d.needsVcRedist).toBe(false)
+        expect(d.portable).toEqual([])
+        expect(d.args).toEqual(raw.args)
+        expect(d.assetPattern, d.id).not.toMatch(/windows|win64|\.exe/i)
+        if (d.fallback) {
+          expect(isTrustedDownloadUrl(d.fallback.url), d.id).toBe(true)
+          // The pinned fallback is a build of the same kind the feed is searched for.
+          if (d.source.type !== 'dolphin') expect(d.fallback.url.split('/').pop(), d.id).toMatch(new RegExp(d.assetPattern))
+        }
+      }
+    }
+  })
+
+  it('resolves per OS and CPU architecture', () => {
+    const raw = (id: string) => RAW_STANDALONE_DEFS.find((d) => d.id === id)!
+    expect(resolveStandaloneDef(raw('eden'), 'windows')?.exe).toBe('eden.exe')
+    // Eden's macOS build is Apple Silicon only; Vita3K and RPCS3 have one build per architecture.
+    expect(resolveStandaloneDef(raw('eden'), 'macos', 'arm64')?.firmware?.[0]?.copyTo).toBe('keys/prod.keys')
+    expect(resolveStandaloneDef(raw('eden'), 'macos', 'x64')).toBeUndefined()
+    expect(resolveStandaloneDef(raw('vita3k'), 'macos', 'arm64')?.assetPattern).toBe('^macos-arm64-latest\\.dmg$')
+    expect(resolveStandaloneDef(raw('vita3k'), 'macos', 'x64')?.assetPattern).toBe('^macos-latest\\.dmg$')
+    expect(resolveStandaloneDef(raw('rpcs3'), 'macos', 'arm64')?.source).toEqual({ type: 'github', repo: 'RPCS3/rpcs3-binaries-mac-arm64' })
+    expect(new RegExp(resolveStandaloneDef(raw('rpcs3'), 'macos', 'x64')!.assetPattern).test('rpcs3-v0.0.43-20217-ba4a4b56_macos_aarch64.7z')).toBe(false)
+    expect(resolveStandaloneDef({ ...raw('azahar'), macos: undefined }, 'macos')).toBeUndefined()
+  })
+
+  it('provisions into the data folder a macOS build uses', () => {
+    expect(standaloneDataDir({}, '/emu/x')).toBe('/emu/x')
+    expect(standaloneDataDir({ dataDir: '~/Library/Application Support/DuckStation' }, '/emu/x', '/Users/me')).toBe(join('/Users/me', 'Library', 'Application Support', 'DuckStation'))
+  })
+})
+
+describe('app bundles', () => {
+  it('finds the executable an Info.plist names, preferring a bundle named like the emulator', async () => {
+    const root = join(dir, 'bundles')
+    const app = (name: string, exe: string, plistExe?: string) => {
+      mkdirSync(join(root, name, 'Contents', 'MacOS'), { recursive: true })
+      writeFileSync(join(root, name, 'Contents', 'MacOS', exe), '')
+      if (plistExe) writeFileSync(join(root, name, 'Contents', 'Info.plist'), `<plist><dict><key>CFBundleExecutable</key>\n<string>${plistExe}</string></dict></plist>`)
+    }
+    app('Helper.app', 'helper')
+    app('PCSX2-v2.8.2.app', 'PCSX2', 'PCSX2')
+    expect(await findAppExecutable(root, 'PCSX2')).toBe(join(root, 'PCSX2-v2.8.2.app', 'Contents', 'MacOS', 'PCSX2'))
+    // No Info.plist: the only file in Contents/MacOS.
+    expect(await findAppExecutable(root, 'Helper')).toBe(join(root, 'Helper.app', 'Contents', 'MacOS', 'helper'))
+    expect(await findAppExecutable(join(dir, 'nothing-here'), 'x')).toBeUndefined()
   })
 })
 

@@ -4,6 +4,7 @@ import { createHash, type Hash } from 'crypto'
 import { createReadStream, createWriteStream, type WriteStream } from 'fs'
 import { mkdir, readFile, rename, rm, stat, writeFile } from 'fs/promises'
 import { basename, dirname, join } from 'path'
+import { hostArch, hostOs, type HostArch, type HostOs } from '../platform'
 import { createLimiter } from './limit'
 
 export const USER_AGENT = 'RetroDesk/0.1 (+https://github.com/retrodesk)'
@@ -512,10 +513,14 @@ export async function dolphinLatest(url = 'https://dolphin-emu.org/update/latest
   return parseDolphinUpdate(j)
 }
 
-export function parseDolphinUpdate(j: DolphinUpdate): ResolvedRelease {
-  const art = j.artifacts.find((a) => a.system === 'Windows x64')
-  if (!art) throw new Error('Dolphin update feed has no Windows x64 artifact')
-  return { version: j.shortrev, asset: { name: art.url.split('/').pop() ?? 'dolphin.7z', url: art.url } }
+/** The feed's build for `os`: "Windows x64", or the macOS one (a universal .dmg, preferred over an Intel-only one). */
+export function parseDolphinUpdate(j: DolphinUpdate, os: HostOs = hostOs()): ResolvedRelease {
+  const art =
+    os === 'macos'
+      ? (j.artifacts.find((a) => /^macos/i.test(a.system) && /universal/i.test(`${a.system} ${a.url}`)) ?? j.artifacts.find((a) => /^macos/i.test(a.system)))
+      : j.artifacts.find((a) => a.system === 'Windows x64')
+  if (!art) throw new Error(`Dolphin update feed has no ${os === 'macos' ? 'macOS' : 'Windows x64'} artifact`)
+  return { version: j.shortrev, asset: { name: art.url.split('/').pop() ?? (os === 'macos' ? 'dolphin.dmg' : 'dolphin.7z'), url: art.url } }
 }
 
 /** Numeric dotted-version compare (1.9.9 < 1.10.0 < 1.22.2). Non-numeric parts compare as 0. */
@@ -537,7 +542,9 @@ export function parseBuildbotStableListing(html: string): string | undefined {
 }
 
 export const RETROARCH_FALLBACK_VERSION = '1.22.2'
-export const retroArchUrl = (version: string): string => `https://buildbot.libretro.com/stable/${version}/windows/x86_64/RetroArch.7z`
+/** The stable RetroArch build for `os`. The macOS one is a universal (Intel + Apple Silicon) disk image. */
+export const retroArchUrl = (version: string, os: HostOs = hostOs()): string =>
+  os === 'macos' ? `https://buildbot.libretro.com/stable/${version}/apple/osx/universal/RetroArch_Metal.dmg` : `https://buildbot.libretro.com/stable/${version}/windows/x86_64/RetroArch.7z`
 
 /** How long a discovered RetroArch version is trusted (in memory and in the release cache) before asking again. */
 export const RETROARCH_VERSION_MAX_AGE_MS = 60 * 60_000
@@ -615,7 +622,17 @@ async function discoverRetroArchStable(signal?: AbortSignal, cacheDir?: string):
   }
 }
 
-export const coreUrl = (coreFile: string): string => `https://buildbot.libretro.com/nightly/windows/x86_64/latest/${coreFile}.dll.zip`
+/** Shared library extension of libretro cores on `os`. */
+export const coreLibExt = (os: HostOs = hostOs()): '.dll' | '.dylib' => (os === 'macos' ? '.dylib' : '.dll')
+
+/**
+ * A nightly core build. On macOS cores are per architecture (RetroArch itself is universal, but a process loads
+ * only libraries of its own architecture), and the buildbot does not have every core for both.
+ */
+export const coreUrl = (coreFile: string, os: HostOs = hostOs(), arch: HostArch = hostArch()): string =>
+  os === 'macos'
+    ? `https://buildbot.libretro.com/nightly/apple/osx/${arch === 'arm64' ? 'arm64' : 'x86_64'}/latest/${coreFile}.dylib.zip`
+    : `https://buildbot.libretro.com/nightly/windows/x86_64/latest/${coreFile}.dll.zip`
 
 export async function fileSize(p: string): Promise<number> {
   try {

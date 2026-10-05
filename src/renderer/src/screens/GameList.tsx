@@ -11,6 +11,7 @@ import { useActions, useFocusGroup } from '../input/hooks'
 import { systemColor } from '../lib/color'
 import { formatPlayTime, formatRelative, letterOf, plural } from '../lib/format'
 import { feedback } from '../lib/feedback'
+import { sep } from '../lib/platform'
 import { systemById, useLibrary } from '../stores/library'
 import { useNav } from '../stores/nav'
 import { toast } from '../stores/session'
@@ -288,8 +289,8 @@ function EmptySystem({ system, favOnly }: { system: SystemSummary; favOnly: bool
         <>
           <h2>No {system.name} games yet</h2>
           <p>
-            Put {system.extensions.join(', ')} files in <code>{dataRoot ? `${dataRoot}\\roms\\${folder}` : `roms\\${folder}`}</code> or any ROM folder sub-folder named <code>{folder}</code>, then
-            rescan from Settings.
+            Put {system.extensions.join(', ')} files in <code>{[dataRoot, 'roms', folder].filter(Boolean).join(sep)}</code> or any ROM folder sub-folder named <code>{folder}</code>, then rescan from
+            Settings.
           </p>
         </>
       )}

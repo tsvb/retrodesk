@@ -1,6 +1,8 @@
 // Windows power mode control: Windows 10/11 power-mode overlays first (no admin needed, only effective on the
-// Balanced scheme), classic power schemes as a fallback.
+// Balanced scheme), classic power schemes as a fallback. macOS has no power plans to switch without admin rights
+// (Low Power Mode needs `sudo pmset`), so there it is only reported.
 import type { PerformanceMode } from '../../shared/types'
+import { hostOs } from '../platform'
 import { run } from './exec'
 
 type ActiveMode = Exclude<PerformanceMode, 'unchanged'>
@@ -96,8 +98,17 @@ export async function restorePowerState(s: PowerState): Promise<void> {
   if (s.overlay && (switched || overlay !== s.overlay)) await powercfg('/overlaysetactive', s.overlay)
 }
 
+/** True when `pmset -g` reports Low Power Mode on. */
+export function parseLowPowerMode(out: string): boolean {
+  return /^\s*lowpowermode\s+1\b/im.test(out)
+}
+
 /** Human readable plan name for SystemStats.powerPlan. */
 export async function describePowerPlan(): Promise<string | undefined> {
+  if (hostOs() === 'macos') {
+    const r = await run('pmset', ['-g'], 5000)
+    return r.code === 0 && parseLowPowerMode(r.stdout) ? 'Low Power Mode' : undefined
+  }
   const scheme = await getActiveScheme()
   if (!scheme) return undefined
   if (scheme.guid === SCHEMES.balanced) {

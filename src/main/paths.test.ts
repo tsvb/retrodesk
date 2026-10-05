@@ -55,11 +55,21 @@ describe('getPaths', () => {
 })
 
 describe('managedPathPredicate', () => {
-  it('matches the data root and ROM folders like isManagedPath', () => {
+  it.runIf(process.platform === 'win32')('matches the data root and ROM folders like isManagedPath', () => {
     h.settings.dataRoot = 'C:\\RetroDesk'
     h.settings.romFolders = [{ path: 'D:\\Games\\ROMs\\' }, { path: '' }]
     const servable = managedPathPredicate()
     const cases = ['C:\\RetroDesk\\media\\snes\\boxart\\a.png', 'c:\\retrodesk', 'D:\\Games\\ROMs\\snes\\b.sfc', 'C:\\RetroDeskOther\\a.png', 'E:\\elsewhere\\a.png', 'relative\\a.png']
+    expect(cases.map(servable)).toEqual([true, true, true, false, false, false])
+    expect(cases.map(isManagedPath)).toEqual(cases.map(servable))
+    h.settings.romFolders = []
+  })
+
+  it.skipIf(process.platform === 'win32')('matches the data root and ROM folders like isManagedPath (macOS)', () => {
+    h.settings.dataRoot = '/Users/me/RetroDesk'
+    h.settings.romFolders = [{ path: '/Volumes/Games/ROMs/' }, { path: '' }]
+    const servable = managedPathPredicate()
+    const cases = ['/Users/me/RetroDesk/media/snes/boxart/a.png', '/users/me/retrodesk', '/Volumes/Games/ROMs/snes/b.sfc', '/Users/me/RetroDeskOther/a.png', '/etc/passwd', 'relative/a.png']
     expect(cases.map(servable)).toEqual([true, true, true, false, false, false])
     expect(cases.map(isManagedPath)).toEqual(cases.map(servable))
     h.settings.romFolders = []

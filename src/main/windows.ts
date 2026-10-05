@@ -1,6 +1,7 @@
 import { app, BrowserWindow, screen, shell } from 'electron'
 import { join } from 'path'
 import { sendEvent } from './events'
+import { hostOs } from './platform'
 import { getSettings } from './settings'
 
 let mainWindow: BrowserWindow | null = null
@@ -42,7 +43,8 @@ export function createMainWindow(): BrowserWindow {
     title: 'RetroDesk',
     autoHideMenuBar: true,
     titleBarStyle: 'hidden',
-    titleBarOverlay: { color: '#00000000', symbolColor: '#c9c9d6', height: 36 },
+    // Windows draws its controls over the top-right of the page; macOS keeps the traffic lights, centered in the top bar.
+    ...(hostOs() === 'macos' ? { trafficLightPosition: { x: 16, y: 12 } } : { titleBarOverlay: { color: '#00000000', symbolColor: '#c9c9d6', height: 36 } }),
     fullscreen: s.ui.startFullscreen,
     webPreferences: { preload: preload(), backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' }
   })
@@ -69,6 +71,9 @@ export function focusMainWindow(): void {
 // Hiding it would stop the gamepad polling (Chromium only gives gamepad data to visible pages, and with occlusion
 // tracking disabled a shown off-screen window still counts as visible). Leaving it over the game would keep a
 // layered window on top of a fullscreen emulator, which knocks the game out of independent flip (extra latency, no VRR).
+// macOS has no independent flip to lose, and may pull a window back on screen or count it as occluded, so on a Mac
+// the closed overlay stays over the game: transparent and click-through.
+const PARK_OFF_SCREEN = hostOs() === 'windows'
 /** Let the menu's fade-out finish before the window jumps away. */
 const PARK_DELAY_MS = 300
 /** Distance from the displays; Windows enforces a minimum window size of a few dozen pixels, so 1x1 isn't kept. */
@@ -110,7 +115,7 @@ function parkOverlay(win: BrowserWindow): void {
   parkTimer = undefined
   if (win.isDestroyed()) return
   // Held while toasts show: stay over the game, still click-through, until they are gone.
-  moveOverlay(win, overlayHeld ? overlayDisplayBounds() : parkedBounds())
+  moveOverlay(win, overlayHeld || !PARK_OFF_SCREEN ? overlayDisplayBounds() : parkedBounds())
 }
 
 function parkOverlaySoon(win: BrowserWindow): void {
@@ -165,9 +170,12 @@ export function showOverlay(): void {
       hasShadow: false,
       show: false,
       alwaysOnTop: true,
+      // A panel can float over another app's fullscreen Space.
+      ...(hostOs() === 'macos' ? { type: 'panel' } : {}),
       webPreferences: { preload: preload(), backgroundThrottling: false, autoplayPolicy: 'no-user-gesture-required' }
     })
     overlayWindow.setAlwaysOnTop(true, 'screen-saver')
+    if (hostOs() === 'macos') overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
     overlayWindow.setIgnoreMouseEvents(true)
     lockDown(overlayWindow)
     const win = overlayWindow

@@ -221,6 +221,11 @@ html.game-idle *::after {
   /* Native window controls (titleBarOverlay) live in the top-right corner. */
   padding-right: calc(140px + 1rem);
 }
+.is-mac .topbar.is-windowed {
+  /* macOS keeps its traffic lights in the top-left corner instead. */
+  padding-right: var(--gutter);
+  padding-left: calc(72px + var(--gutter));
+}
 .topbar .wordmark {
   font-size: 1.2rem;
 }

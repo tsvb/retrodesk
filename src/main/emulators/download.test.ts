@@ -5,9 +5,14 @@ import type { AddressInfo } from 'net'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+
+// These tests describe the Windows builds; macOS cases pass the OS explicitly.
+vi.mock('../platform', async (importOriginal) => ({ ...(await importOriginal<typeof import('../platform')>()), hostOs: () => 'windows', isMac: () => false }))
 import standaloneEmulators from '../data/standalone-emulators.json'
 import {
   clearRetroArchVersionMemo,
+  coreLibExt,
+  coreUrl,
   downloadFile,
   downloadTrusted,
   fetchJsonCached,
@@ -20,6 +25,7 @@ import {
   RateLimitError,
   RETROARCH_FALLBACK_VERSION,
   retroArchLatestStable,
+  retroArchUrl,
   semverCompare,
   tagToVersion,
   UntrustedDownloadError,
@@ -68,6 +74,34 @@ describe('release discovery parsing', () => {
       ]
     })
     expect(r).toEqual({ version: '2609', asset: { name: 'dolphin-2609-x64.7z', url: 'https://dl.dolphin-emu.org/releases/2609/dolphin-2609-x64.7z' } })
+  })
+
+  it('picks the universal macOS build from the Dolphin feed', () => {
+    const feed = {
+      shortrev: '2609',
+      artifacts: [
+        { system: 'Windows x64', url: 'https://dl.dolphin-emu.org/releases/2609/dolphin-2609-x64.7z' },
+        { system: 'macOS (Intel)', url: 'https://dl.dolphin-emu.org/releases/2609/dolphin-2609-x86_64.dmg' },
+        { system: 'macOS Universal', url: 'https://dl.dolphin-emu.org/releases/2609/dolphin-2609-universal.dmg' }
+      ]
+    }
+    expect(parseDolphinUpdate(feed, 'macos').asset).toEqual({ name: 'dolphin-2609-universal.dmg', url: 'https://dl.dolphin-emu.org/releases/2609/dolphin-2609-universal.dmg' })
+    expect(() => parseDolphinUpdate({ shortrev: '1', artifacts: [feed.artifacts[0]!] }, 'macos')).toThrow(/macOS/)
+  })
+})
+
+describe('buildbot URLs per OS', () => {
+  it('downloads the Windows 7z or the universal macOS disk image', () => {
+    expect(retroArchUrl('1.22.2', 'windows')).toBe('https://buildbot.libretro.com/stable/1.22.2/windows/x86_64/RetroArch.7z')
+    expect(retroArchUrl('1.22.2', 'macos')).toBe('https://buildbot.libretro.com/stable/1.22.2/apple/osx/universal/RetroArch_Metal.dmg')
+  })
+
+  it('fetches cores for the OS and, on macOS, the CPU architecture', () => {
+    expect(coreUrl('snes9x_libretro', 'windows')).toBe('https://buildbot.libretro.com/nightly/windows/x86_64/latest/snes9x_libretro.dll.zip')
+    expect(coreUrl('snes9x_libretro', 'macos', 'arm64')).toBe('https://buildbot.libretro.com/nightly/apple/osx/arm64/latest/snes9x_libretro.dylib.zip')
+    expect(coreUrl('snes9x_libretro', 'macos', 'x64')).toBe('https://buildbot.libretro.com/nightly/apple/osx/x86_64/latest/snes9x_libretro.dylib.zip')
+    expect([coreLibExt('windows'), coreLibExt('macos')]).toEqual(['.dll', '.dylib'])
+    for (const u of [retroArchUrl('1.22.2', 'macos'), coreUrl('x', 'macos', 'arm64')]) expect(isTrustedDownloadUrl(u)).toBe(true)
   })
 })
 

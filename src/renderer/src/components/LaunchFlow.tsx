@@ -4,6 +4,7 @@ import type { Game } from '@shared/types'
 import { api } from '../api'
 import { feedback } from '../lib/feedback'
 import { defaultKeyForSystem } from '../lib/emulators'
+import { isMac } from '../lib/platform'
 import { systemById, useLibrary } from '../stores/library'
 import { useSettings } from '../stores/settings'
 import { useNav } from '../stores/nav'
@@ -17,8 +18,8 @@ type Problem = { kind: 'emulator'; game: Game; error: string } | { kind: 'bios';
 const FIREWALL_NOTICE_KEY = 'retrodesk.firewallNoticeSeen'
 
 /**
- * RetroArch's network-command port (used by the quick menu) listens on all interfaces, so Windows Firewall asks
- * about it the first time. Local commands work either way; warn once so the prompt isn't a surprise mid-game.
+ * RetroArch's network-command port (used by the quick menu) listens on all interfaces, so Windows Firewall (or
+ * the macOS firewall, when it is on) asks about it the first time. Local commands work either way; warn once so the prompt isn't a surprise mid-game.
  */
 function needsFirewallNotice(g: Game): boolean {
   try {
@@ -106,11 +107,23 @@ export function useLauncher(): { launch: (g: Game, skipNotice?: boolean) => Prom
           title="One-time heads up"
           description={
             <>
-              <p>
-                The first time RetroArch starts, Windows Firewall may ask whether it can access networks. RetroDesk only talks to RetroArch on this PC (for the quick menu: save states, pause, quit),
-                which works whichever button you press.
-              </p>
-              <p>Choose Cancel unless you also want RetroArch netplay online.</p>
+              {isMac ? (
+                <>
+                  <p>
+                    If the macOS firewall is on, the first time RetroArch starts it may ask whether RetroArch can accept incoming network connections. RetroDesk only talks to RetroArch on this Mac
+                    (for the quick menu: save states, pause, quit), which works whichever button you press.
+                  </p>
+                  <p>Choose Deny unless you also want RetroArch netplay online.</p>
+                </>
+              ) : (
+                <>
+                  <p>
+                    The first time RetroArch starts, Windows Firewall may ask whether it can access networks. RetroDesk only talks to RetroArch on this PC (for the quick menu: save states, pause,
+                    quit), which works whichever button you press.
+                  </p>
+                  <p>Choose Cancel unless you also want RetroArch netplay online.</p>
+                </>
+              )}
             </>
           }
           onClose={() => setProblem(null)}

@@ -12,7 +12,7 @@ import { getSystemDef, getSystemDefs } from '../systems'
 import { dirSize, removeExcept } from './extract'
 import { allRefs, systemChosenRef, type EmuRef } from './keys'
 import { getEntry, getInstalled, loadManifest, recordInstall, removeEntry } from './manifest'
-import { buildRetroArchArgs, coreDisplayName, coreDllPath, coreFileBase, installCore, installRetroArch, RA_ID, raDir, raExe, writeAppendConfig } from './retroarch'
+import { buildRetroArchArgs, coreBasenames, coreDisplayName, coreFileBase, coreLibPath, installCore, installRetroArch, RA_ID, raDir, raExe, writeAppendConfig } from './retroarch'
 import { getStandaloneDef, hasVcRedist, installStandalone, postInstall, STANDALONE_DEFS, standaloneDir, type StandaloneDef } from './standalone'
 
 export { parseEmulatorKey, refKey, refStatusId, resolveGameRef } from './keys'
@@ -28,11 +28,7 @@ function installedCoreSet(): Set<string> {
   if (coreCache && coreCache.dir === dir && Date.now() - coreCache.at < 3000) return coreCache.set
   let set = new Set<string>()
   try {
-    set = new Set(
-      readdirSync(dir)
-        .filter((f) => f.toLowerCase().endsWith('.dll'))
-        .map((f) => f.slice(0, -4).toLowerCase())
-    )
+    set = coreBasenames(readdirSync(dir))
   } catch {
     /* no cores dir */
   }
@@ -42,6 +38,11 @@ function installedCoreSet(): Set<string> {
 
 const invalidateCores = () => {
   coreCache = null
+}
+
+/** The folder shown for an installed executable: on macOS the one holding its app bundle, not Contents/MacOS. */
+export function installDirOf(exe: string): string {
+  return /^(.*)[\\/][^\\/]+\.app[\\/]Contents[\\/]MacOS[\\/][^\\/]+$/i.exec(exe)?.[1] ?? dirname(exe)
 }
 
 /** RetroArch exe if installed (manifest, or an adopted pre-existing install). */
@@ -116,7 +117,7 @@ function statusFor(id: string): EmulatorStatus {
       systems: [...new Set(referencedCores().flatMap(systemsForCore))],
       installed: !!exe,
       version: exe ? e?.version : undefined,
-      installPath: exe ? dirname(exe) : undefined,
+      installPath: exe ? installDirOf(exe) : undefined,
       sizeBytes: exe ? e?.sizeBytes : undefined
     }
   }
@@ -131,7 +132,7 @@ function statusFor(id: string): EmulatorStatus {
       systems: systemsForCore(core),
       installed,
       version: installed ? e?.version : undefined,
-      installPath: installed ? coreDllPath(paths, core) : undefined,
+      installPath: installed ? coreLibPath(paths, core) : undefined,
       sizeBytes: installed ? e?.sizeBytes : undefined
     }
   }
@@ -146,7 +147,7 @@ function statusFor(id: string): EmulatorStatus {
     systems: systemsForStandalone(def),
     installed: !!exe,
     version: exe ? e?.version : undefined,
-    installPath: exe ? dirname(exe) : undefined,
+    installPath: exe ? installDirOf(exe) : undefined,
     sizeBytes: exe ? e?.sizeBytes : undefined
   }
 }
@@ -232,7 +233,7 @@ export async function uninstallEmulator(rawId: string): Promise<void> {
     return
   }
   if (id.startsWith('core:')) {
-    await rm(coreDllPath(paths, id.slice(5)), { force: true })
+    await rm(coreLibPath(paths, id.slice(5)), { force: true })
     removeEntry(id)
     invalidateCores()
     return
@@ -285,8 +286,8 @@ export async function openEmulatorUi(rawId: string): Promise<void> {
   if (id === RA_ID || id.startsWith('core:')) {
     const exe = retroArchExe()
     if (!exe) throw new Error('RetroArch is not installed')
-    const { cfgPath } = await writeAppendConfig(getSettings(), getPaths(), true)
-    spawnDetached(exe, buildRetroArchArgs({ appendCfg: cfgPath }), dirname(exe))
+    const { cfgPath, mainCfg } = await writeAppendConfig(getSettings(), getPaths(), true)
+    spawnDetached(exe, buildRetroArchArgs({ appendCfg: cfgPath, mainCfg }), dirname(exe))
     return
   }
   const def = getStandaloneDef(id)

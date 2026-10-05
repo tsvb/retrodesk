@@ -14,7 +14,14 @@
     "userData": ["User", "portable.txt"],
     "needsVcRedist": true,
     "romKind": "file",
-    "notes": "Archive top folder Dolphin-x64/ is flattened. -b exits when emulation stops; portable.txt => User/ next to exe."
+    "notes": "Archive top folder Dolphin-x64/ is flattened. -b exits when emulation stops; portable.txt => User/ next to exe.",
+    "macos": {
+      "source": { "type": "dolphin", "url": "https://dolphin-emu.org/update/latest/beta/" },
+      "fallback": null,
+      "archiveType": "dmg",
+      "exe": "Dolphin.app/Contents/MacOS/Dolphin",
+      "notes": "Universal .dmg from the update feed's macOS artifact. Data in ~/Library/Application Support/Dolphin."
+    }
   },
   {
     "id": "pcsx2",
@@ -52,7 +59,14 @@
       ],
       "hook": "pcsx2BiosFile"
     },
-    "notes": "BIOS: RetroDesk copies PS2 BIOS dumps from <bios>/ps2 (or 4 MB .bin files in <bios>) into bios/ and writes inis/PCSX2.ini [Filenames] BIOS."
+    "notes": "BIOS: RetroDesk copies PS2 BIOS dumps from <bios>/ps2 (or 4 MB .bin files in <bios>) into bios/ and writes inis/PCSX2.ini [Filenames] BIOS.",
+    "macos": {
+      "assetPattern": "^pcsx2-v[\\d.]+-macos-Qt\\.tar\\.xz$",
+      "fallback": { "version": "2.8.2", "url": "https://github.com/PCSX2/pcsx2/releases/download/v2.8.2/pcsx2-v2.8.2-macos-Qt.tar.xz" },
+      "archiveType": "tar.xz",
+      "exe": "PCSX2.app/Contents/MacOS/PCSX2",
+      "dataDir": "~/Library/Application Support/PCSX2"
+    }
   },
   {
     "id": "rpcs3",
@@ -83,7 +97,24 @@
         "manual": "PS3 firmware is not installed in RPCS3 yet. Open RPCS3 (Settings > Emulators) and use File > Install Firmware with {file}."
       }
     ],
-    "notes": "Always portable. {rom} = EBOOT.BIN found inside a game folder, or the ISO. Firmware: rpcs3.exe --installfw <bios>/PS3UPDAT.PUP."
+    "notes": "Always portable. {rom} = EBOOT.BIN found inside a game folder, or the ISO. Firmware: rpcs3.exe --installfw <bios>/PS3UPDAT.PUP.",
+    "macos": {
+      "dataDir": "~/Library/Application Support/rpcs3",
+      "arm64": {
+        "source": { "type": "github", "repo": "RPCS3/rpcs3-binaries-mac-arm64" },
+        "assetPattern": "^rpcs3-v[\\d.]+-\\d+-[0-9a-f]+_macos_aarch64\\.7z$",
+        "fallback": {
+          "version": "build-ba4a4b561edb562d9fd58268edaf927fa436f408",
+          "url": "https://github.com/RPCS3/rpcs3-binaries-mac-arm64/releases/download/build-ba4a4b561edb562d9fd58268edaf927fa436f408/rpcs3-v0.0.43-20217-ba4a4b56_macos_aarch64.7z"
+        }
+      },
+      "x64": {
+        "source": { "type": "github", "repo": "RPCS3/rpcs3-binaries-mac" },
+        "assetPattern": "^rpcs3-v[\\d.]+-\\d+-[0-9a-f]+_macos(?!_aarch64)[^.]*\\.(7z|dmg)$",
+        "fallback": null
+      },
+      "exe": "rpcs3.app/Contents/MacOS/rpcs3"
+    }
   },
   {
     "id": "eden",
@@ -132,7 +163,40 @@
         "message": "Switch firmware is not installed. Put your firmware dump (*.nca files) in {bios}\\switch\\firmware, or install it from Eden (Tools > Install Firmware)."
       }
     ],
-    "notes": "Keys: RetroDesk copies prod.keys/title.keys from <bios> (or <bios>/switch) into user/keys/. Firmware must be installed via Eden's UI."
+    "notes": "Keys: RetroDesk copies prod.keys/title.keys from <bios> (or <bios>/switch) into user/keys/. Firmware must be installed via Eden's UI.",
+    "macos": {
+      "assetPattern": "^Eden-macOS-v[\\d.]+\\.dmg$",
+      "fallback": { "version": "0.2.1", "url": "https://stable.eden-emu.dev/v0.2.1/Eden-macOS-v0.2.1.dmg" },
+      "archiveType": "dmg",
+      "exe": "Eden.app/Contents/MacOS/eden",
+      "archs": ["arm64"],
+      "dataDir": "~/Library/Application Support/eden",
+      "firmware": [
+        {
+          "label": "prod.keys",
+          "dirs": ["", "switch"],
+          "name": "prod.keys",
+          "copyTo": "keys/prod.keys",
+          "copyWhen": "newer",
+          "installed": { "anyOf": ["keys/prod.keys"] },
+          "required": true,
+          "message": "Switch games need your prod.keys. Put it in {bios} (or {bios}\\switch)."
+        },
+        { "label": "title.keys", "dirs": ["", "switch"], "name": "title.keys", "copyTo": "keys/title.keys", "copyWhen": "newer", "installed": { "anyOf": ["keys/title.keys"] }, "required": false },
+        {
+          "label": "Switch firmware",
+          "dirs": ["switch/firmware"],
+          "pattern": "\\.nca$",
+          "all": true,
+          "copyTo": "nand/system/Contents/registered/",
+          "copyWhen": "notInstalled",
+          "installed": { "nonEmptyDir": "nand/system/Contents/registered" },
+          "required": true,
+          "message": "Switch firmware is not installed. Put your firmware dump (*.nca files) in {bios}\\switch\\firmware, or install it from Eden (Tools > Install Firmware)."
+        }
+      ],
+      "notes": "Apple Silicon only. Keys and firmware go to ~/Library/Application Support/eden (keys/, nand/)."
+    }
   },
   {
     "id": "azahar",
@@ -149,7 +213,12 @@
     "userData": ["user"],
     "needsVcRedist": false,
     "romKind": "file",
-    "notes": "Zip uses backslash entry names (7za handles them); versioned top folder is flattened."
+    "notes": "Zip uses backslash entry names (7za handles them); versioned top folder is flattened.",
+    "macos": {
+      "assetPattern": "^azahar-macos-universal-[\\d.]+\\.zip$",
+      "fallback": { "version": "2126.1.2", "url": "https://github.com/azahar-emu/azahar/releases/download/2126.1.2/azahar-macos-universal-2126.1.2.zip" },
+      "exe": "Azahar.app/Contents/MacOS/azahar"
+    }
   },
   {
     "id": "cemu",
@@ -166,7 +235,14 @@
     "userData": ["portable"],
     "needsVcRedist": true,
     "romKind": "wiiu",
-    "notes": "Folder games: {rom} = code/*.rpx inside the title folder."
+    "notes": "Folder games: {rom} = code/*.rpx inside the title folder.",
+    "macos": {
+      "assetPattern": "^cemu-[\\d.]+-macos-[\\d.]+-x64\\.dmg$",
+      "fallback": { "version": "2.6", "url": "https://github.com/cemu-project/Cemu/releases/download/v2.6/cemu-2.6-macos-12-x64.dmg" },
+      "archiveType": "dmg",
+      "exe": "Cemu.app/Contents/MacOS/Cemu",
+      "notes": "Intel build; runs through Rosetta on Apple Silicon."
+    }
   },
   {
     "id": "xemu",
@@ -206,7 +282,13 @@
         "unless": ["xbox_hdd.qcow2", "xbox/xbox_hdd.qcow2"]
       }
     ],
-    "notes": "xemu.toml [sys.files] is pointed at <bios>/mcpx_1.0.bin, Complex_4627.bin, xbox_hdd.qcow2 (also accepted under <bios>/xbox)."
+    "notes": "xemu.toml [sys.files] is pointed at <bios>/mcpx_1.0.bin, Complex_4627.bin, xbox_hdd.qcow2 (also accepted under <bios>/xbox).",
+    "macos": {
+      "assetPattern": "^xemu-[\\d.]+-macos-universal\\.zip$",
+      "fallback": { "version": "0.8.136", "url": "https://github.com/xemu-project/xemu/releases/download/v0.8.136/xemu-0.8.136-macos-universal.zip" },
+      "exe": "xemu.app/Contents/MacOS/xemu",
+      "dataDir": "~/Library/Application Support/xemu/xemu"
+    }
   },
   {
     "id": "vita3k",
@@ -233,7 +315,20 @@
         "message": "Vita games need the official firmware. Put PSVUPDAT.PUP in {bios}, then install it from Vita3K."
       }
     ],
-    "notes": "Installed games launch by title ID (from [PCSE00000] in the name or sce_sys/param.sfo); .vpk/.zip are passed as content path (install + run)."
+    "notes": "Installed games launch by title ID (from [PCSE00000] in the name or sce_sys/param.sfo); .vpk/.zip are passed as content path (install + run).",
+    "macos": {
+      "archiveType": "dmg",
+      "exe": "Vita3K.app/Contents/MacOS/Vita3K",
+      "dataDir": "~/Library/Application Support/Vita3K/Vita3K",
+      "arm64": {
+        "assetPattern": "^macos-arm64-latest\\.dmg$",
+        "fallback": { "version": "continuous", "url": "https://github.com/Vita3K/Vita3K/releases/download/continuous/macos-arm64-latest.dmg" }
+      },
+      "x64": {
+        "assetPattern": "^macos-latest\\.dmg$",
+        "fallback": { "version": "continuous", "url": "https://github.com/Vita3K/Vita3K/releases/download/continuous/macos-latest.dmg" }
+      }
+    }
   },
   {
     "id": "ppsspp",
@@ -250,7 +345,12 @@
     "userData": ["memstick"],
     "needsVcRedist": false,
     "romKind": "file",
-    "notes": "Portable by default (memstick/ next to exe). Never create installed.txt."
+    "notes": "Portable by default (memstick/ next to exe). Never create installed.txt.",
+    "macos": {
+      "assetPattern": "^PPSSPPSDL-macOS-v[\\d.]+\\.zip$",
+      "fallback": { "version": "1.20.4", "url": "https://github.com/hrydgard/ppsspp/releases/download/v1.20.4/PPSSPPSDL-macOS-v1.20.4.zip" },
+      "exe": "PPSSPPSDL.app/Contents/MacOS/PPSSPPSDL"
+    }
   },
   {
     "id": "duckstation",
@@ -275,6 +375,12 @@
         { "section": "BIOS", "key": "SearchDirectory", "value": "{bios}" }
       ]
     },
-    "notes": "settings.ini [BIOS] SearchDirectory is pointed at the RetroDesk BIOS dir."
+    "notes": "settings.ini [BIOS] SearchDirectory is pointed at the RetroDesk BIOS dir.",
+    "macos": {
+      "assetPattern": "^duckstation-mac-release\\.zip$",
+      "fallback": { "version": "latest", "url": "https://github.com/stenzek/duckstation/releases/download/latest/duckstation-mac-release.zip" },
+      "exe": "DuckStation.app/Contents/MacOS/DuckStation",
+      "dataDir": "~/Library/Application Support/DuckStation"
+    }
   }
 ]

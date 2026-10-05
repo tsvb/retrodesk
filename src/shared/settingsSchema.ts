@@ -1,7 +1,7 @@
 // Settings that are a choice or an on/off switch, declared once. From each entry come: the value's type
 // (Settings in types.ts), its default (main/settings.ts), validation of what the renderer or a hand-edited
 // settings.json may store, the control in the Settings screens, and the RetroArch config it maps to.
-import type { Settings } from './types'
+import type { HostOs, Settings } from './types'
 
 export interface Choice<T extends string = string> {
   value: T
@@ -11,6 +11,8 @@ export interface Choice<T extends string = string> {
   cfg?: Record<string, string>
   /** Shader presets for this option, best first (paths relative to the RetroArch dir). */
   presets?: string[]
+  /** Only offered on this OS (e.g. Direct3D on Windows, Metal on macOS). */
+  os?: HostOs
 }
 
 export interface ChoiceSetting<T extends string = string> {
@@ -108,14 +110,15 @@ export const SETTINGS_SCHEMA = {
   }),
   'retroarch.videoDriver': choice({
     title: 'Video driver',
-    description: 'Vulkan is fastest on most GPUs. Try Direct3D 11 if a game shows a black screen.',
+    description: 'Vulkan is fastest on most GPUs. Try another driver if a game shows a black screen.',
     control: 'picker',
     default: 'vulkan',
     options: [
       { value: 'vulkan', label: 'Vulkan', cfg: { video_driver: 'vulkan' } },
       { value: 'glcore', label: 'OpenGL', cfg: { video_driver: 'glcore' } },
-      { value: 'd3d11', label: 'Direct3D 11', cfg: { video_driver: 'd3d11' } },
-      { value: 'd3d12', label: 'Direct3D 12', cfg: { video_driver: 'd3d12' } }
+      { value: 'd3d11', label: 'Direct3D 11', cfg: { video_driver: 'd3d11' }, os: 'windows' },
+      { value: 'd3d12', label: 'Direct3D 12', cfg: { video_driver: 'd3d12' }, os: 'windows' },
+      { value: 'metal', label: 'Metal', cfg: { video_driver: 'metal' }, os: 'macos' }
     ]
   }),
   'retroarch.showFps': toggle({ title: 'Show frame rate', default: false, cfg: ['fps_show'] }),
@@ -138,9 +141,9 @@ export const SETTINGS_SCHEMA = {
     default: 'unchanged',
     options: [
       { value: 'quiet', label: 'Quiet', hint: 'Power saver. Cool and silent, fine for 8 and 16-bit.' },
-      { value: 'balanced', label: 'Balanced', hint: 'Windows Balanced plan. Right for most systems.' },
+      { value: 'balanced', label: 'Balanced', hint: 'The Balanced power plan. Right for most systems.' },
       { value: 'performance', label: 'Performance', hint: 'High performance plan for PS2, GameCube and Switch.' },
-      { value: 'unchanged', label: 'Leave as is', hint: 'Keep whatever Windows is using.' }
+      { value: 'unchanged', label: 'Leave as is', hint: 'Keep whatever power plan is in use.' }
     ]
   }),
 
@@ -171,10 +174,11 @@ export type SettingValue<P extends SettingPath> = (typeof SETTINGS_SCHEMA)[P] ex
 export const settingDef = (path: string): SettingDef | undefined => (Object.hasOwn(SETTINGS_SCHEMA, path) ? (SETTINGS_SCHEMA as Record<string, SettingDef>)[path] : undefined)
 export const settingDefault = <P extends SettingPath>(path: P): SettingValue<P> => SETTINGS_SCHEMA[path].default as SettingValue<P>
 
-/** The options of a choice setting, typed by its values. */
-export function settingOptions<P extends SettingPath>(path: P): readonly Choice<SettingValue<P> & string>[] {
+/** The options of a choice setting, typed by its values. With `os`, only those offered on that OS. */
+export function settingOptions<P extends SettingPath>(path: P, os?: HostOs): readonly Choice<SettingValue<P> & string>[] {
   const d: SettingDef = SETTINGS_SCHEMA[path]
-  return (d.kind === 'choice' ? d.options : []) as readonly Choice<SettingValue<P> & string>[]
+  const all = (d.kind === 'choice' ? d.options : []) as readonly Choice<SettingValue<P> & string>[]
+  return os ? all.filter((o) => !o.os || o.os === os) : all
 }
 
 /** True when `value` is something this setting may hold. */
@@ -193,15 +197,21 @@ export function settingPatch<P extends SettingPath>(path: P, value: SettingValue
   return { [group]: { [key]: value } }
 }
 
-/** RetroArch config for every `retroarch.*` setting that declares one. */
-export function retroArchCfgFromSettings(settings: Settings): Record<string, string> {
+/**
+ * RetroArch config for every `retroarch.*` setting that declares one. An option not offered on `os` (settings
+ * carried over from another machine) falls back to the setting's default.
+ */
+export function retroArchCfgFromSettings(settings: Settings, os?: HostOs): Record<string, string> {
   const cfg: Record<string, string> = {}
   for (const path of Object.keys(SETTINGS_SCHEMA) as SettingPath[]) {
     if (!path.startsWith('retroarch.')) continue
     const def: SettingDef = SETTINGS_SCHEMA[path]
     const value: unknown = getSetting(settings, path)
     if (def.kind === 'toggle') for (const k of def.cfg ?? []) cfg[k] = value ? 'true' : 'false'
-    else Object.assign(cfg, def.options.find((o) => o.value === value)?.cfg ?? def.options.find((o) => o.value === def.default)?.cfg)
+    else {
+      const chosen = def.options.find((o) => o.value === value && (!os || !o.os || o.os === os))
+      Object.assign(cfg, chosen?.cfg ?? def.options.find((o) => o.value === def.default)?.cfg)
+    }
   }
   return cfg
 }
