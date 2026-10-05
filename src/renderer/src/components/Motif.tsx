@@ -66,9 +66,7 @@ export const Motif = memo(function Motif({ kind, className }: { kind: MotifKind;
       )}
       {kind === 'buttons' && (
         <>
-          {[0, 1, 2].map((r) =>
-            [0, 1, 2].map((c) => <circle key={`${r}${c}`} cx={22 + c * 28 + (r % 2) * 8} cy={24 + r * 26} r="9" />)
-          )}
+          {[0, 1, 2].map((r) => [0, 1, 2].map((c) => <circle key={`${r}${c}`} cx={22 + c * 28 + (r % 2) * 8} cy={24 + r * 26} r="9" />))}
           <path d="M14 92h72" />
         </>
       )}
@@ -81,7 +79,6 @@ export const Motif = memo(function Motif({ kind, className }: { kind: MotifKind;
       )}
       {kind === 'pixels' && (
         <g fill="currentColor" stroke="none">
-          {/* prettier-ignore */}
           {PIXELS.map(([x, y]) => (
             <rect key={`${x}-${y}`} x={20 + (x ?? 0) * 10} y={20 + (y ?? 0) * 10} width="9" height="9" rx="1" />
           ))}

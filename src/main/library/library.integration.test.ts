@@ -90,7 +90,10 @@ describe('library e2e', () => {
   it('scans ROM folders, the default roms dir and Steam', async () => {
     const r = await lib.libraryHandlers.scan()
     const all = await games()
-    const files = all.filter((g) => g.systemId !== 'steam').map((g) => g.title).sort()
+    const files = all
+      .filter((g) => g.systemId !== 'steam')
+      .map((g) => g.title)
+      .sort()
     expect(files).toEqual(['Golden Sun', 'Gone', 'Super Mario World', 'The Legend of Zelda: A Link to the Past'])
     expect(r.added).toBe(all.length)
     expect(r.total).toBe(all.length)
@@ -192,7 +195,12 @@ describe('library e2e', () => {
     writeFile(join(src, 'PSX', 'Crash Bandicoot (USA).cue'), 'FILE "Crash Bandicoot (USA).bin" BINARY\n')
     writeFile(join(src, 'PSX', 'Crash Bandicoot (USA).bin'), rom(8192, 10))
     writeFile(join(src, 'notes.txt'), 'hi')
-    const r = await lib.libraryHandlers.importFiles([join(src, 'Advance Wars (USA).gba'), join(src, 'PSX', 'Crash Bandicoot (USA).cue'), join(src, 'PSX', 'Crash Bandicoot (USA).bin'), join(src, 'notes.txt')])
+    const r = await lib.libraryHandlers.importFiles([
+      join(src, 'Advance Wars (USA).gba'),
+      join(src, 'PSX', 'Crash Bandicoot (USA).cue'),
+      join(src, 'PSX', 'Crash Bandicoot (USA).bin'),
+      join(src, 'notes.txt')
+    ])
     expect(r.added).toBe(2)
     const roms = join(env.settings.dataRoot, 'roms')
     expect(existsSync(join(roms, 'gba', 'Advance Wars (USA).gba'))).toBe(true)
@@ -212,4 +220,3 @@ describe('library e2e', () => {
     expect(existsSync(join(env.settings.dataRoot, 'bios', 'scph5501.bin'))).toBe(true)
   })
 })
-

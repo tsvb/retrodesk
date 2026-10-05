@@ -43,7 +43,8 @@ describe('vdf', () => {
 })
 
 describe('steam manifests', () => {
-  const acf = (id: string, name: string, flags = '4') => `"AppState"\n{\n\t"appid"\t\t"${id}"\n\t"name"\t\t"${name}"\n\t"StateFlags"\t\t"${flags}"\n\t"installdir"\t\t"${name}"\n\t"SizeOnDisk"\t\t"1150526746"\n\t"LastPlayed"\t\t"1789244910"\n}`
+  const acf = (id: string, name: string, flags = '4') =>
+    `"AppState"\n{\n\t"appid"\t\t"${id}"\n\t"name"\t\t"${name}"\n\t"StateFlags"\t\t"${flags}"\n\t"installdir"\t\t"${name}"\n\t"SizeOnDisk"\t\t"1150526746"\n\t"LastPlayed"\t\t"1789244910"\n}`
 
   it('reads installed apps', () => {
     expect(parseAppManifest(acf('945360', 'Among Us'), 'C:\\Steam')).toMatchObject({ appid: '945360', name: 'Among Us', sizeOnDisk: 1150526746, installDir: 'Among Us', lastPlayed: 1789244910 })

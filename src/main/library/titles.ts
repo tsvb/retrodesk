@@ -113,7 +113,10 @@ export function parseRomName(rawName: string): ParsedName {
   }
 
   const base = stripGroups(name)
-  const segments = base.split(/\s+-\s+/).map(moveTrailingArticle).filter((s) => s.length > 0)
+  const segments = base
+    .split(/\s+-\s+/)
+    .map(moveTrailingArticle)
+    .filter((s) => s.length > 0)
   let title = segments[0] ?? ''
   if (segments.length > 1) title += `: ${segments.slice(1).join(' - ')}`
   title = title.replace(/\s+/g, ' ').trim()

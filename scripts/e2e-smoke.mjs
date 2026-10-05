@@ -70,11 +70,25 @@ const scan = await win.evaluate(async (romDir) => {
 }, roms)
 console.log('scan', scan)
 const systems = await win.evaluate(() => window.retrodesk.library.getSystems())
-console.log('systems with games', systems.filter((s) => s.gameCount).map((s) => `${s.id}:${s.gameCount}:${s.playable}`).join(' '))
+console.log(
+  'systems with games',
+  systems
+    .filter((s) => s.gameCount)
+    .map((s) => `${s.id}:${s.gameCount}:${s.playable}`)
+    .join(' ')
+)
 const games = await win.evaluate(() => window.retrodesk.library.getGames({}))
 console.log('games', games.map((g) => `${g.systemId}|${g.title}|${g.regions.join(',')}`).join('\n  '))
 const emus = await win.evaluate(() => window.retrodesk.emulators.list())
-console.log('emulators', emus.length, 'installed:', emus.filter((e) => e.installed).map((e) => e.id).join(','))
+console.log(
+  'emulators',
+  emus.length,
+  'installed:',
+  emus
+    .filter((e) => e.installed)
+    .map((e) => e.id)
+    .join(',')
+)
 const bios = await win.evaluate(() => window.retrodesk.bios.check())
 console.log('bios entries', bios.length)
 const stats = await win.evaluate(() => window.retrodesk.system.getStats())

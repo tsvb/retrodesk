@@ -2,14 +2,7 @@ import type { Dirent } from 'fs'
 import { readdir, stat } from 'fs/promises'
 import { basename, dirname, extname, join } from 'path'
 import type { MediaKind } from '../../shared/types'
-import {
-  ENTRY_POINT_EXTENSIONS,
-  GENERIC_EXTENSIONS,
-  getSystemDef,
-  matchFolderToSystem,
-  systemsForExtension,
-  uniqueSystemForExtension
-} from '../systems'
+import { ENTRY_POINT_EXTENSIONS, GENERIC_EXTENSIONS, getSystemDef, matchFolderToSystem, systemsForExtension, uniqueSystemForExtension } from '../systems'
 import { readParamSfoTitle, readWiiUTitle, referencedFiles } from './formats'
 import { looksLikeText, sniffSystem } from './sniff'
 import { parseRomName } from './titles'
@@ -556,7 +549,6 @@ export async function detectFileSystem(path: string): Promise<string | undefined
   }
   return sniffSystem(path, among)
 }
-
 
 /** If `dir` is a directory-format game (PS3 folder, Wii U loose files), return its system and launch path. */
 export async function detectDirectoryGame(dir: string): Promise<{ systemId: string; path: string } | undefined> {

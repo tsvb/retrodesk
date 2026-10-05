@@ -140,8 +140,7 @@ describe.skipIf(!E2E)('e2e: install + launch + UDP control', () => {
       let stateFile: string | undefined
       for (let i = 0; i < 20 && !stateFile; i++) {
         await sleep(250)
-        stateFile = readdirSync(paths.states).find((f) => /\.state$/.test(f) && !statesBefore.has(f))
-          ?? readdirSync(paths.states).find((f) => f === 'gb240p.state')
+        stateFile = readdirSync(paths.states).find((f) => /\.state$/.test(f) && !statesBefore.has(f)) ?? readdirSync(paths.states).find((f) => f === 'gb240p.state')
       }
       console.log('[e2e] state files:', readdirSync(paths.states))
       expect(stateFile).toBeDefined()

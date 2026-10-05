@@ -83,7 +83,10 @@ export async function cachedMd5(p: string): Promise<string | undefined> {
 }
 
 export function globToRegExp(glob: string): RegExp {
-  const esc = glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')
+  const esc = glob
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '.*')
+    .replace(/\?/g, '.')
   return new RegExp(`^${esc}$`, 'i')
 }
 

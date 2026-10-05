@@ -121,8 +121,7 @@ html.game-idle *::after {
   transition: --ambient 900ms var(--ease-out);
   background:
     radial-gradient(70vw 70vh at 92% -18%, color-mix(in oklab, var(--ambient) var(--ambient-strength), transparent), transparent 70%),
-    radial-gradient(60vw 55vh at -10% 115%, color-mix(in oklab, var(--ambient) calc(var(--ambient-strength) * 0.45), transparent), transparent 70%),
-    var(--bg);
+    radial-gradient(60vw 55vh at -10% 115%, color-mix(in oklab, var(--ambient) calc(var(--ambient-strength) * 0.45), transparent), transparent 70%), var(--bg);
 }
 :root[data-theme='retro'] .ambient::after {
   content: '';
@@ -250,7 +249,9 @@ html.game-idle *::after {
   font-size: 0.95rem;
   color: var(--text-2);
   cursor: pointer;
-  transition: background var(--t-fast), color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
 }
 .tabs__tab:hover {
   color: var(--text);
@@ -324,9 +325,14 @@ html.game-idle *::after {
   padding: calc(var(--topbar-h) + 0.8rem) var(--gutter) calc(var(--hintbar-h) + 2rem);
   scroll-padding: calc(var(--topbar-h) + 3.2rem) 0 calc(var(--hintbar-h) + 2rem);
   /* Content fades out under the top bar and the hint bar instead of colliding with them. */
-  mask-image: linear-gradient(to bottom, transparent calc(var(--topbar-h) * 0.85), #000 calc(var(--topbar-h) + 1.4rem), #000 calc(100% - var(--hintbar-h) - 0.5rem), transparent calc(100% - var(--hintbar-h) * 0.4));
+  mask-image: linear-gradient(
+    to bottom,
+    transparent calc(var(--topbar-h) * 0.85),
+    #000 calc(var(--topbar-h) + 1.4rem),
+    #000 calc(100% - var(--hintbar-h) - 0.5rem),
+    transparent calc(100% - var(--hintbar-h) * 0.4)
+  );
 }
-
 
 /* ---------- Hint bar ---------- */
 

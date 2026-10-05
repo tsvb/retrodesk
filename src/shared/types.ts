@@ -5,9 +5,7 @@ import type { SettingValue } from './settingsSchema'
 
 export type SystemId = string
 
-export type EmulatorRef =
-  | { type: 'retroarch'; core: string; default?: boolean }
-  | { type: 'standalone'; id: string; default?: boolean }
+export type EmulatorRef = { type: 'retroarch'; core: string; default?: boolean } | { type: 'standalone'; id: string; default?: boolean }
 
 export interface BiosDef {
   file: string
@@ -208,18 +206,7 @@ export interface SessionInfo {
   paused?: boolean
 }
 
-export type QuickAction =
-  | 'resume'
-  | 'save_state'
-  | 'load_state'
-  | 'slot_next'
-  | 'slot_prev'
-  | 'screenshot'
-  | 'fast_forward'
-  | 'pause_toggle'
-  | 'reset'
-  | 'retroarch_menu'
-  | 'quit'
+export type QuickAction = 'resume' | 'save_state' | 'load_state' | 'slot_next' | 'slot_prev' | 'screenshot' | 'fast_forward' | 'pause_toggle' | 'reset' | 'retroarch_menu' | 'quit'
 
 export interface SystemStats {
   cpuPercent: number

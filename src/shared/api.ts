@@ -1,18 +1,4 @@
-import type {
-  BiosStatus,
-  EmulatorStatus,
-  Game,
-  GameQuery,
-  LaunchResult,
-  PerformanceMode,
-  QuickAction,
-  ScanResult,
-  SessionInfo,
-  Settings,
-  SystemStats,
-  SystemSummary,
-  TaskProgress
-} from './types'
+import type { BiosStatus, EmulatorStatus, Game, GameQuery, LaunchResult, PerformanceMode, QuickAction, ScanResult, SessionInfo, Settings, SystemStats, SystemSummary, TaskProgress } from './types'
 
 /**
  * The API exposed to the renderer as `window.retrodesk` (see src/preload/index.ts).

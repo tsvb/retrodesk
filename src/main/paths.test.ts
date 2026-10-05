@@ -59,14 +59,7 @@ describe('managedPathPredicate', () => {
     h.settings.dataRoot = 'C:\\RetroDesk'
     h.settings.romFolders = [{ path: 'D:\\Games\\ROMs\\' }, { path: '' }]
     const servable = managedPathPredicate()
-    const cases = [
-      'C:\\RetroDesk\\media\\snes\\boxart\\a.png',
-      'c:\\retrodesk',
-      'D:\\Games\\ROMs\\snes\\b.sfc',
-      'C:\\RetroDeskOther\\a.png',
-      'E:\\elsewhere\\a.png',
-      'relative\\a.png'
-    ]
+    const cases = ['C:\\RetroDesk\\media\\snes\\boxart\\a.png', 'c:\\retrodesk', 'D:\\Games\\ROMs\\snes\\b.sfc', 'C:\\RetroDeskOther\\a.png', 'E:\\elsewhere\\a.png', 'relative\\a.png']
     expect(cases.map(servable)).toEqual([true, true, true, false, false, false])
     expect(cases.map(isManagedPath)).toEqual(cases.map(servable))
     h.settings.romFolders = []

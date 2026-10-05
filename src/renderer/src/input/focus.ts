@@ -283,7 +283,16 @@ class FocusManager {
       const all = this.candidates(cur.scope).filter((n) => n.id !== cur.id)
       // 1. Stay inside the current group when it has a candidate in that direction.
       // 2. Otherwise the whole scope.
-      return (group ? nearest(from, all.filter((n) => n.opts.current.group === group), dir, rect) : undefined) ?? nearest(from, all, dir, rect)
+      return (
+        (group
+          ? nearest(
+              from,
+              all.filter((n) => n.opts.current.group === group),
+              dir,
+              rect
+            )
+          : undefined) ?? nearest(from, all, dir, rect)
+      )
     })
     if (!target) return false
 

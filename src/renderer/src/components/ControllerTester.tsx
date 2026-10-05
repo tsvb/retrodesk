@@ -85,7 +85,10 @@ export function ControllerTester({ onClose }: { onClose: () => void }) {
           <h2 className="modal__title">Controller test</h2>
           <p className="modal__desc">{snap ? snap.id : 'Press any button on a controller to start.'}</p>
           <svg className="tester__pad" viewBox="0 0 640 360" aria-hidden="true">
-            <path className="tester__body" d="M170 70h300c60 0 96 36 112 96l34 124c10 38-14 62-46 62-26 0-42-14-58-40l-30-50H158l-30 50c-16 26-32 40-58 40-32 0-56-24-46-62l34-124c16-60 52-96 112-96z" />
+            <path
+              className="tester__body"
+              d="M170 70h300c60 0 96 36 112 96l34 124c10 38-14 62-46 62-26 0-42-14-58-40l-30-50H158l-30 50c-16 26-32 40-58 40-32 0-56-24-46-62l34-124c16-60 52-96 112-96z"
+            />
             {/* triggers / shoulders */}
             <rect className="tester__trigger" x="150" y="8" width="90" height="26" rx="10" />
             <rect className="tester__trigger-fill" x="150" y="8" width={90 * b(6)} height="26" rx="10" />

@@ -79,7 +79,10 @@
 .btn--danger[data-focused] {
   --btn-bg: var(--danger);
   --btn-fg: var(--on-danger);
-  box-shadow: 0 0 0 0.16rem var(--bg), 0 0 0 0.32rem var(--danger), 0 0 2rem rgb(255 92 122 / 0.45);
+  box-shadow:
+    0 0 0 0.16rem var(--bg),
+    0 0 0 0.32rem var(--danger),
+    0 0 2rem rgb(255 92 122 / 0.45);
 }
 .btn.is-disabled {
   opacity: 0.4;
@@ -155,9 +158,7 @@
   justify-content: flex-end;
   padding: 9% 9% 10%;
   color: var(--c-ink);
-  background:
-    linear-gradient(170deg, transparent 40%, rgb(0 0 0 / 0.28)),
-    linear-gradient(155deg, var(--c-light), var(--c-base) 42%, var(--c-deep));
+  background: linear-gradient(170deg, transparent 40%, rgb(0 0 0 / 0.28)), linear-gradient(155deg, var(--c-light), var(--c-base) 42%, var(--c-deep));
 }
 .cover__motif {
   position: absolute;
@@ -328,9 +329,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background:
-    radial-gradient(90% 60% at 100% 0%, rgb(255 255 255 / 0.22), transparent 70%),
-    linear-gradient(160deg, var(--c-light), var(--c-base) 45%, var(--c-deep));
+  background: radial-gradient(90% 60% at 100% 0%, rgb(255 255 255 / 0.22), transparent 70%), linear-gradient(160deg, var(--c-light), var(--c-base) 45%, var(--c-deep));
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
 }
 .cart__motif {
@@ -696,7 +695,9 @@
 .segmented__opt.is-selected {
   background: var(--surface);
   color: var(--text);
-  box-shadow: var(--shadow-s), inset 0 0 0 1px var(--line-strong);
+  box-shadow:
+    var(--shadow-s),
+    inset 0 0 0 1px var(--line-strong);
 }
 .segmented__opt.is-selected small {
   color: var(--text-2);

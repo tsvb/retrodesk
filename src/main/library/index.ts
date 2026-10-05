@@ -385,7 +385,9 @@ function importScope(copied: string[], romsDir: string): string[] | undefined {
   }
   // A ROM folder below roms/<system> is a scan root of its own, with its own system: leave that to a full scan.
   // Folders above are fine: roms/ is always a root, so they never decide what is inside it.
-  const folders = getSettings().romFolders.map((f) => f.path).filter(Boolean)
+  const folders = getSettings()
+    .romFolders.map((f) => f.path)
+    .filter(Boolean)
   for (const d of dirs.values()) if (folders.some((f) => isUnder(f, d))) return undefined
   return [...dirs.values()]
 }
@@ -532,7 +534,11 @@ export const libraryHandlers: RetroDeskApi['library'] = {
 
 export const biosHandlers: RetroDeskApi['bios'] = {
   async check(): Promise<BiosStatus[]> {
-    return checkBios(getSystemDefs(), getPaths().bios, romFolderBiosFiles.filter((f) => existsSync(f)))
+    return checkBios(
+      getSystemDefs(),
+      getPaths().bios,
+      romFolderBiosFiles.filter((f) => existsSync(f))
+    )
   },
   async importFiles(paths) {
     const task = createTask('Importing BIOS files', { kind: 'bios' })

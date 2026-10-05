@@ -272,9 +272,7 @@ html.is-overlay body {
   bottom: 18%;
   height: 30%;
   background:
-    radial-gradient(30% 100% at 20% 100%, #3aa13a 98%, transparent),
-    radial-gradient(22% 80% at 62% 100%, #4cb84c 98%, transparent),
-    radial-gradient(26% 90% at 95% 100%, #3aa13a 98%, transparent);
+    radial-gradient(30% 100% at 20% 100%, #3aa13a 98%, transparent), radial-gradient(22% 80% at 62% 100%, #4cb84c 98%, transparent), radial-gradient(26% 90% at 95% 100%, #3aa13a 98%, transparent);
 }
 .mockgame__ground {
   position: absolute;
@@ -282,10 +280,7 @@ html.is-overlay body {
   right: 0;
   bottom: 0;
   height: 18%;
-  background:
-    repeating-linear-gradient(90deg, rgb(0 0 0 / 0.15) 0 2px, transparent 2px 48px),
-    repeating-linear-gradient(0deg, rgb(0 0 0 / 0.15) 0 2px, transparent 2px 48px),
-    #c84c0c;
+  background: repeating-linear-gradient(90deg, rgb(0 0 0 / 0.15) 0 2px, transparent 2px 48px), repeating-linear-gradient(0deg, rgb(0 0 0 / 0.15) 0 2px, transparent 2px 48px), #c84c0c;
 }
 .mockgame__hint {
   position: absolute;

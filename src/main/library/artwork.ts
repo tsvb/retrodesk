@@ -233,7 +233,10 @@ export class ArtworkMissCache {
 
   /** What was searched for: the same game searched under a new name (e.g. arcade names loaded) is a new search. */
   static key(folder: string, kind: MediaKind, names: string[], title: string): string {
-    return createHash('sha1').update([folder, kind, title, ...names].join('\u0000')).digest('hex').slice(0, 20)
+    return createHash('sha1')
+      .update([folder, kind, title, ...names].join('\u0000'))
+      .digest('hex')
+      .slice(0, 20)
   }
 
   async load(): Promise<void> {

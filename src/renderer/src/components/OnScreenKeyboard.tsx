@@ -35,7 +35,25 @@ export function OnScreenKeyboard({ onKey, withDone, withShift, group = 'osk' }: 
   )
 }
 
-function Key({ label, icon: Icon, span = 1, onPress, group, autoFocus, accent, active }: { label: string; icon?: LucideIcon; span?: number; onPress: () => void; group: string; autoFocus?: boolean; accent?: boolean; active?: boolean }) {
+function Key({
+  label,
+  icon: Icon,
+  span = 1,
+  onPress,
+  group,
+  autoFocus,
+  accent,
+  active
+}: {
+  label: string
+  icon?: LucideIcon
+  span?: number
+  onPress: () => void
+  group: string
+  autoFocus?: boolean
+  accent?: boolean
+  active?: boolean
+}) {
   const { props } = useFocusable<HTMLDivElement>({ group, autoFocus, label: Icon ? label : 'Type', onActivate: onPress, scroll: 'none' })
   return (
     <div className={`osk__key ${accent ? 'is-accent' : ''} ${active ? 'is-active' : ''}`} style={{ gridColumn: `span ${span}` }} role="button" aria-label={label} {...props}>

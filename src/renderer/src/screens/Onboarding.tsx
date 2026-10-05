@@ -230,7 +230,9 @@ function ScanStep({ onNext }: { onNext: () => void }) {
         scanning || !result ? (
           <p>Reading {folders.length === 1 ? folders[0]?.path : `${folders.length} folders`}.</p>
         ) : result.total ? (
-          <p>{describeScan(result)}. {missing.length ? `${missing.length} of these systems still need an emulator.` : 'Every system is ready to play.'}</p>
+          <p>
+            {describeScan(result)}. {missing.length ? `${missing.length} of these systems still need an emulator.` : 'Every system is ready to play.'}
+          </p>
         ) : (
           <p>Check that each system has its own sub-folder with a recognised name, then scan again.</p>
         )
@@ -247,7 +249,14 @@ function ScanStep({ onNext }: { onNext: () => void }) {
               {`Install emulators for ${missing.length} system${missing.length === 1 ? '' : 's'}`}
             </Button>
           )}
-          <Button variant={missing.length > 0 && !allInstalled ? 'secondary' : 'primary'} size="xl" icon={ArrowRight} onPress={onNext} disabled={scanning || installing} autoFocus={!!result?.total && (missing.length === 0 || allInstalled)}>
+          <Button
+            variant={missing.length > 0 && !allInstalled ? 'secondary' : 'primary'}
+            size="xl"
+            icon={ArrowRight}
+            onPress={onNext}
+            disabled={scanning || installing}
+            autoFocus={!!result?.total && (missing.length === 0 || allInstalled)}
+          >
             {missing.length > 0 && !allInstalled ? 'Skip' : 'Continue'}
           </Button>
         </>
@@ -331,7 +340,11 @@ function ArtworkStep({ onNext }: { onNext: () => void }) {
           <ProgressBar value={task?.progress ?? -1} />
         </div>
       )}
-      {state === 'done' && <p className="ok-line"><Check size="1em" /> Artwork is up to date.</p>}
+      {state === 'done' && (
+        <p className="ok-line">
+          <Check size="1em" /> Artwork is up to date.
+        </p>
+      )}
     </StepFrame>
   )
 }

@@ -24,7 +24,11 @@ export function EmulatorsTab() {
   }, [])
 
   const groups: { title: string; description: string; items: EmulatorStatus[] }[] = [
-    { title: 'RetroArch', description: 'The multi-system frontend that runs the libretro cores below. Supports the in-game quick menu actions.', items: emulators.filter((e) => e.kind === 'retroarch') },
+    {
+      title: 'RetroArch',
+      description: 'The multi-system frontend that runs the libretro cores below. Supports the in-game quick menu actions.',
+      items: emulators.filter((e) => e.kind === 'retroarch')
+    },
     { title: 'RetroArch cores', description: 'One core per system family. They need RetroArch installed.', items: emulators.filter((e) => e.kind === 'core') },
     { title: 'Standalone emulators', description: 'Dedicated emulators for newer systems.', items: emulators.filter((e) => e.kind === 'standalone') }
   ]

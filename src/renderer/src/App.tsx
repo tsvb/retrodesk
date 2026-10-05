@@ -168,7 +168,11 @@ const ScreenStack = memo(function ScreenStack() {
   return (
     <div className="stack">
       {stack.map((e: StackEntry, i) => (
-        <section key={e.key} className={`layer ${i === stack.length - 1 ? 'is-top' : 'is-below'} ${stack.length > 1 && i === stack.length - 1 ? 'is-pushed' : ''}`} aria-hidden={i !== stack.length - 1}>
+        <section
+          key={e.key}
+          className={`layer ${i === stack.length - 1 ? 'is-top' : 'is-below'} ${stack.length > 1 && i === stack.length - 1 ? 'is-pushed' : ''}`}
+          aria-hidden={i !== stack.length - 1}
+        >
           <FocusScope id={`screen-${e.key}`}>
             <ScreenBack />
             {screenFor(e.route)}

@@ -12,11 +12,7 @@ import { Button } from './Button'
 import { ProgressBar } from './Controls'
 import { Modal } from './Modal'
 
-type Problem =
-  | { kind: 'emulator'; game: Game; error: string }
-  | { kind: 'bios'; game: Game; error: string }
-  | { kind: 'firewall'; game: Game }
-  | null
+type Problem = { kind: 'emulator'; game: Game; error: string } | { kind: 'bios'; game: Game; error: string } | { kind: 'firewall'; game: Game } | null
 
 const FIREWALL_NOTICE_KEY = 'retrodesk.firewallNoticeSeen'
 
@@ -111,8 +107,8 @@ export function useLauncher(): { launch: (g: Game, skipNotice?: boolean) => Prom
           description={
             <>
               <p>
-                The first time RetroArch starts, Windows Firewall may ask whether it can access networks. RetroDesk only talks to RetroArch on
-                this PC (for the quick menu: save states, pause, quit), which works whichever button you press.
+                The first time RetroArch starts, Windows Firewall may ask whether it can access networks. RetroDesk only talks to RetroArch on this PC (for the quick menu: save states, pause, quit),
+                which works whichever button you press.
               </p>
               <p>Choose Cancel unless you also want RetroArch netplay online.</p>
             </>

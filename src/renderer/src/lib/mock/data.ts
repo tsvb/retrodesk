@@ -44,11 +44,62 @@ export const MOCK_GAMES: Record<string, string[]> = {
 }
 
 /** Extra word lists to synthesise thousands of plausible titles for performance testing (?mockGames=5000). */
-export const SYNTH_A = ['Super', 'Mega', 'Ultra', 'Neo', 'Hyper', 'Turbo', 'Final', 'Legend of', 'Dragon', 'Star', 'Shadow', 'Pixel', 'Crystal', 'Iron', 'Thunder', 'Galaxy', 'Ninja', 'Cyber', 'Royal', 'Midnight']
-export const SYNTH_B = ['Quest', 'Racer', 'Fighter', 'Warriors', 'Kingdom', 'Odyssey', 'Blaster', 'Hunter', 'Saga', 'Force', 'Tactics', 'Rally', 'Island', 'Dungeon', 'Arena', 'Chronicles', 'Squadron', 'Labyrinth', 'Frontier', 'Paradise']
+export const SYNTH_A = [
+  'Super',
+  'Mega',
+  'Ultra',
+  'Neo',
+  'Hyper',
+  'Turbo',
+  'Final',
+  'Legend of',
+  'Dragon',
+  'Star',
+  'Shadow',
+  'Pixel',
+  'Crystal',
+  'Iron',
+  'Thunder',
+  'Galaxy',
+  'Ninja',
+  'Cyber',
+  'Royal',
+  'Midnight'
+]
+export const SYNTH_B = [
+  'Quest',
+  'Racer',
+  'Fighter',
+  'Warriors',
+  'Kingdom',
+  'Odyssey',
+  'Blaster',
+  'Hunter',
+  'Saga',
+  'Force',
+  'Tactics',
+  'Rally',
+  'Island',
+  'Dungeon',
+  'Arena',
+  'Chronicles',
+  'Squadron',
+  'Labyrinth',
+  'Frontier',
+  'Paradise'
+]
 
 export const MOCK_EMULATORS: EmulatorStatus[] = [
-  { id: 'retroarch', kind: 'retroarch', name: 'RetroArch', systems: ['nes', 'snes', 'n64', 'gb', 'gbc', 'gba', 'genesis', 'saturn', 'dreamcast', 'arcade', 'psx', 'nds'], installed: true, version: '1.21.0', installPath: 'C:\\Users\\you\\RetroDesk\\emulators\\retroarch', sizeBytes: 512_000_000 },
+  {
+    id: 'retroarch',
+    kind: 'retroarch',
+    name: 'RetroArch',
+    systems: ['nes', 'snes', 'n64', 'gb', 'gbc', 'gba', 'genesis', 'saturn', 'dreamcast', 'arcade', 'psx', 'nds'],
+    installed: true,
+    version: '1.21.0',
+    installPath: 'C:\\Users\\you\\RetroDesk\\emulators\\retroarch',
+    sizeBytes: 512_000_000
+  },
   { id: 'core:mesen', kind: 'core', name: 'Mesen', systems: ['nes'], installed: true, version: '0.9.9', sizeBytes: 4_100_000 },
   { id: 'core:fceumm', kind: 'core', name: 'FCEUmm', systems: ['nes'], installed: false },
   { id: 'core:snes9x', kind: 'core', name: 'Snes9x', systems: ['snes'], installed: true, version: '1.63', sizeBytes: 3_200_000 },

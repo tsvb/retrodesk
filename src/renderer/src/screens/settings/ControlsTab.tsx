@@ -31,7 +31,11 @@ export function ControlsTab() {
           <p className="muted">No controller detected. Connect one and press any button; keyboard and mouse work in the meantime.</p>
         ) : (
           pads.map((p) => (
-            <SettingRow key={p.index} title={p.id.replace(/\(.*?Vendor.*?\)/i, '').trim() || 'Controller'} description={`Player ${p.index + 1}, ${p.family === 'generic' ? 'standard' : p.family} layout`} />
+            <SettingRow
+              key={p.index}
+              title={p.id.replace(/\(.*?Vendor.*?\)/i, '').trim() || 'Controller'}
+              description={`Player ${p.index + 1}, ${p.family === 'generic' ? 'standard' : p.family} layout`}
+            />
           ))
         )}
         <div className="button-row">

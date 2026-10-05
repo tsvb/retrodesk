@@ -20,7 +20,7 @@ describe('parseRomName', () => {
     ['Asterix (De)', 'Asterix', [], ['De']],
     ['Tetris (World) (Rev A)', 'Tetris', ['World'], ['Rev A']],
     ['super_mario_world', 'super mario world', [], []],
-    ['Aventure, L\' (France)', "L'Aventure", ['France'], []],
+    ["Aventure, L' (France)", "L'Aventure", ['France'], []],
     ['Mario Kart 8 [AMKE01]', 'Mario Kart 8', [], ['AMKE01']],
     ['Daiku no Gen-san (Japan, Korea)', 'Daiku no Gen-san', ['Japan', 'Korea'], []],
     ['Hong Kong 97 (Japan) (Unl)', 'Hong Kong 97', ['Japan'], ['Unl']],
