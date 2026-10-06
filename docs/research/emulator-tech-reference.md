@@ -182,6 +182,7 @@ network_cmd_port = "55355"
 # Misc
 rewind_enable = "false"
 run_ahead_enabled = "false"
+log_verbosity = "true"                           # without it RetroArch never opens the log file
 log_to_file = "true"
 frontend_log_level = "1"
 menu_show_core_updater = "false"                 # optional: hide updater menus from users
