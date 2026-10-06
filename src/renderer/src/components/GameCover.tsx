@@ -24,7 +24,7 @@ interface CoverProps {
  */
 export const COVER_THUMB = { tile: 400, list: 160, backdrop: 160 } as const
 
-/** Boxart when available, otherwise a generated cover in the system's colours. */
+/** Boxart when available, otherwise a generated cover in the system's colors. */
 export const GameCover = memo(function GameCover({ game, system, kind = 'boxart', className = '', fill = false, thumb }: CoverProps) {
   const src = mediaUrl(game.media[kind] ?? (kind !== 'boxart' ? game.media.boxart : undefined), { w: thumb })
   const [failed, setFailed] = useState<string | null>(null)

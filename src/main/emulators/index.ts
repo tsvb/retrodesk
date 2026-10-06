@@ -153,8 +153,8 @@ function statusFor(id: string): EmulatorStatus {
   }
 }
 
-/** Normalise 'core:snes9x' / 'core:snes9x_libretro' to the exact core string used in systems.json. */
-function normaliseId(id: string): string {
+/** Normalize 'core:snes9x' / 'core:snes9x_libretro' to the exact core string used in systems.json. */
+function normalizeId(id: string): string {
   if (id.startsWith('core:')) {
     const base = coreFileBase(id.slice(5))
     return `core:${referencedCores().find((c) => coreFileBase(c) === base) ?? id.slice(5)}`
@@ -214,7 +214,7 @@ async function doInstall(id: string): Promise<EmulatorStatus> {
 }
 
 export async function installEmulator(rawId: string): Promise<EmulatorStatus> {
-  const id = normaliseId(rawId)
+  const id = normalizeId(rawId)
   if (id !== RA_ID && !id.startsWith('core:') && !getStandaloneDef(id)) throw new Error(`Unknown emulator "${rawId}"`)
   const running = inflight.get(id)
   if (running) return running
@@ -224,7 +224,7 @@ export async function installEmulator(rawId: string): Promise<EmulatorStatus> {
 }
 
 export async function uninstallEmulator(rawId: string): Promise<void> {
-  const id = normaliseId(rawId)
+  const id = normalizeId(rawId)
   const paths = getPaths()
   if (id === RA_ID) {
     // Saves/states/screenshots live in the RetroDesk data root, so the whole folder (incl. cores) can go.
@@ -283,7 +283,7 @@ export async function installForSystem(systemId: string): Promise<void> {
 
 /** Launch an emulator's own UI (no game). Not tracked as a session. */
 export async function openEmulatorUi(rawId: string): Promise<void> {
-  const id = normaliseId(rawId)
+  const id = normalizeId(rawId)
   if (id === RA_ID || id.startsWith('core:')) {
     const exe = retroArchExe()
     if (!exe) throw new Error('RetroArch is not installed')

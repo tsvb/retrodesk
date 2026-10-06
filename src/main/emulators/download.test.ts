@@ -215,7 +215,7 @@ describe('downloadFile', () => {
     expect(existsSync(dest) || existsSync(`${dest}.part`)).toBe(false)
   })
 
-  it('is cancellable and cleans up', async () => {
+  it('is cancelable and cleans up', async () => {
     const dest = join(dir, 'd.bin')
     const ctrl = new AbortController()
     const p = downloadFile(`${base}/slow`, dest, { signal: ctrl.signal })
@@ -414,7 +414,7 @@ describe('isTrustedDownloadUrl', () => {
     expect(isTrustedDownloadUrl('not a url')).toBe(false)
   })
 
-  it('covers every pinned fallback URL in the emulator catalogue', () => {
+  it('covers every pinned fallback URL in the emulator catalog', () => {
     for (const def of standaloneEmulators) {
       if (def.fallback) expect(isTrustedDownloadUrl(def.fallback.url), def.id).toBe(true)
     }

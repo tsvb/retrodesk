@@ -8,7 +8,7 @@ export function fold(s: string): string {
   return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
 }
 
-/** Normalised absolute path used for ids and comparisons (Windows paths are case-insensitive). */
+/** Normalized absolute path used for ids and comparisons (Windows paths are case-insensitive). */
 export function normPath(p: string): string {
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(p)) return p.toLowerCase() // URLs such as steam://rungameid/123
   return resolve(p)
@@ -16,7 +16,7 @@ export function normPath(p: string): string {
     .toLowerCase()
 }
 
-/** Game.id: first 16 hex chars of sha1(normalised lower-case absolute path). */
+/** Game.id: first 16 hex chars of sha1(normalized lower-case absolute path). */
 export function gameIdForPath(p: string): string {
   return createHash('sha1').update(normPath(p)).digest('hex').slice(0, 16)
 }

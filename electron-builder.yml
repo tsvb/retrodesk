@@ -21,7 +21,7 @@ electronLanguages:
 asarUnpack:
   - node_modules/7zip-bin/**
   - node_modules/@kmamal/sdl/**
-# Licence texts for everything bundled, next to the app in resources/.
+# License texts for everything bundled, next to the app in resources/.
 extraResources:
   - from: LICENSE
     to: LICENSE.txt

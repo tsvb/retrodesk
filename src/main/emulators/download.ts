@@ -115,7 +115,7 @@ const sleep = (ms: number, signal?: AbortSignal) =>
 function abortError(signal?: AbortSignal): Error {
   const r = signal?.reason
   if (r instanceof Error) return r
-  const e = new Error('Download cancelled')
+  const e = new Error('Download canceled')
   e.name = 'AbortError'
   return e
 }

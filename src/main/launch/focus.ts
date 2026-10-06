@@ -1,7 +1,7 @@
 // Bring an emulator window back to the foreground after the overlay closes.
 // Windows: a single long-lived PowerShell helper (user32 via Add-Type) is spawned per game session so each request is fast
 // (~ms) instead of paying PowerShell start-up every time. The C# is compiled once into a DLL next to the app data
-// (named after a hash of the source, so an update recompiles) and only loaded afterwards: compiling runs csc and
+// (named after a hash of the source, so an update recompiles) and only loaded afterward: compiling runs csc and
 // costs a second or two of CPU, which would otherwise compete with every emulator boot.
 // macOS: the emulator's NSRunningApplication is activated through osascript (JXA). That needs no Accessibility
 // or Automation permission, as no other app is scripted, and starts quickly enough to run once per request.

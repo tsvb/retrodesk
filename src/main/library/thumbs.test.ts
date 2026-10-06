@@ -62,7 +62,7 @@ describe('ThumbCache', () => {
     return { calls, encode }
   }
 
-  it('makes a thumb once, shares concurrent requests and serves it from disk afterwards', async () => {
+  it('makes a thumb once, shares concurrent requests and serves it from disk afterward', async () => {
     const src = join(tmp, 'roms', 'a.png')
     writeFile(src, 'cover')
     const { calls, encode } = fakeEncoder()

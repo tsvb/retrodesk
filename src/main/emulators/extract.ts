@@ -82,14 +82,14 @@ export async function extractArchive(archive: string, dest: string, opts: Extrac
   }
   await extractSlots(run, { signal: opts.signal, onQueued: opts.onQueued }).catch((e: unknown) => {
     // Canceled while queued: same error as canceled while running.
-    throw opts.signal?.aborted ? new Error('Extraction cancelled') : e
+    throw opts.signal?.aborted ? new Error('Extraction canceled') : e
   })
   opts.onProgress?.(1)
 }
 
 function run7za(archive: string, dest: string, opts: ExtractOptions): Promise<void> {
   return new Promise<void>((resolve, reject) => {
-    if (opts.signal?.aborted) return reject(new Error('Extraction cancelled'))
+    if (opts.signal?.aborted) return reject(new Error('Extraction canceled'))
     const child = spawn(sevenZipPath(), ['x', '-y', '-bsp1', '-bb0', `-o${dest}`, archive], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     let stderr = ''
     child.stdout.setEncoding('utf8')
@@ -109,7 +109,7 @@ function run7za(archive: string, dest: string, opts: ExtractOptions): Promise<vo
     })
     child.on('close', (code) => {
       opts.signal?.removeEventListener('abort', onAbort)
-      if (opts.signal?.aborted) return reject(new Error('Extraction cancelled'))
+      if (opts.signal?.aborted) return reject(new Error('Extraction canceled'))
       // 0 = OK, 1 = warnings (e.g. a locked file), 2+ = fatal.
       if (code === 0 || code === 1) resolve()
       else reject(new Error(`7-Zip failed (exit ${code}): ${stderr.trim().split(/\r?\n/).slice(-3).join(' ') || 'unknown error'}`))
@@ -120,7 +120,7 @@ function run7za(archive: string, dest: string, opts: ExtractOptions): Promise<vo
 /** Run a command to completion; rejects with the end of its stderr on a non-zero exit, and kills it on abort. */
 function runTool(cmd: string, args: string[], signal?: AbortSignal, input?: string): Promise<void> {
   return new Promise<void>((resolve, reject) => {
-    if (signal?.aborted) return reject(new Error('Extraction cancelled'))
+    if (signal?.aborted) return reject(new Error('Extraction canceled'))
     const child = spawn(cmd, args, { stdio: ['pipe', 'ignore', 'pipe'] })
     let stderr = ''
     child.stderr.setEncoding('utf8')
@@ -137,7 +137,7 @@ function runTool(cmd: string, args: string[], signal?: AbortSignal, input?: stri
     })
     child.on('close', (code) => {
       signal?.removeEventListener('abort', onAbort)
-      if (signal?.aborted) return reject(new Error('Extraction cancelled'))
+      if (signal?.aborted) return reject(new Error('Extraction canceled'))
       if (code === 0) resolve()
       else reject(new Error(`${cmd} failed (exit ${code}): ${stderr.trim().split(/\r?\n/).slice(-3).join(' ') || 'unknown error'}`))
     })
@@ -149,7 +149,7 @@ const DMG_CHROME = /^\.(background|ds_store|volumeicon\.icns|fseventsd|trashes|d
 
 /**
  * Mount a disk image read-only (never shown in the Finder), copy what it holds into `dest` and unmount it.
- * Symlinks at the top (the usual "Applications" shortcut) are left behind. "Y" on stdin accepts a licence
+ * Symlinks at the top (the usual "Applications" shortcut) are left behind. "Y" on stdin accepts a license
  * agreement, if the image has one.
  */
 async function copyFromDiskImage(image: string, dest: string, signal?: AbortSignal): Promise<void> {

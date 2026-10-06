@@ -19,9 +19,9 @@ interface Props {
 export async function toggleFavorite(game: Game): Promise<void> {
   try {
     const g = await useLibrary.getState().setFavorite(game, !game.favorite)
-    toast(g.favorite ? `Added ${g.title} to favourites` : `Removed ${g.title} from favourites`, 'success')
+    toast(g.favorite ? `Added ${g.title} to favorites` : `Removed ${g.title} from favorites`, 'success')
   } catch (e) {
-    toast(`Couldn't update favourites: ${e instanceof Error ? e.message : String(e)}`, 'error')
+    toast(`Couldn't update favorites: ${e instanceof Error ? e.message : String(e)}`, 'error')
   }
 }
 
@@ -34,14 +34,14 @@ export const GameCard = memo(function GameCard({ game: raw, system, group, autoF
     label: 'Open',
     onActivate: () => onActivate(game),
     onFocus: () => onFocus?.(game),
-    actions: { favorite: { label: game.favorite ? 'Unfavourite' : 'Favourite', run: () => void toggleFavorite(game) } }
+    actions: { favorite: { label: game.favorite ? 'Unfavorite' : 'Favorite', run: () => void toggleFavorite(game) } }
   })
   return (
     <div className="game-card" role="button" aria-label={game.title} {...props}>
       <div className="game-card__frame">
         <GameCover game={game} system={system} thumb={COVER_THUMB.tile} />
         {game.favorite && (
-          <span className="game-card__fav" aria-label="Favourite">
+          <span className="game-card__fav" aria-label="Favorite">
             <Heart size="1em" fill="currentColor" strokeWidth={0} />
           </span>
         )}

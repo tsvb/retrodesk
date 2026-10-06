@@ -1,5 +1,5 @@
 /**
- * Synthesised UI sounds (WebAudio). Nothing is loaded from disk: every sound is a couple of short
+ * Synthesized UI sounds (WebAudio). Nothing is loaded from disk: every sound is a couple of short
  * enveloped oscillators so the UI feels tactile without shipping assets.
  */
 export type UiSound = 'move' | 'confirm' | 'back' | 'toggle' | 'error' | 'open' | 'launch'

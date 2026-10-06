@@ -1,5 +1,5 @@
 // Full play-session E2E: installs RetroArch + a core through the app, launches a freely licensed homebrew ROM
-// (pinobatch's 240p Test Suite for Game Boy, zlib licence), drives the Game Assist overlay and RetroArch network
+// (pinobatch's 240p Test Suite for Game Boy, zlib license), drives the Game Assist overlay and RetroArch network
 // commands, then quits and checks play time was recorded.
 // Usage: npm run build && node scripts/e2e-play.mjs <workDir>   (workDir is reused so the RetroArch download is cached)
 import { _electron as electron } from 'playwright-core'

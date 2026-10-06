@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 interface UiState {
-  /** Colour tinting the ambient background (focused system/game). */
+  /** Color tinting the ambient background (focused system/game). */
   ambient: string | null
   fullscreen: boolean
   setAmbient(c: string | null): void

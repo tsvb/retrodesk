@@ -9,7 +9,7 @@ import { HINT_ORDER, type Action, type ActionBinding, type ActionMap, type Direc
  * - Directional moves use geometry: nearest candidate in the half-plane of the direction, weighted to
  *   prefer elements aligned with the current one. Nodes may belong to a group; a group with `memory`
  *   restores its last focused member when re-entered (rows on Home remember their position).
- * - Nodes may implement `handleDirection` to navigate internally (the virtualised game grid does this)
+ * - Nodes may implement `handleDirection` to navigate internally (the virtualized game grid does this)
  *   and fall back to the spatial search at their edges.
  * - Action layers (useActions) are tied to scopes, which lets the bottom hint bar be derived from
  *   what is actually handled right now.
@@ -403,7 +403,7 @@ function minBy<T>(arr: T[], f: (x: T) => number): T | undefined {
   return best
 }
 
-/** Geometric nearest neighbour in a direction. */
+/** Geometric nearest neighbor in a direction. */
 function nearest(from: DOMRect, nodes: FocusNode[], dir: Direction, rectOf: (n: FocusNode) => DOMRect): FocusNode | undefined {
   const fcx = from.left + from.width / 2
   const fcy = from.top + from.height / 2

@@ -87,7 +87,7 @@
   --cart-shell: #17171d;
 }
 
-/* Daylight: cool lavender-grey paper, ink text. */
+/* Daylight: cool lavender-gray paper, ink text. */
 :root[data-theme='light'] {
   color-scheme: light;
   --bg: #e9e7f2;

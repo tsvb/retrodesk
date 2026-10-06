@@ -303,7 +303,7 @@ async function runScan(scope?: string[]): Promise<ScanResult> {
       }
     }
 
-    // Removing a game also drops its play time, favourite flag and artwork links, so only do it when the scan
+    // Removing a game also drops its play time, favorite flag and artwork links, so only do it when the scan
     // actually looked where the game lives and did not find it.
     const notLookedAt = [...out.unreachableRoots, ...out.unreadableDirs]
     let removed = 0
@@ -449,7 +449,7 @@ async function runArtwork(games: Game[], force: boolean): Promise<void> {
 
 /**
  * Ids given -> refresh those games (re-download); none -> every visible game that is missing artwork.
- * Runs are serialised: a second call waits for the current one, then only handles what is still missing.
+ * Runs are serialized: a second call waits for the current one, then only handles what is still missing.
  */
 export function fetchArtwork(gameIds?: string[], force = gameIds !== undefined && gameIds.length > 0): Promise<void> {
   const next = artworkChain.then(() => {
@@ -548,7 +548,7 @@ export const biosHandlers: RetroDeskApi['bios'] = {
       task.fail(new Error(res.errors[0]))
       throw new Error(res.errors[0])
     }
-    task.done(`${res.imported.length} imported${res.skipped.length ? `, ${res.skipped.length} not recognised` : ''}`)
+    task.done(`${res.imported.length} imported${res.skipped.length ? `, ${res.skipped.length} not recognized` : ''}`)
     return biosHandlers.check()
   }
 }

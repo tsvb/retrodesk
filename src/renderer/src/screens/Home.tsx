@@ -58,7 +58,7 @@ export function HomeScreen() {
         </Row>
       )}
       {favorites.length > 0 && (
-        <Row id="home-favs" title="Favourites" aside={plural(favorites.length, 'game')}>
+        <Row id="home-favs" title="Favorites" aside={plural(favorites.length, 'game')}>
           {favorites.map((g) => (
             <GameCard key={g.id} game={g} system={systemById(systems, g.systemId)} group="home-favs" showSystem onActivate={openGame} onFocus={focusGame} />
           ))}
@@ -116,8 +116,8 @@ function Hero({ game: raw, system, isRecent, busy, onPlay, onDetails }: { game: 
             className={game.favorite ? 'is-fav' : ''}
             onPress={() => void toggleFavorite(game)}
             onFocus={focusHero}
-            label={game.favorite ? 'Unfavourite' : 'Favourite'}
-            title={game.favorite ? 'Remove from favourites' : 'Add to favourites'}
+            label={game.favorite ? 'Unfavorite' : 'Favorite'}
+            title={game.favorite ? 'Remove from favorites' : 'Add to favorites'}
           />
         </div>
       </div>
@@ -143,7 +143,7 @@ function EmptyLibrary() {
           <p className="empty__text">
             {folders
               ? 'RetroDesk is watching your ROM folders but found no games yet. Check that each system has its own sub-folder, then scan again.'
-              : 'Point RetroDesk at the folder where you keep your games. Sub-folders named after systems, like snes, psx or Nintendo 64, are recognised automatically.'}
+              : 'Point RetroDesk at the folder where you keep your games. Sub-folders named after systems, like snes, psx or Nintendo 64, are recognized automatically.'}
           </p>
           <div className="empty__actions">
             <Button variant="primary" size="lg" icon={FolderPlus} autoFocus onPress={async () => (await addRomFolder()) && (await rescan())}>

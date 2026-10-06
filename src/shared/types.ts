@@ -1,5 +1,5 @@
 // Shared data contract between the main process and the renderer.
-// Everything that crosses the IPC boundary is defined here and must stay JSON-serialisable.
+// Everything that crosses the IPC boundary is defined here and must stay JSON-serializable.
 
 import type { SettingValue } from './settingsSchema'
 
@@ -27,9 +27,9 @@ export interface SystemDef {
   thumbnailsFolder?: string
   emulators: EmulatorRef[]
   bios: BiosDef[]
-  /** Folder names (lower-case) that should be recognised as this system when scanning, e.g. ["snes", "sfc", "super nintendo"]. */
+  /** Folder names (lower-case) that should be recognized as this system when scanning, e.g. ["snes", "sfc", "super nintendo"]. */
   folderAliases?: string[]
-  /** Accent colour used by the UI (hex). */
+  /** Accent color used by the UI (hex). */
   color?: string
 }
 
@@ -43,7 +43,7 @@ export interface SystemSummary extends SystemDef {
 export type MediaKind = 'boxart' | 'snap' | 'title'
 
 export interface Game {
-  /** Stable id: sha1 of the normalised absolute path, first 16 hex chars. */
+  /** Stable id: sha1 of the normalized absolute path, first 16 hex chars. */
   id: string
   systemId: SystemId
   /** Absolute path of the ROM (or .cue/.m3u/.chd entry point). */
@@ -166,7 +166,7 @@ export interface EmulatorStatus {
   sizeBytes?: number
 }
 
-export type TaskState = 'running' | 'done' | 'error' | 'cancelled'
+export type TaskState = 'running' | 'done' | 'error' | 'canceled'
 
 /** Long-running background job (download, scan, scrape) reported to the UI. */
 export interface TaskSubject {

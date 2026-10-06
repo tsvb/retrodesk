@@ -111,15 +111,8 @@ export function GameDetailScreen({ gameId }: { gameId: string }) {
             <Button variant="primary" size="xl" icon={Play} autoFocus group="detail-actions" busy={launching === game.id} onPress={() => void launch(game)}>
               Play
             </Button>
-            <Button
-              size="xl"
-              icon={Heart}
-              group="detail-actions"
-              className={game.favorite ? 'is-fav' : ''}
-              onPress={() => void toggleFavorite(game)}
-              label={game.favorite ? 'Unfavourite' : 'Favourite'}
-            >
-              {game.favorite ? 'Favourite' : 'Add to favourites'}
+            <Button size="xl" icon={Heart} group="detail-actions" className={game.favorite ? 'is-fav' : ''} onPress={() => void toggleFavorite(game)} label={game.favorite ? 'Unfavorite' : 'Favorite'}>
+              {game.favorite ? 'Favorite' : 'Add to favorites'}
             </Button>
             <Button size="xl" icon={Cpu} group="detail-actions" onPress={() => setPicking(true)} label="Change emulator">
               {emuName}

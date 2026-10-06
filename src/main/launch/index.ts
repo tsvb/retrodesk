@@ -40,7 +40,7 @@ interface ActiveSession {
   boosted?: boolean
   quitTimer?: NodeJS.Timeout
   exited: boolean
-  /** Serialises overlay pause/resume work. */
+  /** Serializes overlay pause/resume work. */
   chain: Promise<void>
 }
 
@@ -292,7 +292,7 @@ function scheduleForceKill(s: ActiveSession): void {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Overlay integration: pause RetroArch while the quick menu is open, restore focus afterwards
+// Overlay integration: pause RetroArch while the quick menu is open, restore focus afterward
 // ---------------------------------------------------------------------------------------------
 
 /** Update SessionInfo.paused and notify the UI if it changed. */

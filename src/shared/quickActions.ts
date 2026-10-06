@@ -97,7 +97,7 @@ export interface QuickActionDef {
   confirm?(s: SessionInfo): { title: string; description: string; confirmLabel: string }
   /** Shown once the action succeeded. Given the session as it was before the action ran. */
   toast?(s: SessionInfo): string
-  /** Close the quick menu afterwards. */
+  /** Close the quick menu afterward. */
   closesMenu?: boolean
 }
 

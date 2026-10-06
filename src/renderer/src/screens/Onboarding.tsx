@@ -132,7 +132,7 @@ function FoldersStep({ onNext }: { onNext: () => void }) {
   return (
     <StepFrame
       title="Show RetroDesk your games"
-      lead={<p>Pick the folder that holds your ROMs. Each system should have its own sub-folder; common names are recognised automatically.</p>}
+      lead={<p>Pick the folder that holds your ROMs. Each system should have its own sub-folder; common names are recognized automatically.</p>}
       actions={
         <>
           <Button size="xl" icon={FolderPlus} onPress={add} autoFocus={!has}>
@@ -235,7 +235,7 @@ function ScanStep({ onNext }: { onNext: () => void }) {
             {describeScan(result)}. {missing.length ? `${missing.length} of these systems still need an emulator.` : 'Every system is ready to play.'}
           </p>
         ) : (
-          <p>Check that each system has its own sub-folder with a recognised name, then scan again.</p>
+          <p>Check that each system has its own sub-folder with a recognized name, then scan again.</p>
         )
       }
       actions={

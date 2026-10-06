@@ -14,7 +14,7 @@ import { errMsg, isUnder, normPath } from './util'
 
 export interface RomImportResult {
   copied: string[]
-  /** Already in place (same size) or not a recognised game file. */
+  /** Already in place (same size) or not a recognized game file. */
   skipped: string[]
   errors: string[]
 }

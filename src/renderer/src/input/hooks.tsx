@@ -79,7 +79,7 @@ export function useFocusable<T extends HTMLElement = HTMLElement>(
 
   const focused = useSyncExternalStore(focusManager.subscribe, () => focusManager.getFocusedId() === id)
 
-  // Keep the hint bar in sync when this node's labels change while it is focused (e.g. Favourite -> Unfavourite).
+  // Keep the hint bar in sync when this node's labels change while it is focused (e.g. Favorite -> Unfavorite).
   const hintKey = `${opts.onActivate ? (opts.label ?? 'Select') : ''}|${Object.entries(opts.actions ?? {})
     .map(([k, v]) => `${k}:${typeof v === 'function' ? '' : (v?.label ?? '')}`)
     .join(',')}`

@@ -3,7 +3,7 @@ import { extname } from 'path'
 
 /**
  * Best-effort system detection from disc image headers, used when neither the folder name nor the
- * extension identifies a system (.iso/.bin/.img/.chd/.cue in an unrecognised folder, or imported files).
+ * extension identifies a system (.iso/.bin/.img/.chd/.cue in an unrecognized folder, or imported files).
  * Never throws; returns undefined when unsure.
  */
 

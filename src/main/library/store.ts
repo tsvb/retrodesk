@@ -183,7 +183,7 @@ export class GameStore {
     return JSON.stringify(data)
   }
 
-  /** Write now (async, atomic). Concurrent calls are serialised. */
+  /** Write now (async, atomic). Concurrent calls are serialized. */
   flush(): Promise<void> {
     if (this.timer) {
       clearTimeout(this.timer)

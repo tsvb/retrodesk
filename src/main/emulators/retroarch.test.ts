@@ -92,7 +92,7 @@ describe('buildRetroArchConfig', () => {
     expect(cfg).toMatchObject({ cheevos_enable: 'true', cheevos_username: 'tim', cheevos_password: 'pw', cheevos_hardcore_mode_enable: 'true', rewind_enable: 'false' })
   })
 
-  it('serialises to quoted cfg lines that parse back', () => {
+  it('serializes to quoted cfg lines that parse back', () => {
     const cfg = buildRetroArchConfig({ settings: settings(), paths })
     const text = serializeCfg(cfg)
     expect(text).toContain('network_cmd_enable = "true"')
@@ -184,7 +184,7 @@ describe('launch args', () => {
     expect(shaderDirs(p, 'macos')[1]).toBe(join('/RD/emulators', 'retroarch', 'RetroArch.app', 'Contents', 'Resources'))
   })
 
-  it('normalises core names', () => {
+  it('normalizes core names', () => {
     expect(coreFileBase('snes9x')).toBe('snes9x_libretro')
     expect(coreFileBase('snes9x_libretro')).toBe('snes9x_libretro')
     expect(coreFileBase('mesen-s_libretro.dll')).toBe('mesen-s_libretro')

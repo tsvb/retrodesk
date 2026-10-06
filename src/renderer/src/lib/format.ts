@@ -33,10 +33,10 @@ export function formatRelative(ts: number | undefined, now = Date.now()): string
   const diff = (ts - now) / 1000
   const abs = Math.abs(diff)
   if (abs < 60) return 'Just now'
-  if (abs < 3600) return capitalise(rtf.format(Math.round(diff / 60), 'minute'))
-  if (abs < 86400) return capitalise(rtf.format(Math.round(diff / 3600), 'hour'))
-  if (abs < 86400 * 7) return capitalise(rtf.format(Math.round(diff / 86400), 'day'))
-  if (abs < 86400 * 35) return capitalise(rtf.format(Math.round(diff / (86400 * 7)), 'week'))
+  if (abs < 3600) return capitalize(rtf.format(Math.round(diff / 60), 'minute'))
+  if (abs < 86400) return capitalize(rtf.format(Math.round(diff / 3600), 'hour'))
+  if (abs < 86400 * 7) return capitalize(rtf.format(Math.round(diff / 86400), 'day'))
+  if (abs < 86400 * 35) return capitalize(rtf.format(Math.round(diff / (86400 * 7)), 'week'))
   return new Date(ts).toLocaleDateString(LOCALE, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
@@ -56,7 +56,7 @@ export function formatClock(d: Date): string {
   return d.toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' })
 }
 
-export function capitalise(s: string): string {
+export function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 

@@ -43,7 +43,7 @@ export const MOCK_GAMES: Record<string, string[]> = {
   arcade: ['Street Fighter III 3rd Strike', 'Metal Slug X', 'The King of Fighters \'98', 'Galaga', 'Ms. Pac-Man', 'Donkey Kong', 'Pac-Man', 'Final Fight', 'Teenage Mutant Ninja Turtles', 'Dodonpachi', 'Out Run']
 }
 
-/** Extra word lists to synthesise thousands of plausible titles for performance testing (?mockGames=5000). */
+/** Extra word lists to synthesize thousands of plausible titles for performance testing (?mockGames=5000). */
 export const SYNTH_A = [
   'Super',
   'Mega',

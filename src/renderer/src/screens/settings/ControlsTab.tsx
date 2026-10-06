@@ -82,7 +82,7 @@ export function ControlsTab() {
             [['↑', '↓', '←', '→'], 'Move'],
             [['Enter'], 'Select'],
             [['Esc'], 'Back'],
-            [['F'], 'Favourite'],
+            [['F'], 'Favorite'],
             [['/'], 'Search'],
             [['Q', 'E'], 'Switch section'],
             [['Z', 'C'], 'Jump letter or page'],

@@ -41,7 +41,7 @@ beforeAll(async () => {
   // Genesis: real ROM with .md vs a README.md
   writeFile(join(A, 'megadrive', 'Sonic the Hedgehog (USA, Europe).md'), rom(4096, 9))
   writeFile(join(A, 'megadrive', 'README.md'), '# My Genesis ROMs\n\nThese are my dumps. '.repeat(100))
-  // Unrecognised folder: unique extension, sniffed ISOs, unknown bin, markdown
+  // Unrecognized folder: unique extension, sniffed ISOs, unknown bin, markdown
   const M = join(A, 'misc')
   writeFile(join(M, 'Golden Sun (USA).gba'), rom(4096, 10))
   writeFile(join(M, 'README.md'), '# notes\n'.repeat(400))

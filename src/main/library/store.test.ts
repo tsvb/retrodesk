@@ -67,7 +67,7 @@ describe('GameStore', () => {
     expect(titles({ sort: 'playTime', limit: 1 })).toEqual(['The Legend of Zelda: A Link to the Past'])
     expect(titles({ sort: 'lastPlayed' })[0]).toBe('Pokémon Stadium')
     expect(titles({ sort: 'added' })[0]).toBe('Game 10')
-    expect(titles({ sort: 'system' })[3]).toBe('Pokémon Stadium') // catalogue order: nes, snes, n64
+    expect(titles({ sort: 'system' })[3]).toBe('Pokémon Stadium') // catalog order: nes, snes, n64
     expect(s.recent(10).map((g) => g.title)).toEqual(['Pokémon Stadium', 'The Legend of Zelda: A Link to the Past'])
   })
 

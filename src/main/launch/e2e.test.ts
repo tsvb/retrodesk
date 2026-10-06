@@ -1,7 +1,7 @@
 // Real end-to-end check (network + real emulators). Opt-in:
 //   $env:RETRODESK_E2E='1'; $env:RETRODESK_E2E_ROOT="$env:TEMP\rd-e2e"; npx vitest run src/main/launch/e2e.test.ts
 // Installs RetroArch + gambatte + PPSSPP into the throwaway data root, downloads a homebrew GB test ROM
-// (pinobatch/240p-test-mini, zlib licence), launches it through gameHandlers.launch and drives RetroArch over UDP.
+// (pinobatch/240p-test-mini, zlib license), launches it through gameHandlers.launch and drives RetroArch over UDP.
 import { existsSync, mkdirSync, readdirSync, statSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
