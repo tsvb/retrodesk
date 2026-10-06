@@ -323,6 +323,10 @@ export function buildRetroArchConfig({ settings, paths, shaderPath, uiMode, os =
     suspend_screensaver_enable: 'true',
     ui_menubar_enable: 'false',
     notification_show_autoconfig: 'false',
+    // RetroArch only opens the log file, and only writes even errors to it, when verbose logging is on.
+    // log_to_file is read first, so on Windows this doesn't open a console window either.
+    log_verbosity: 'true',
+    frontend_log_level: '1', // info and up: which core and content loaded, then why it failed
     log_to_file: 'true',
     log_to_file_timestamp: 'false',
     log_dir: join(dir, 'logs'),

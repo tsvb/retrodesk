@@ -49,6 +49,15 @@ describe('buildRetroArchConfig', () => {
     expect(cfg.libretro_directory).toBe(join(paths.emulators, 'retroarch', 'cores'))
   })
 
+  it('writes logs/retroarch.log, which RetroArch only creates with verbose logging on', () => {
+    expect(buildRetroArchConfig({ settings: settings(), paths })).toMatchObject({
+      log_to_file: 'true',
+      log_to_file_timestamp: 'false',
+      log_dir: join(paths.emulators, 'retroarch', 'logs'),
+      log_verbosity: 'true'
+    })
+  })
+
   it('maps display + gameplay settings', () => {
     const cfg = buildRetroArchConfig({
       settings: settings((s) => {
