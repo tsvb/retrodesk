@@ -71,8 +71,8 @@ export const SETTINGS_SCHEMA = {
     default: 'auto',
     options: [
       { value: 'auto', label: 'Automatic', hint: 'Matches the controller' },
-      { value: 'xbox', label: 'Xbox', hint: 'Bottom button confirms' },
-      { value: 'nintendo', label: 'Nintendo', hint: 'Right button confirms' }
+      { value: 'xbox', label: 'Xbox', hint: 'Bottom button confirms (Xbox, PlayStation)' },
+      { value: 'nintendo', label: 'Nintendo', hint: 'Right button confirms (Switch, Retroid)' }
     ]
   }),
 
