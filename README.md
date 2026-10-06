@@ -42,7 +42,7 @@ Other features: BIOS checker with MD5 validation and import, drag-and-drop ROM i
 
 Uninstalling RetroDesk leaves both folders in place. Delete them yourself if you no longer want your saves and settings.
 
-On macOS, RetroArch runs from the data folder with its own `retroarch.cfg` there, so it never touches a RetroArch you installed yourself. Standalone emulators are app bundles in the data folder too, but they keep their own settings, keys and firmware in `~/Library/Application Support/<emulator>`; that is where RetroDesk copies BIOS files and keys for them.
+On macOS, RetroArch runs from the data folder with its own `retroarch.cfg` there, so it never touches a RetroArch you installed yourself. Standalone emulators are app bundles in the data folder too, but they keep their own settings, keys and firmware in their usual place, `~/Library/Application Support/<emulator>` for most and `~/.local/share/eden` (plus `~/.config/eden`) for Eden; that is where RetroDesk copies BIOS files and keys for them.
 
 RetroDesk goes online only to download the emulators you install (from the libretro buildbot, GitHub, dolphin-emu.org and eden-emu.dev) and artwork (from thumbnails.libretro.com and Steam). It sends no usage data and does not update itself.
 

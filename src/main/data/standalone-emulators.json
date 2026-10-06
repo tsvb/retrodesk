@@ -129,6 +129,7 @@
     "uiArgs": [],
     "portable": [{ "path": "user", "kind": "dir" }],
     "userData": ["user"],
+    "createDirs": ["user/config"],
     "needsVcRedist": true,
     "romKind": "file",
     "firmware": [
@@ -155,22 +156,25 @@
         "label": "Switch firmware",
         "dirs": ["switch/firmware"],
         "pattern": "\\.nca$",
+        "recursive": true,
+        "folderFile": "00",
         "all": true,
         "copyTo": "user/nand/system/Contents/registered/",
-        "copyWhen": "notInstalled",
+        "copyWhen": "mirror",
         "installed": { "nonEmptyDir": "user/nand/system/Contents/registered" },
         "required": true,
-        "message": "Switch firmware is not installed. Put your firmware dump (*.nca files) in {bios}\\switch\\firmware, or install it from Eden (Tools > Install Firmware)."
+        "message": "Switch firmware is not installed. Put your firmware dump (the .nca files, a sub folder is fine) in {bios}\\switch\\firmware, or install it in Eden (Tools > Install Firmware from Folder)."
       }
     ],
-    "notes": "Keys: RetroDesk copies prod.keys/title.keys from <bios> (or <bios>/switch) into user/keys/. Firmware must be installed via Eden's UI.",
+    "notes": "Keys: RetroDesk copies prod.keys/title.keys from <bios> (or <bios>/switch) into user/keys/. Firmware: the .nca files under <bios>/switch/firmware (sub folders and <id>.nca/00 folders included) are mirrored into user/nand/system/Contents/registered/, replacing what is there when the set changes, as Eden's own installer does. Eden's firmware check looks for the Mii Edit applet, and Miis in games only work with it (its Mii editor runs from firmware). user/config is created up front so Eden skips its first-run migration prompt.",
     "macos": {
       "assetPattern": "^Eden-macOS-v[\\d.]+\\.dmg$",
       "fallback": { "version": "0.2.1", "url": "https://stable.eden-emu.dev/v0.2.1/Eden-macOS-v0.2.1.dmg" },
       "archiveType": "dmg",
       "exe": "Eden.app/Contents/MacOS/eden",
       "archs": ["arm64"],
-      "dataDir": "~/Library/Application Support/eden",
+      "dataDir": "~/.local/share/eden",
+      "createDirs": ["~/.config/eden"],
       "firmware": [
         {
           "label": "prod.keys",
@@ -187,15 +191,17 @@
           "label": "Switch firmware",
           "dirs": ["switch/firmware"],
           "pattern": "\\.nca$",
+          "recursive": true,
+          "folderFile": "00",
           "all": true,
           "copyTo": "nand/system/Contents/registered/",
-          "copyWhen": "notInstalled",
+          "copyWhen": "mirror",
           "installed": { "nonEmptyDir": "nand/system/Contents/registered" },
           "required": true,
-          "message": "Switch firmware is not installed. Put your firmware dump (*.nca files) in {bios}\\switch\\firmware, or install it from Eden (Tools > Install Firmware)."
+          "message": "Switch firmware is not installed. Put your firmware dump (the .nca files, a sub folder is fine) in {bios}\\switch\\firmware, or install it in Eden (Tools > Install Firmware from Folder)."
         }
       ],
-      "notes": "Apple Silicon only. Keys and firmware go to ~/Library/Application Support/eden (keys/, nand/)."
+      "notes": "Apple Silicon only. Eden uses XDG folders on macOS, not Application Support: keys and firmware go to ~/.local/share/eden (keys/, nand/), its config to ~/.config/eden ($XDG_DATA_HOME / $XDG_CONFIG_HOME when set)."
     }
   },
   {

@@ -8,6 +8,8 @@ import systemsData from './data/systems.json'
  *  - plain path, e.g. "scph5501.bin" or "dc/dc_boot.bin": that exact file.
  *  - trailing "/", e.g. "Machines/": a directory that must exist and be non-empty.
  *  - "*" in the last segment, e.g. "ps2/*.bin": any file in that directory matching the glob.
+ *  - "**" before it, e.g. "switch/firmware/**\/*.nca": also in sub folders; a folder named like the glob that
+ *    holds a single file counts too (Switch firmware dumps store each NCA as <id>.nca/00).
  * An empty md5 means "unknown": presence is enough.
  */
 const SYSTEMS: readonly SystemDef[] = systemsData as SystemDef[]
