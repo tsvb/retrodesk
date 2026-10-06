@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
@@ -6,8 +6,10 @@ import { afterAll, describe, expect, it, vi } from 'vitest'
 // These tests describe the Windows builds; macOS cases pass the OS explicitly.
 vi.mock('../platform', async (importOriginal) => ({ ...(await importOriginal<typeof import('../platform')>()), hostOs: () => 'windows', isMac: () => false }))
 import {
+  ensureDirs,
   ensurePortable,
   expandArgs,
+  expandDataPath,
   findAppExecutable,
   getStandaloneDef,
   parseSfo,
@@ -105,7 +107,24 @@ describe('definitions', () => {
 
   it('provisions into the data folder a macOS build uses', () => {
     expect(standaloneDataDir({}, '/emu/x')).toBe('/emu/x')
-    expect(standaloneDataDir({ dataDir: '~/Library/Application Support/DuckStation' }, '/emu/x', '/Users/me')).toBe(join('/Users/me', 'Library', 'Application Support', 'DuckStation'))
+    expect(standaloneDataDir({ dataDir: '~/Library/Application Support/DuckStation' }, '/emu/x', '/Users/me', {})).toBe(join('/Users/me', 'Library', 'Application Support', 'DuckStation'))
+    // Eden follows the XDG spec on macOS: ~/.local/share unless XDG_DATA_HOME says otherwise.
+    const eden = resolveStandaloneDef(
+      RAW_STANDALONE_DEFS.find((d) => d.id === 'eden')!,
+      'macos',
+      'arm64'
+    )!
+    expect(standaloneDataDir(eden, '/emu/x', '/Users/me', {})).toBe(join('/Users/me', '.local', 'share', 'eden'))
+    expect(standaloneDataDir(eden, '/emu/x', '/Users/me', { XDG_DATA_HOME: '/Volumes/data/xdg' })).toBe(join('/Volumes/data/xdg', 'eden'))
+    expect(expandDataPath('~/.config/eden', '/emu/x', '/Users/me', { XDG_DATA_HOME: '/elsewhere' })).toBe(join('/Users/me', '.config', 'eden'))
+    expect(expandDataPath('~/.config/eden', '/emu/x', '/Users/me', { XDG_CONFIG_HOME: '/cfg' })).toBe(join('/cfg', 'eden'))
+    expect(expandDataPath('user/config', '/emu/x', '/Users/me', {})).toBe(join('/emu/x', 'user', 'config'))
+  })
+
+  it('creates the folders an emulator wants to find on first start', async () => {
+    const exeDir = join(dir, 'eden-dirs')
+    await ensureDirs(getStandaloneDef('eden')!, exeDir)
+    expect(existsSync(join(exeDir, 'user', 'config'))).toBe(true)
   })
 })
 
@@ -284,7 +303,27 @@ describe('provisioning', () => {
     expect((await provisionStandalone(getStandaloneDef('eden')!, exeDir, bios)).error).toMatch(/firmware/)
     writeFileSync(join(bios, 'switch', 'firmware', 'abc.nca'), 'n')
     expect((await provisionStandalone(getStandaloneDef('eden')!, exeDir, bios)).ok).toBe(true)
-    expect(readFileSync(join(exeDir, 'user', 'nand', 'system', 'Contents', 'registered', 'abc.nca'), 'utf8')).toBe('n')
+    const registered = join(exeDir, 'user', 'nand', 'system', 'Contents', 'registered')
+    expect(readFileSync(join(registered, 'abc.nca'), 'utf8')).toBe('n')
     expect(readFileSync(join(exeDir, 'user', 'keys', 'prod.keys'), 'utf8')).toBe('k')
+    // Eden skips its first-run migration prompt when its config folder is there.
+    expect(existsSync(join(exeDir, 'user', 'config'))).toBe(true)
+
+    // A newer dump replaces the installed set, like Eden's own installer: it may sit in a sub folder, and NCAs
+    // dumped as <id>.nca/00 folders count as files named after the folder.
+    rmSync(join(bios, 'switch', 'firmware', 'abc.nca'))
+    writeFileSync(join(registered, 'stale.nca'), 'old')
+    const dump = join(bios, 'switch', 'firmware', 'Firmware 20.1.0')
+    mkdirSync(join(dump, 'def.nca'), { recursive: true })
+    writeFileSync(join(dump, 'def.nca', '00'), 'folder form')
+    writeFileSync(join(dump, 'ghi.cnmt.nca'), 'meta')
+    writeFileSync(join(dump, 'readme.txt'), 'not firmware')
+    expect((await provisionStandalone(getStandaloneDef('eden')!, exeDir, bios)).ok).toBe(true)
+    expect(readdirSync(registered).sort()).toEqual(['def.nca', 'ghi.cnmt.nca'])
+    expect(readFileSync(join(registered, 'def.nca'), 'utf8')).toBe('folder form')
+    // The same set again is left alone.
+    writeFileSync(join(registered, 'def.nca'), 'kept')
+    expect((await provisionStandalone(getStandaloneDef('eden')!, exeDir, bios)).ok).toBe(true)
+    expect(readFileSync(join(registered, 'def.nca'), 'utf8')).toBe('kept')
   })
 })

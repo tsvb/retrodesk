@@ -2,13 +2,15 @@
 // ROM path resolution for folder-format games and BIOS/config provisioning. What each emulator needs is declared
 // in data/standalone-emulators.json; this file is the machinery that carries it out.
 // A def describes the Windows build; its `macos` block (if any) replaces what differs on macOS, where emulators
-// are app bundles that keep their data in ~/Library/Application Support rather than next to the exe.
+// are app bundles that keep their data elsewhere (~/Library/Application Support, or XDG folders) rather than
+// next to the exe.
 import { execFile } from 'child_process'
 import { existsSync } from 'fs'
 import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'fs/promises'
 import { homedir } from 'os'
 import { basename, dirname, extname, join } from 'path'
 import defsJson from '../data/standalone-emulators.json'
+import { findMatching, type MatchedFile } from '../library/util'
 import { hostArch, hostOs, type HostArch, type HostOs } from '../platform'
 import { dolphinLatest, downloadTrusted, forgejoLatestRelease, githubRelease, isTrustedDownloadUrl, releaseCacheDir, type ResolvedRelease } from './download'
 import { dirSize, extractArchive, findFile, moveMerge, singleTopFolder } from './extract'
@@ -27,14 +29,21 @@ export interface FirmwareItem {
   /** Exact file name, or a case-insensitive pattern for the file name. */
   name?: string
   pattern?: string
+  /** Pattern searches also look in sub folders of `dirs` (dumps often extract into a folder of their own). */
+  recursive?: boolean
+  /** A folder matching the pattern counts when it holds just this file, copied under the folder's name (<id>.nca/00). */
+  folderFile?: string
   /** A named search for what a name or pattern cannot express (see FINDERS). */
   finder?: string
   /** Use every match, not only the first. */
   all?: boolean
   /** Copy what was found here (relative to the exe dir; a trailing "/" means "into this folder"). */
   copyTo?: string
-  /** missing: only files not there yet. newer: also when the source is newer. notInstalled: only until `installed` holds. */
-  copyWhen?: 'missing' | 'newer' | 'notInstalled'
+  /**
+   * missing: only files not there yet. newer: also when the source is newer. notInstalled: only until `installed`
+   * holds. mirror: the target folder ends up holding exactly what was found (replaced whole when the names differ).
+   */
+  copyWhen?: 'missing' | 'newer' | 'notInstalled' | 'mirror'
   /** How to tell the emulator already has it, relative to the exe dir. */
   installed?: { anyOf?: string[]; nonEmptyDir?: string; dirNamed?: string; depth?: number }
   required: boolean
@@ -76,6 +85,12 @@ export interface StandaloneDef {
    * Firmware `copyTo` / `installed` and `config.file` are relative to this folder, else to the exe dir.
    */
   dataDir?: string
+  /**
+   * Folders the emulator expects to find on start, else it shows a first-run prompt (Eden offers to migrate from
+   * yuzu and friends while its config folder is missing). Relative to the data dir, or "~/" paths; created on
+   * install and before each launch.
+   */
+  createDirs?: string[]
   /** CPU architectures the build runs on (default: all). */
   archs?: HostArch[]
   needsVcRedist: boolean
@@ -118,10 +133,36 @@ export function getStandaloneDef(id: string): StandaloneDef | undefined {
   return STANDALONE_DEFS.find((d) => d.id === id)
 }
 
+/** XDG base folders and their defaults: a "~/.local/share/..." path in a def means "$XDG_DATA_HOME/..." when that is set. */
+const XDG_DEFAULTS: [prefix: string, env: string][] = [
+  ['.local/share', 'XDG_DATA_HOME'],
+  ['.config', 'XDG_CONFIG_HOME'],
+  ['.cache', 'XDG_CACHE_HOME']
+]
+
+/**
+ * A path from a def: "~/" is the home folder (honoring the XDG variables for their default folders), anything else
+ * is relative to `base`.
+ */
+export function expandDataPath(path: string, base: string, home: string = homedir(), env: NodeJS.ProcessEnv = process.env): string {
+  if (!path.startsWith('~/')) return join(base, ...path.split('/').filter(Boolean))
+  const rest = path.slice(2)
+  for (const [prefix, name] of XDG_DEFAULTS) {
+    const value = env[name]
+    if (value && (rest === prefix || rest.startsWith(`${prefix}/`))) return join(value, ...rest.slice(prefix.length).split('/').filter(Boolean))
+  }
+  return join(home, ...rest.split('/'))
+}
+
 /** The folder firmware and config are provisioned into: the def's dataDir, else the exe dir (portable builds). */
-export function standaloneDataDir(def: Pick<StandaloneDef, 'dataDir'>, exeDir: string, home: string = homedir()): string {
+export function standaloneDataDir(def: Pick<StandaloneDef, 'dataDir'>, exeDir: string, home: string = homedir(), env: NodeJS.ProcessEnv = process.env): string {
   if (!def.dataDir) return exeDir
-  return def.dataDir.startsWith('~/') ? join(home, ...def.dataDir.slice(2).split('/')) : def.dataDir
+  return expandDataPath(def.dataDir, exeDir, home, env)
+}
+
+/** Create the folders a def's `createDirs` names (see StandaloneDef). */
+export async function ensureDirs(def: Pick<StandaloneDef, 'createDirs'>, dataDir: string): Promise<void> {
+  for (const p of def.createDirs ?? []) await mkdir(expandDataPath(p, dataDir), { recursive: true }).catch(() => undefined)
 }
 
 export interface InstallPaths {
@@ -194,6 +235,7 @@ export async function installStandalone(def: StandaloneDef, paths: InstallPaths,
     exePath = found
   }
   await ensurePortable(def, dirname(exePath))
+  await ensureDirs(def, standaloneDataDir(def, dirname(exePath)))
   return { version: rel.version, exePath, sizeBytes: await dirSize(dir) }
 }
 
@@ -425,16 +467,12 @@ export async function findPs2Bios(biosDir: string): Promise<string[]> {
   return out
 }
 
-/** Files directly in `dir` whose name matches `re`. */
-export async function globFiles(dir: string, re: RegExp): Promise<string[]> {
-  const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
-  return entries.filter((e) => e.isFile() && re.test(e.name)).map((e) => join(dir, e.name))
-}
-
 /** Searches a firmware item can name when a file name or pattern is not enough. */
 const FINDERS: Record<string, (biosDir: string) => Promise<string[]>> = {
   ps2Bios: findPs2Bios
 }
+
+const asMatched = (path: string): MatchedFile => ({ path, name: basename(path) })
 
 /** Config edits a `set` list cannot express. Given the config text and the exe dir. */
 const CONFIG_HOOKS: Record<string, (text: string, exeDir: string) => Promise<string>> = {
@@ -451,15 +489,17 @@ const CONFIG_HOOKS: Record<string, (text: string, exeDir: string) => Promise<str
 
 const rel = (base: string, path: string): string => join(base, ...path.split('/').filter(Boolean))
 
-async function findFirmware(item: FirmwareItem, biosDir: string): Promise<string[]> {
-  let found: string[] = []
-  if (item.finder) found = (await FINDERS[item.finder]?.(biosDir)) ?? []
+async function findFirmware(item: FirmwareItem, biosDir: string): Promise<MatchedFile[]> {
+  let found: MatchedFile[] = []
+  if (item.finder) found = ((await FINDERS[item.finder]?.(biosDir)) ?? []).map(asMatched)
   else {
     for (const d of item.dirs ?? ['']) {
       const dir = rel(biosDir, d)
       if (item.name) {
-        if (existsSync(join(dir, item.name))) found.push(join(dir, item.name))
-      } else if (item.pattern) found.push(...(await globFiles(dir, new RegExp(item.pattern, 'i'))))
+        if (existsSync(join(dir, item.name))) found.push(asMatched(join(dir, item.name)))
+      } else if (item.pattern) {
+        found.push(...(await findMatching(dir, new RegExp(item.pattern, 'i'), { recursive: item.recursive, folderFile: item.folderFile })))
+      }
     }
   }
   return item.all ? found : found.slice(0, 1)
@@ -474,11 +514,23 @@ async function isInstalled(item: FirmwareItem, exeDir: string): Promise<boolean>
   return false
 }
 
-async function copyFirmware(item: FirmwareItem, files: string[], exeDir: string): Promise<void> {
+async function copyFirmware(item: FirmwareItem, files: MatchedFile[], exeDir: string): Promise<void> {
   if (!item.copyTo) return
   const intoDir = item.copyTo.endsWith('/')
-  for (const src of files) {
-    const dst = intoDir ? join(rel(exeDir, item.copyTo), basename(src)) : rel(exeDir, item.copyTo)
+  if (item.copyWhen === 'mirror' && intoDir) {
+    // The emulator's own installer replaces the whole set, so do the same: only when the names differ, since
+    // a set that matches by name is the same dump (NCA names are content ids).
+    const target = rel(exeDir, item.copyTo)
+    const have = (await readdir(target).catch(() => [] as string[])).filter((f) => !f.startsWith('.')).sort()
+    const want = files.map((f) => f.name).sort()
+    if (have.length === want.length && have.every((h, i) => h === want[i])) return
+    for (const h of have) await rm(join(target, h), { recursive: true, force: true })
+    await mkdir(target, { recursive: true })
+    for (const f of files) await copyFile(f.path, join(target, f.name))
+    return
+  }
+  for (const { path: src, name } of files) {
+    const dst = intoDir ? join(rel(exeDir, item.copyTo), name) : rel(exeDir, item.copyTo)
     const stale = item.copyWhen === 'newer' && existsSync(dst) && (await stat(src)).mtimeMs > (await stat(dst)).mtimeMs
     if (existsSync(dst) && !stale) continue
     await mkdir(dirname(dst), { recursive: true })
@@ -495,11 +547,12 @@ const localSeparators = (text: string): string => (hostOs() === 'macos' ? text.r
  * `exeDir` is the folder those are relative to: see standaloneDataDir.
  */
 export async function provisionStandalone(def: StandaloneDef, exeDir: string, biosDir: string): Promise<ProvisionResult> {
+  await ensureDirs(def, exeDir)
   const found: Record<string, string> = {}
   const problems: { item: FirmwareItem; error: string }[] = []
   for (const item of def.firmware ?? []) {
     const files = await findFirmware(item, biosDir)
-    if (item.id && files[0]) found[item.id] = files[0]
+    if (item.id && files[0]) found[item.id] = files[0].path
     let installed = await isInstalled(item, exeDir)
     if (files.length && !(item.copyWhen === 'notInstalled' && installed)) {
       await copyFirmware(item, files, exeDir)
@@ -507,7 +560,7 @@ export async function provisionStandalone(def: StandaloneDef, exeDir: string, bi
     }
     const ready = item.installed ? installed || (files.length > 0 && !item.manual && !item.copyTo) : files.length > 0
     if (ready || !item.required) continue
-    const text = files[0] && item.manual ? item.manual.replaceAll('{file}', files[0]) : (item.message ?? `${def.name} needs ${item.label} in {bios}.`)
+    const text = files[0] && item.manual ? item.manual.replaceAll('{file}', files[0].path) : (item.message ?? `${def.name} needs ${item.label} in {bios}.`)
     problems.push({ item, error: localSeparators(text).replaceAll('{bios}', biosDir) })
   }
 

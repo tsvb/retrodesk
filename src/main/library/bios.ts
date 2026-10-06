@@ -1,12 +1,15 @@
 import { copyFile, cp, mkdir, readdir, readFile, rename, stat, writeFile } from 'fs/promises'
 import { basename, dirname, join } from 'path'
 import type { BiosDef, BiosStatus, SystemDef } from '../../shared/types'
-import { errMsg, mapLimit, md5File } from './util'
+import { errMsg, findMatching, mapLimit, md5File, type MatchedFile } from './util'
 
 /**
  * BIOS / firmware checks against getPaths().bios. See systems.ts for the `file` conventions
- * (plain relative path, "dir/" for a required folder, "*" globs in the last segment).
+ * (plain relative path, "dir/" for a required folder, "*" globs in the last segment, "**" for sub folders too).
  */
+
+/** Switch firmware dumps store each NCA either as a file or as a folder holding the single file "00". */
+const NCA_FOLDER_FILE = '00'
 
 const MAX_HASH_BYTES = 64 * 1024 * 1024
 /** BIOS entries checked at once (each may hash a file). */
@@ -90,12 +93,11 @@ export function globToRegExp(glob: string): RegExp {
   return new RegExp(`^${esc}$`, 'i')
 }
 
-async function listFiles(dir: string): Promise<string[]> {
-  try {
-    return (await readdir(dir, { withFileTypes: true })).filter((e) => e.isFile()).map((e) => e.name)
-  } catch {
-    return []
-  }
+/** The files a glob entry ("ps2/*.bin", "switch/firmware/**\/*.nca") matches under the BIOS dir. */
+export function globEntryMatches(biosDir: string, rel: string): Promise<MatchedFile[]> {
+  const recursive = rel.includes('**/')
+  const dir = join(biosDir, dirname(rel.replace('**/', '')))
+  return findMatching(dir, globToRegExp(basename(rel)), { recursive, folderFile: recursive ? NCA_FOLDER_FILE : undefined })
 }
 
 async function exists(p: string): Promise<boolean> {
@@ -118,12 +120,10 @@ async function checkEntry(def: BiosDef, biosDir: string, extraFiles: string[]): 
     }
   }
   if (rel.includes('*')) {
-    const re = globToRegExp(basename(rel))
-    const dir = join(biosDir, dirname(rel))
-    const matches = (await listFiles(dir)).filter((f) => re.test(f))
+    const matches = await globEntryMatches(biosDir, rel)
     if (!matches.length) return { present: false, valid: false }
     if (!def.md5) return { present: true, valid: true }
-    for (const m of matches) if ((await cachedMd5(join(dir, m))) === def.md5.toLowerCase()) return { present: true, valid: true }
+    for (const m of matches) if ((await cachedMd5(m.path)) === def.md5.toLowerCase()) return { present: true, valid: true }
     return { present: true, valid: false }
   }
   const candidates = [join(biosDir, rel)]
@@ -168,7 +168,8 @@ const PS2_BIOS_SIZE = 4 * 1024 * 1024
 /**
  * Copy user-picked files into the BIOS dir. Matching order per file: known md5 -> exact file name ->
  * glob entry ("ps2/*.bin") -> heuristics (4 MiB PS2 dumps, Switch .nca firmware). Folders whose name is the
- * first segment of a BIOS entry ("Machines", "Databases", "PPSSPP") are copied recursively.
+ * first segment of a BIOS entry ("Machines", "Databases", "PPSSPP") are copied recursively, and so is a folder
+ * of Switch firmware (one holding .nca files or <id>.nca folders), into switch/firmware/.
  */
 export async function importBiosFiles(paths: string[], systems: SystemDef[], biosDir: string): Promise<BiosImportResult> {
   const res: BiosImportResult = { imported: [], skipped: [], errors: [] }
@@ -193,6 +194,10 @@ export async function importBiosFiles(paths: string[], systems: SystemDef[], bio
         if (seg) {
           await cp(src, join(biosDir, seg), { recursive: true, force: true })
           res.imported.push(`${seg}/`)
+        } else if ((await readdir(src).catch(() => [] as string[])).some((f) => f.toLowerCase().endsWith('.nca'))) {
+          const rel = `switch/firmware/${name}`
+          await cp(src, join(biosDir, rel), { recursive: true, force: true })
+          res.imported.push(`${rel}/`)
         } else res.skipped.push(src)
         continue
       }
@@ -213,7 +218,7 @@ export async function importBiosFiles(paths: string[], systems: SystemDef[], bio
       }
       const byGlob = defs.find((d) => d.file.includes('*') && globToRegExp(basename(d.file)).test(name))
       if (byGlob) {
-        await put(src, join(dirname(byGlob.file), name).replace(/\\/g, '/'))
+        await put(src, join(dirname(byGlob.file.replace('**/', '')), name).replace(/\\/g, '/'))
         continue
       }
       if (st.size === PS2_BIOS_SIZE && /scph|ps2|bios/i.test(name)) {

@@ -1,7 +1,7 @@
 import { createHash } from 'crypto'
 import { createReadStream } from 'fs'
-import { stat } from 'fs/promises'
-import { resolve } from 'path'
+import { readdir, stat } from 'fs/promises'
+import { join, resolve } from 'path'
 
 /** Case- and diacritic-insensitive folding used for search and fuzzy matching. */
 export function fold(s: string): string {
@@ -45,6 +45,55 @@ export async function dirExists(p: string): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+export interface MatchedFile {
+  /** The file to read or copy. */
+  path: string
+  /** The name it goes by: the file's own, or its folder's for a folder-form entry. */
+  name: string
+}
+
+export interface FindMatchingOptions {
+  /** Also look in sub folders (up to `depth` levels down; default 4). */
+  recursive?: boolean
+  depth?: number
+  /**
+   * A folder whose name matches counts too when it holds just this file, which then stands for the folder
+   * (Switch firmware dumps store each NCA as <id>.nca/00). Nothing below such a folder is searched.
+   */
+  folderFile?: string
+}
+
+/** Entries in `dir` whose name matches `re`, in folder-then-name order. Missing or unreadable folders yield nothing. */
+export async function findMatching(dir: string, re: RegExp, opts: FindMatchingOptions = {}): Promise<MatchedFile[]> {
+  const out: MatchedFile[] = []
+  const depth = opts.recursive ? (opts.depth ?? 4) : 0
+  let level = [dir]
+  for (let d = 0; d <= depth && level.length; d++) {
+    const next: string[] = []
+    for (const cur of level) {
+      const entries = (await readdir(cur, { withFileTypes: true }).catch(() => [])).sort((a, b) => a.name.localeCompare(b.name))
+      for (const e of entries) {
+        if (e.isFile()) {
+          if (re.test(e.name)) out.push({ path: join(cur, e.name), name: e.name })
+          continue
+        }
+        if (!e.isDirectory()) continue
+        const full = join(cur, e.name)
+        if (opts.folderFile && re.test(e.name)) {
+          const inside = await readdir(full).catch(() => [] as string[])
+          if (inside.length === 1 && inside[0] === opts.folderFile) {
+            out.push({ path: join(full, opts.folderFile), name: e.name })
+            continue
+          }
+        }
+        next.push(full)
+      }
+    }
+    level = next
+  }
+  return out
 }
 
 export function md5File(p: string): Promise<string> {

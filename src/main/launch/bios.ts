@@ -41,14 +41,21 @@ export function biosEntryPresent(biosDir: string, file: string): boolean {
     }
   }
   if (file.includes('*')) {
-    const dir = join(biosDir, dirname(file))
+    // "**/" means sub folders count too (and a folder named like the glob: Switch NCAs come as <id>.nca/00).
+    const recursive = file.includes('**/')
+    const dir = join(biosDir, dirname(file.replace('**/', '')))
     const pattern = file.split('/').pop()!
     const re = new RegExp(`^${pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`, 'i')
-    try {
-      return readdirSync(dir, { withFileTypes: true }).some((e) => e.isFile() && re.test(e.name))
-    } catch {
-      return false
+    const has = (d: string, depth: number): boolean => {
+      try {
+        const entries = readdirSync(d, { withFileTypes: true })
+        if (entries.some((e) => (e.isFile() || (recursive && e.isDirectory())) && re.test(e.name))) return true
+        return depth > 0 && entries.some((e) => e.isDirectory() && has(join(d, e.name), depth - 1))
+      } catch {
+        return false
+      }
     }
+    return has(dir, recursive ? 4 : 0)
   }
   return existsSync(join(biosDir, file))
 }

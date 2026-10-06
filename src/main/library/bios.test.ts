@@ -54,6 +54,15 @@ const defs: SystemDef[] = [
     bios: [{ file: 'Machines/', md5: '', required: true, description: 'blueMSX' }]
   },
   {
+    id: 'switch',
+    name: 'Switch',
+    manufacturer: 'Nintendo',
+    year: 2017,
+    extensions: [],
+    emulators: [],
+    bios: [{ file: 'switch/firmware/**/*.nca', md5: '', required: true, description: 'firmware' }]
+  },
+  {
     id: 'neogeo',
     name: 'NG',
     manufacturer: 'SNK',
@@ -70,7 +79,23 @@ describe('bios', () => {
   it('reports missing files', async () => {
     const st = await checkBios(defs, biosDir)
     expect(st.every((s) => !s.present && !s.valid)).toBe(true)
-    expect(st.map((s) => s.file)).toEqual(['scph5501.bin', 'scph5502.bin', 'dc/dc_boot.bin', 'ps2/*.bin', 'Machines/', 'neogeo.zip'])
+    expect(st.map((s) => s.file)).toEqual(['scph5501.bin', 'scph5502.bin', 'dc/dc_boot.bin', 'ps2/*.bin', 'Machines/', 'switch/firmware/**/*.nca', 'neogeo.zip'])
+  })
+
+  it('finds Switch firmware in a sub folder, as files or as <id>.nca/00 folders, and imports a folder of it', async () => {
+    const dir = join(tmp, 'bios-switch')
+    const by = async (f: string) => (await checkBios(defs, dir)).find((s) => s.file === f)
+    writeFile(join(dir, 'switch', 'firmware', 'notes.txt'), 'x')
+    expect(await by('switch/firmware/**/*.nca')).toMatchObject({ present: false })
+    writeFile(join(dir, 'switch', 'firmware', 'Firmware 20.1.0', 'abc.nca', '00'), 'n')
+    expect(await by('switch/firmware/**/*.nca')).toMatchObject({ present: true, valid: true })
+
+    const picked = join(tmp, 'picked-fw', 'Firmware 19.0.1')
+    writeFile(join(picked, 'def.nca'), 'n')
+    const res = await importBiosFiles([join(tmp, 'picked-fw', 'Firmware 19.0.1')], defs, join(tmp, 'bios-switch2'))
+    expect(res.imported).toEqual(['switch/firmware/Firmware 19.0.1/'])
+    expect(existsSync(join(tmp, 'bios-switch2', 'switch', 'firmware', 'Firmware 19.0.1', 'def.nca'))).toBe(true)
+    expect((await checkBios(defs, join(tmp, 'bios-switch2'))).find((s) => s.file === 'switch/firmware/**/*.nca')).toMatchObject({ present: true })
   })
 
   it('imports by md5 (renaming), by name, by glob/heuristic and folders', async () => {

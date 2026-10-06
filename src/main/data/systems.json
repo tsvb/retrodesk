@@ -279,10 +279,10 @@
         "description": "Title keys dumped from your own Switch"
       },
       {
-        "file": "switch/firmware/*.nca",
+        "file": "switch/firmware/**/*.nca",
         "md5": "",
         "required": true,
-        "description": "Switch firmware (NCA files) dumped from your own console, in bios/switch/firmware/"
+        "description": "Switch firmware (NCA files) dumped from your own console, in bios/switch/firmware/ or a folder inside it"
       }
     ],
     "folderAliases": [
