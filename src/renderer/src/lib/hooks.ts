@@ -28,7 +28,7 @@ export function useBattery(): BatteryInfo | null {
   const [info, setInfo] = useState<BatteryInfo | null>(null)
   useEffect(() => {
     let mgr: BatteryManager | null = null
-    let cancelled = false
+    let canceled = false
     const update = () => {
       if (!mgr) return
       // Desktops report a permanently charging 100% battery: treat as "no battery".
@@ -41,7 +41,7 @@ export function useBattery(): BatteryInfo | null {
     navigator
       .getBattery?.()
       .then((m) => {
-        if (cancelled) return
+        if (canceled) return
         mgr = m
         update()
         m.addEventListener('levelchange', update)
@@ -49,7 +49,7 @@ export function useBattery(): BatteryInfo | null {
       })
       .catch(() => undefined)
     return () => {
-      cancelled = true
+      canceled = true
       mgr?.removeEventListener('levelchange', update)
       mgr?.removeEventListener('chargingchange', update)
     }

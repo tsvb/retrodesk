@@ -9,6 +9,7 @@ import { HintBar } from '../components/HintBar'
 import { FocusScope, useActions, useFocusGroup } from '../input/hooks'
 import { formatNumber } from '../lib/format'
 import { describeScan } from '../lib/libraryActions'
+import { sep } from '../lib/platform'
 import { useLibrary } from '../stores/library'
 import { findRunningTask, toast, useTasks } from '../stores/session'
 import { useSettings, useSettingsValue } from '../stores/settings'
@@ -74,7 +75,7 @@ function Welcome({ onNext }: { onNext: () => void }) {
       title="Your games, one big screen"
       lead={
         <>
-          <p>RetroDesk turns this PC into a handheld-style console: one library for every system, emulators that install themselves, and a quick menu you can open in the middle of any game.</p>
+          <p>RetroDesk turns this computer into a handheld-style console: one library for every system, emulators that install themselves, and a quick menu you can open in the middle of any game.</p>
           <p>Setup takes a couple of minutes. A controller, or the arrow keys and Enter, gets you through it.</p>
         </>
       }
@@ -131,7 +132,7 @@ function FoldersStep({ onNext }: { onNext: () => void }) {
   return (
     <StepFrame
       title="Show RetroDesk your games"
-      lead={<p>Pick the folder that holds your ROMs. Each system should have its own sub-folder; common names are recognised automatically.</p>}
+      lead={<p>Pick the folder that holds your ROMs. Each system should have its own sub-folder; common names are recognized automatically.</p>}
       actions={
         <>
           <Button size="xl" icon={FolderPlus} onPress={add} autoFocus={!has}>
@@ -145,11 +146,11 @@ function FoldersStep({ onNext }: { onNext: () => void }) {
     >
       <div className="ob-folders">
         <pre className="tree" aria-label="Example folder layout">
-          {`ROMs\\
-  snes\\            Super Metroid.sfc
-  psx\\             Final Fantasy VII (Disc 1).chd
-  Nintendo 64\\     Super Mario 64.z64
-  gba\\             Metroid Fusion.gba`}
+          {`ROMs${sep}
+  snes${sep}            Super Metroid.sfc
+  psx${sep}             Final Fantasy VII (Disc 1).chd
+  Nintendo 64${sep}     Super Mario 64.z64
+  gba${sep}             Metroid Fusion.gba`}
         </pre>
         {has && (
           <ul className="ob-folders__list">
@@ -234,7 +235,7 @@ function ScanStep({ onNext }: { onNext: () => void }) {
             {describeScan(result)}. {missing.length ? `${missing.length} of these systems still need an emulator.` : 'Every system is ready to play.'}
           </p>
         ) : (
-          <p>Check that each system has its own sub-folder with a recognised name, then scan again.</p>
+          <p>Check that each system has its own sub-folder with a recognized name, then scan again.</p>
         )
       }
       actions={

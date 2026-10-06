@@ -5,7 +5,7 @@ import type { EmulatorRef, SystemDef } from './types'
 
 export type EmuRef = { type: 'retroarch'; core: string } | { type: 'standalone'; id: string }
 
-/** Strip catalogue-only fields (`default`) from a systems.json entry. */
+/** Strip catalog-only fields (`default`) from a systems.json entry. */
 export const toRef = (r: EmuRef | EmulatorRef): EmuRef => (r.type === 'retroarch' ? { type: 'retroarch', core: r.core } : { type: 'standalone', id: r.id })
 
 export const refKey = (r: EmuRef | EmulatorRef): string => (r.type === 'retroarch' ? `retroarch:${r.core}` : `standalone:${r.id}`)
@@ -13,7 +13,7 @@ export const refStatusId = (r: EmuRef | EmulatorRef): string => (r.type === 'ret
 
 /**
  * Parse either key format. A bare id is a standalone emulator when `isStandalone` says so (main passes the
- * catalogue lookup; the renderer has no catalogue and accepts any), else a core when it ends in `_libretro`.
+ * catalog lookup; the renderer has no catalog and accepts any), else a core when it ends in `_libretro`.
  */
 export function parseEmulatorKey(key: string | undefined | null, isStandalone: (id: string) => boolean = () => true): EmuRef | undefined {
   if (!key) return undefined

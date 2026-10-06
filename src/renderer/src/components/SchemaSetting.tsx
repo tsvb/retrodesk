@@ -1,6 +1,7 @@
 import { getSetting, SETTINGS_SCHEMA, settingOptions, settingPatch, type SettingDef, type SettingPath, type SettingValue } from '@shared/settingsSchema'
 import type { DeepPartial } from '@shared/api'
 import type { Settings } from '@shared/types'
+import { hostOs } from '../lib/platform'
 import { useSettings, useSettingsValue } from '../stores/settings'
 import { PickerRow, Segmented, SettingRow, ToggleRow, type Option } from './Controls'
 
@@ -20,7 +21,7 @@ export function SchemaSegmented<P extends SettingPath>({ path, size }: { path: P
       size={size}
       value={value as string}
       onChange={(v) => set(v as SettingValue<P>)}
-      options={settingOptions(path) as readonly Option<string>[] as Option<string>[]}
+      options={settingOptions(path, hostOs) as readonly Option<string>[] as Option<string>[]}
     />
   )
 }
@@ -46,7 +47,7 @@ export function SchemaSetting<P extends SettingPath>({ path, disabled }: { path:
       description={def.description}
       value={value as string}
       disabled={disabled}
-      options={settingOptions(path) as readonly Option<string>[] as Option<string>[]}
+      options={settingOptions(path, hostOs) as readonly Option<string>[] as Option<string>[]}
       onChange={(v) => set(v as SettingValue<P>)}
     />
   )

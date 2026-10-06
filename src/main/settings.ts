@@ -5,6 +5,7 @@ import type { DeepPartial } from '../shared/api'
 import type { Settings } from '../shared/types'
 import { deepMerge as merge } from '../shared/merge'
 import { isValidSetting, settingDef, settingDefault as d } from '../shared/settingsSchema'
+import { isUnder } from './library/util'
 import { readJson, writeJsonAtomic } from './util/json'
 import { broadcast } from './events'
 
@@ -17,10 +18,33 @@ export const portableDataDir = (): string | undefined => {
   return dir ? join(dir, 'RetroDesk-data') : undefined
 }
 
+/**
+ * The source folder a dev build runs from (`npm run dev`); undefined in an installed build. Data must not go
+ * there: it would land in the git checkout. A clone at ~/retrodesk is the same folder as the default data folder
+ * ~/RetroDesk wherever file names ignore case (macOS, Windows).
+ */
+export function devSourceDir(): string | undefined {
+  if (app?.isPackaged !== false || typeof app.getAppPath !== 'function') return undefined
+  return app.getAppPath()
+}
+
+/** True for the dev source folder and anything inside it. */
+export function isInsideDevSource(p: string): boolean {
+  const src = devSourceDir()
+  return !!src && isAbsolute(p) && isUnder(p, src)
+}
+
+function defaultDataRoot(): string {
+  const env = process.env['RETRODESK_DATA_ROOT'] || portableDataDir()
+  if (env) return env
+  const home = join(homedir(), 'RetroDesk')
+  return isInsideDevSource(home) ? join(homedir(), 'RetroDesk Data') : home
+}
+
 export function defaultSettings(): Settings {
   return {
     onboarded: false,
-    dataRoot: process.env['RETRODESK_DATA_ROOT'] || portableDataDir() || join(homedir(), 'RetroDesk'),
+    dataRoot: defaultDataRoot(),
     romFolders: [],
     systemEmulator: {},
     ui: {
@@ -59,7 +83,12 @@ const isPlainObject = (v: unknown): v is Record<string, unknown> => typeof v ===
 
 /** Fields whose shape the defaults alone cannot describe (paths, arrays, free-form maps). Keyed by dotted path. */
 const FIELD_CHECKS: Record<string, (v: unknown) => boolean> = {
-  dataRoot: (v) => typeof v === 'string' && isAbsolute(v),
+  dataRoot: (v) => {
+    if (typeof v !== 'string' || !isAbsolute(v)) return false
+    if (!isInsideDevSource(v)) return true
+    console.warn(`[settings] not using ${v} as the data folder: it is inside RetroDesk's source folder (${devSourceDir()})`)
+    return false
+  },
   romFolders: (v) =>
     Array.isArray(v) && v.every((f) => isPlainObject(f) && typeof f['path'] === 'string' && isAbsolute(f['path']) && (f['systemId'] === undefined || typeof f['systemId'] === 'string')),
   systemEmulator: (v) => isPlainObject(v) && Object.values(v).every((x) => x === undefined || typeof x === 'string'),

@@ -1,12 +1,15 @@
 // Bring an emulator window back to the foreground after the overlay closes.
-// A single long-lived PowerShell helper (user32 via Add-Type) is spawned per game session so each request is fast
+// Windows: a single long-lived PowerShell helper (user32 via Add-Type) is spawned per game session so each request is fast
 // (~ms) instead of paying PowerShell start-up every time. The C# is compiled once into a DLL next to the app data
-// (named after a hash of the source, so an update recompiles) and only loaded afterwards: compiling runs csc and
+// (named after a hash of the source, so an update recompiles) and only loaded afterward: compiling runs csc and
 // costs a second or two of CPU, which would otherwise compete with every emulator boot.
+// macOS: the emulator's NSRunningApplication is activated through osascript (JXA). That needs no Accessibility
+// or Automation permission, as no other app is scripted, and starts quickly enough to run once per request.
 import { createHash } from 'crypto'
-import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
+import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { existsSync, readdirSync, rmSync } from 'fs'
 import { join } from 'path'
+import { hostOs } from '../platform'
 
 const CSHARP = String.raw`
 using System;
@@ -120,7 +123,55 @@ export interface FocusHelperOptions {
   cacheDir?: () => string
 }
 
-export class FocusHelper {
+/** What the launcher needs from a focus helper, on either OS. */
+export interface Focuser {
+  /** Get ready in `delayMs`, away from the emulator's start-up. */
+  prewarm(delayMs: number): void
+  /** Resolves false if the helper cannot run. */
+  start(): Promise<boolean>
+  /** Bring `pid` to the front. Resolves "OK" | "FAIL" | "NOWINDOW" | "ERR ..." | "TIMEOUT" | "UNAVAILABLE". */
+  focus(pid: number, timeoutMs?: number): Promise<string>
+  stop(): void
+}
+
+export function createFocusHelper(opts: FocusHelperOptions = {}): Focuser {
+  return hostOs() === 'macos' ? new MacFocusHelper() : new FocusHelper(opts)
+}
+
+/**
+ * JXA run handler: argv[0] is the pid. Hidden apps are unhidden first. Options are numeric because enum constants
+ * are not bridged: 1 = NSApplicationActivateAllWindows, 2 = NSApplicationActivateIgnoringOtherApps.
+ */
+export const MAC_ACTIVATE_SCRIPT = `ObjC.import('AppKit')
+function run(argv) {
+  const app = $.NSRunningApplication.runningApplicationWithProcessIdentifier(Number(argv[0]))
+  if (!app || app.isNil()) return 'NOWINDOW'
+  app.unhide
+  return app.activateWithOptions(3) ? 'OK' : 'FAIL'
+}`
+
+export class MacFocusHelper implements Focuser {
+  prewarm(): void {}
+
+  async start(): Promise<boolean> {
+    return true
+  }
+
+  focus(pid: number, timeoutMs = 3000): Promise<string> {
+    if (!Number.isInteger(pid) || pid <= 0) return Promise.resolve('NOWINDOW')
+    return new Promise((resolve) => {
+      execFile('osascript', ['-l', 'JavaScript', '-e', MAC_ACTIVATE_SCRIPT, String(pid)], { timeout: timeoutMs, encoding: 'utf8' }, (err, stdout, stderr) => {
+        if (!err) return resolve(stdout.trim() || 'FAIL')
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') return resolve('UNAVAILABLE')
+        resolve(err.killed ? 'TIMEOUT' : `ERR ${(stderr || err.message).trim().replace(/\s+/g, ' ')}`)
+      })
+    })
+  }
+
+  stop(): void {}
+}
+
+export class FocusHelper implements Focuser {
   private conn: Connection | null = null
   private nextId = 1
   private warmTimer: NodeJS.Timeout | undefined

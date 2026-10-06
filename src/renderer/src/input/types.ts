@@ -32,4 +32,4 @@ export interface Hint {
   label: string
 }
 
-export type PadFamily = 'xbox' | 'playstation' | 'nintendo' | 'generic'
+export type { PadFamily } from '@shared/pads'

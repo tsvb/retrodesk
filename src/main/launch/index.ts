@@ -12,15 +12,17 @@ import { getPaths } from '../paths'
 import { getSettings, onSettingsChanged } from '../settings'
 import { getSystemDef } from '../systems'
 import { readJson, writeJsonAtomic } from '../util/json'
-import { capturePowerState, enterPerformanceMode, restorePowerState, type PowerState } from '../system'
+import { canSwitchPowerPlan, capturePowerState, enterPerformanceMode, restorePowerState, type PowerState } from '../system'
 import { destroyOverlay, focusMainWindow, isOverlayActive, onOverlayActiveChanged, setOverlayActive, showOverlay } from '../windows'
 import { isRefInstalled, refKey, refStatusId, resolveGameRef, retroArchExe, standaloneExe } from '../emulators'
 import type { EmuRef } from '../emulators/keys'
-import { buildRetroArchArgs, coreDisplayName, coreDllPath, ensureCoreSystemAssets, RA_NETWORK_PORT, raDir, writeAppendConfig } from '../emulators/retroarch'
-import { expandArgs, getStandaloneDef, hasVcRedist, provisionStandalone, resolveRom, vcRedistMessage } from '../emulators/standalone'
+import { buildRetroArchArgs, coreDisplayName, coreLibPath, ensureCoreSystemAssets, RA_NETWORK_PORT, raDir, writeAppendConfig } from '../emulators/retroarch'
+import { expandArgs, getStandaloneDef, hasVcRedist, provisionStandalone, resolveRom, standaloneDataDir, vcRedistMessage } from '../emulators/standalone'
+import { hostOs } from '../platform'
 import { autoFetchableCore, describeMissing, missingBios } from './bios'
 import { fileWrittenSince } from './confirm'
-import { FocusHelper } from './focus'
+import { createFocusHelper } from './focus'
+import { getNativeGamepads } from '../gamepads'
 import { RaCommandClient } from './racommand'
 
 const QUIT_GRACE_MS = 4000
@@ -38,7 +40,7 @@ interface ActiveSession {
   boosted?: boolean
   quitTimer?: NodeJS.Timeout
   exited: boolean
-  /** Serialises overlay pause/resume work. */
+  /** Serializes overlay pause/resume work. */
   chain: Promise<void>
 }
 
@@ -47,7 +49,7 @@ let launching = false
 /** The power-plan restore in flight, if any. */
 let restoring: Promise<void> = Promise.resolve()
 let registeredAccelerator: string | null = null
-const focusHelper = new FocusHelper({ cacheDir: () => app.getPath('userData') })
+const focusHelper = createFocusHelper({ cacheDir: () => app.getPath('userData') })
 /** The focus helper is only needed once the quick menu closes: keep its start-up away from the emulator's. */
 const FOCUS_HELPER_DELAY_MS = 5000
 
@@ -102,10 +104,11 @@ export async function planLaunch(game: Game): Promise<PlanResult> {
 
   if (ref.type === 'retroarch') {
     const exe = retroArchExe()!
-    const { cfgPath, shaderPath } = await writeAppendConfig(settings, paths)
+    // The controller main reads natively (macOS) resolves an "Automatic" button layout for RetroArch's menu too.
+    const { cfgPath, shaderPath, mainCfg } = await writeAppendConfig(settings, paths, false, getNativeGamepads()?.[0]?.id)
     return {
       ok: true,
-      plan: { exe, cwd: dirname(exe), ref, supportsCommands: true, args: buildRetroArchArgs({ coreDll: coreDllPath(paths, ref.core), rom: game.path, appendCfg: cfgPath, shaderPath }) }
+      plan: { exe, cwd: dirname(exe), ref, supportsCommands: true, args: buildRetroArchArgs({ coreDll: coreLibPath(paths, ref.core), rom: game.path, appendCfg: cfgPath, shaderPath, mainCfg }) }
     }
   }
 
@@ -113,7 +116,7 @@ export async function planLaunch(game: Game): Promise<PlanResult> {
   if (!def) return { ok: false, error: `Unknown emulator "${ref.id}"` }
   const exe = standaloneExe(ref.id)!
   if (def.needsVcRedist && !hasVcRedist()) return { ok: false, error: vcRedistMessage(def.name) }
-  const prov = await provisionStandalone(def, dirname(exe), paths.bios)
+  const prov = await provisionStandalone(def, standaloneDataDir(def, dirname(exe)), paths.bios)
   if (!prov.ok) return { ok: false, needs: 'bios', error: prov.error ?? `${def.name} is missing firmware.` }
   let rom
   try {
@@ -167,7 +170,7 @@ export async function launchGame(gameId: string): Promise<LaunchResult> {
     ra = new RaCommandClient(RA_NETWORK_PORT)
     const raOpen = ra.getStatus(200)
     const settings = getSettings()
-    const mode = settings.performance.inGameMode
+    const mode = canSwitchPowerPlan() ? settings.performance.inGameMode : 'unchanged'
     // Let the previous session finish putting its plan back, or we would capture the boosted one as "original".
     const capturing: Promise<PowerState | undefined> =
       mode === 'unchanged'
@@ -260,9 +263,25 @@ async function endSession(s: ActiveSession, code: number | null): Promise<void> 
   }
 }
 
+/** Ask the emulator to close (Windows: WM_CLOSE via taskkill; macOS: SIGTERM). */
+function requestQuit(pid: number | undefined): void {
+  if (!pid) return
+  if (hostOs() === 'macos') signalProcess(pid, 'SIGTERM')
+  else spawn('taskkill', ['/PID', String(pid)], { windowsHide: true, stdio: 'ignore' }).on('error', () => undefined)
+}
+
 function forceKill(pid: number | undefined): void {
   if (!pid) return
-  spawn('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' }).on('error', () => undefined)
+  if (hostOs() === 'macos') signalProcess(pid, 'SIGKILL')
+  else spawn('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' }).on('error', () => undefined)
+}
+
+function signalProcess(pid: number, signal: NodeJS.Signals): void {
+  try {
+    process.kill(pid, signal)
+  } catch {
+    /* already gone */
+  }
 }
 
 function scheduleForceKill(s: ActiveSession): void {
@@ -273,7 +292,7 @@ function scheduleForceKill(s: ActiveSession): void {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Overlay integration: pause RetroArch while the quick menu is open, restore focus afterwards
+// Overlay integration: pause RetroArch while the quick menu is open, restore focus afterward
 // ---------------------------------------------------------------------------------------------
 
 /** Update SessionInfo.paused and notify the UI if it changed. */
@@ -353,7 +372,7 @@ export async function quickAction(action: QuickAction): Promise<void> {
   }
   if (action === 'quit') {
     if (s.ra) await s.ra.send('QUIT').catch(() => undefined)
-    else spawn('taskkill', ['/PID', String(s.info.pid)], { windowsHide: true, stdio: 'ignore' }).on('error', () => undefined)
+    else requestQuit(s.info.pid)
     scheduleForceKill(s)
     return
   }
@@ -407,8 +426,9 @@ function unregisterShortcut(): void {
   registeredAccelerator = null
 }
 
-/** Best-effort synchronous power-plan restore if the app quits mid-game. */
+/** Best-effort synchronous power-plan restore if the app quits mid-game (Windows; macOS never switches plans). */
 function restorePowerSync(p: PowerState, keepRecord = false): void {
+  if (!canSwitchPowerPlan()) return
   try {
     if (p.scheme) spawnSync('powercfg', ['/setactive', p.scheme], { windowsHide: true, timeout: 4000 })
     if (p.overlay) spawnSync('powercfg', ['/overlaysetactive', p.overlay], { windowsHide: true, timeout: 4000 })

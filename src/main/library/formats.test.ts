@@ -17,7 +17,9 @@ describe('referencedFiles', () => {
 
   it('drops references that leave the entry file folder (absolute, UNC, parent)', async () => {
     const cue = join(tmp, 'evil.cue')
-    writeFile(cue, ['FILE "\\\\203.0.113.5\\share\\t.bin" BINARY', 'FILE "C:\\Windows\\win.ini" BINARY', 'FILE "..\\outside.bin" BINARY', 'FILE "ok.bin" BINARY'].join('\n'))
+    // A drive path is only absolute on Windows; elsewhere the absolute path to try is a POSIX one.
+    const absolute = process.platform === 'win32' ? 'C:\\Windows\\win.ini' : '/etc/passwd'
+    writeFile(cue, ['FILE "\\\\203.0.113.5\\share\\t.bin" BINARY', `FILE "${absolute}" BINARY`, 'FILE "..\\outside.bin" BINARY', 'FILE "ok.bin" BINARY'].join('\n'))
     expect(await referencedFiles(cue)).toEqual([join(tmp, 'ok.bin')])
 
     const m3u = join(tmp, 'evil.m3u')

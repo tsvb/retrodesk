@@ -1,5 +1,5 @@
 // Shared data contract between the main process and the renderer.
-// Everything that crosses the IPC boundary is defined here and must stay JSON-serialisable.
+// Everything that crosses the IPC boundary is defined here and must stay JSON-serializable.
 
 import type { SettingValue } from './settingsSchema'
 
@@ -27,9 +27,9 @@ export interface SystemDef {
   thumbnailsFolder?: string
   emulators: EmulatorRef[]
   bios: BiosDef[]
-  /** Folder names (lower-case) that should be recognised as this system when scanning, e.g. ["snes", "sfc", "super nintendo"]. */
+  /** Folder names (lower-case) that should be recognized as this system when scanning, e.g. ["snes", "sfc", "super nintendo"]. */
   folderAliases?: string[]
-  /** Accent colour used by the UI (hex). */
+  /** Accent color used by the UI (hex). */
   color?: string
 }
 
@@ -43,7 +43,7 @@ export interface SystemSummary extends SystemDef {
 export type MediaKind = 'boxart' | 'snap' | 'title'
 
 export interface Game {
-  /** Stable id: sha1 of the normalised absolute path, first 16 hex chars. */
+  /** Stable id: sha1 of the normalized absolute path, first 16 hex chars. */
   id: string
   systemId: SystemId
   /** Absolute path of the ROM (or .cue/.m3u/.chd entry point). */
@@ -89,11 +89,16 @@ export interface RomFolder {
 
 export type PerformanceMode = SettingValue<'performance.inGameMode'>
 
+export type ButtonLayout = SettingValue<'ui.buttonLayout'>
+
+/** The operating systems RetroDesk runs on. */
+export type HostOs = 'windows' | 'macos'
+
 /** Choices and switches are declared in settingsSchema.ts; their types, defaults and validation come from there. */
 export interface Settings {
   /** First-run wizard completed. */
   onboarded: boolean
-  /** Root data directory for emulators, saves, bios, media. Default: %USERPROFILE%\RetroDesk */
+  /** Root data directory for emulators, saves, bios, media. Default: <home>/RetroDesk */
   dataRoot: string
   romFolders: RomFolder[]
   /** Per-system default emulator: `retroarch:<core>` or `standalone:<id>`. */
@@ -109,8 +114,8 @@ export interface Settings {
     startFullscreen: boolean
     /** Show only systems that have games. */
     hideEmptySystems: boolean
-    /** Gamepad face-button layout: 'xbox' => A confirms (bottom), 'nintendo' => swap A/B. */
-    buttonLayout: SettingValue<'ui.buttonLayout'>
+    /** Gamepad face-button layout: 'xbox' => bottom confirms, 'nintendo' => right confirms, 'auto' => by controller. */
+    buttonLayout: ButtonLayout
   }
   retroarch: {
     shader: SettingValue<'retroarch.shader'>
@@ -137,7 +142,7 @@ export interface Settings {
     quickMenuCombo: number[]
   }
   performance: {
-    /** Windows power plan to apply while a game is running. */
+    /** Power plan to apply while a game is running (Windows only; macOS leaves it unchanged). */
     inGameMode: PerformanceMode
   }
   scraping: {
@@ -161,7 +166,7 @@ export interface EmulatorStatus {
   sizeBytes?: number
 }
 
-export type TaskState = 'running' | 'done' | 'error' | 'cancelled'
+export type TaskState = 'running' | 'done' | 'error' | 'canceled'
 
 /** Long-running background job (download, scan, scrape) reported to the UI. */
 export interface TaskSubject {
@@ -207,6 +212,17 @@ export interface SessionInfo {
 }
 
 export type QuickAction = 'resume' | 'save_state' | 'load_state' | 'slot_next' | 'slot_prev' | 'screenshot' | 'fast_forward' | 'pause_toggle' | 'reset' | 'retroarch_menu' | 'quit'
+
+/**
+ * A controller read natively by the main process (macOS, where Chromium's Gamepad API misses common pads), in the
+ * W3C Standard Gamepad layout: 17 button values (0..1, 16 = Guide) and 4 stick axes.
+ */
+export interface NativePad {
+  index: number
+  id: string
+  buttons: number[]
+  axes: number[]
+}
 
 export interface SystemStats {
   cpuPercent: number

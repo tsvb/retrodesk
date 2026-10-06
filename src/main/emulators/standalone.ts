@@ -1,10 +1,15 @@
 // Standalone emulators: release discovery, install (download + extract + portable trigger), argument templating,
 // ROM path resolution for folder-format games and BIOS/config provisioning. What each emulator needs is declared
 // in data/standalone-emulators.json; this file is the machinery that carries it out.
+// A def describes the Windows build; its `macos` block (if any) replaces what differs on macOS, where emulators
+// are app bundles that keep their data in ~/Library/Application Support rather than next to the exe.
+import { execFile } from 'child_process'
 import { existsSync } from 'fs'
 import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'fs/promises'
+import { homedir } from 'os'
 import { basename, dirname, extname, join } from 'path'
 import defsJson from '../data/standalone-emulators.json'
+import { hostArch, hostOs, type HostArch, type HostOs } from '../platform'
 import { dolphinLatest, downloadTrusted, forgejoLatestRelease, githubRelease, isTrustedDownloadUrl, releaseCacheDir, type ResolvedRelease } from './download'
 import { dirSize, extractArchive, findFile, moveMerge, singleTopFolder } from './extract'
 import { downloadDetail, type ProgressSink, waitingFor } from './retroarch'
@@ -55,8 +60,8 @@ export interface StandaloneDef {
   source: ReleaseSource
   assetPattern: string
   fallback: { version: string; url: string } | null
-  archiveType: '7z' | 'zip'
-  /** Exe path relative to the install dir (after flattening a single top-level folder). */
+  archiveType: '7z' | 'zip' | 'dmg' | 'tar.xz'
+  /** Exe path relative to the install dir (after flattening a single top-level folder); on macOS the binary inside the .app. */
   exe: string
   /** Launch args; placeholders: {rom} {titleId} {exeDir}. */
   args: string[]
@@ -66,6 +71,13 @@ export interface StandaloneDef {
   portable: { path: string; kind: 'file' | 'dir'; content?: string }[]
   /** Paths (relative to install dir) holding user data; kept on uninstall. */
   userData: string[]
+  /**
+   * Where the emulator keeps its own data when it is not next to the exe (macOS; "~/" is the home folder).
+   * Firmware `copyTo` / `installed` and `config.file` are relative to this folder, else to the exe dir.
+   */
+  dataDir?: string
+  /** CPU architectures the build runs on (default: all). */
+  archs?: HostArch[]
   needsVcRedist: boolean
   /** How Game.path is turned into the {rom} argument. */
   romKind: 'file' | 'ps3' | 'wiiu' | 'vita'
@@ -80,10 +92,36 @@ export interface StandaloneDef {
   notes?: string
 }
 
-export const STANDALONE_DEFS: StandaloneDef[] = defsJson as StandaloneDef[]
+/** What may differ on macOS; an `arm64` / `x64` block on top of that differs per architecture. */
+type PlatformOverride = Partial<Omit<StandaloneDef, 'id' | 'name' | 'systems' | 'romKind'>>
+export type RawStandaloneDef = StandaloneDef & { macos?: PlatformOverride & Partial<Record<HostArch, PlatformOverride>> }
+
+/**
+ * The def for `os` / `arch`, or undefined when the emulator has no build for it. macOS builds are not portable
+ * and need no Visual C++ runtime, so those default to off there.
+ */
+export function resolveStandaloneDef(raw: RawStandaloneDef, os: HostOs = hostOs(), arch: HostArch = hostArch()): StandaloneDef | undefined {
+  const { macos, ...base } = raw
+  if (os !== 'macos') return base
+  if (!macos) return undefined
+  const { arm64, x64, ...common } = macos
+  const def: StandaloneDef = { ...base, needsVcRedist: false, portable: [], userData: [], ...common, ...(arch === 'arm64' ? arm64 : x64) }
+  return def.archs && !def.archs.includes(arch) ? undefined : def
+}
+
+export const RAW_STANDALONE_DEFS: RawStandaloneDef[] = defsJson as RawStandaloneDef[]
+
+/** The standalone emulators that run on this machine. */
+export const STANDALONE_DEFS: StandaloneDef[] = RAW_STANDALONE_DEFS.map((d) => resolveStandaloneDef(d)).filter((d): d is StandaloneDef => !!d)
 
 export function getStandaloneDef(id: string): StandaloneDef | undefined {
   return STANDALONE_DEFS.find((d) => d.id === id)
+}
+
+/** The folder firmware and config are provisioned into: the def's dataDir, else the exe dir (portable builds). */
+export function standaloneDataDir(def: Pick<StandaloneDef, 'dataDir'>, exeDir: string, home: string = homedir()): string {
+  if (!def.dataDir) return exeDir
+  return def.dataDir.startsWith('~/') ? join(home, ...def.dataDir.slice(2).split('/')) : def.dataDir
 }
 
 export interface InstallPaths {
@@ -150,12 +188,47 @@ export async function installStandalone(def: StandaloneDef, paths: InstallPaths,
   }
   let exePath = join(dir, def.exe)
   if (!existsSync(exePath)) {
-    const found = await findFile(dir, basename(def.exe), 3)
+    // Bundle names can carry the version (PCSX2-v2.8.2.app), so look for the binary, then for any app bundle.
+    const found = (await findFile(dir, basename(def.exe), 3)) ?? (hostOs() === 'macos' ? await findAppExecutable(dir, def.name) : undefined)
     if (!found) throw new Error(`${basename(def.exe)} not found after extracting ${rel.asset.name}`)
     exePath = found
   }
   await ensurePortable(def, dirname(exePath))
   return { version: rel.version, exePath, sizeBytes: await dirSize(dir) }
+}
+
+/** CFBundleExecutable from an Info.plist (XML, or binary converted by plutil). */
+async function bundleExecutable(app: string): Promise<string | undefined> {
+  const plist = join(app, 'Contents', 'Info.plist')
+  const text = await readFile(plist, 'utf8').catch(() => '')
+  const xml = text.startsWith('bplist')
+    ? await new Promise<string>((res) => execFile('plutil', ['-convert', 'xml1', '-o', '-', plist], { timeout: 5000 }, (err, out) => res(err ? '' : String(out))))
+    : text
+  return /<key>CFBundleExecutable<\/key>\s*<string>([^<]+)<\/string>/.exec(xml)?.[1]?.trim()
+}
+
+/**
+ * The executable of the app bundle in `dir` (or one folder down), preferring a bundle named like `name`. Falls
+ * back to the only file in Contents/MacOS when Info.plist doesn't say.
+ */
+export async function findAppExecutable(dir: string, name: string): Promise<string | undefined> {
+  const apps: string[] = []
+  for (const e of await readdir(dir, { withFileTypes: true }).catch(() => [])) {
+    if (!e.isDirectory()) continue
+    if (/\.app$/i.test(e.name)) apps.push(join(dir, e.name))
+    else for (const f of await readdir(join(dir, e.name)).catch(() => [] as string[])) if (/\.app$/i.test(f)) apps.push(join(dir, e.name, f))
+  }
+  const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const named = (app: string) => Number(squash(basename(app)).includes(squash(name)))
+  apps.sort((a, b) => named(b) - named(a))
+  for (const app of apps) {
+    const macos = join(app, 'Contents', 'MacOS')
+    const exe = await bundleExecutable(app)
+    if (exe && existsSync(join(macos, exe))) return join(macos, exe)
+    const files = await readdir(macos).catch(() => [] as string[])
+    if (files.length === 1) return join(macos, files[0]!)
+  }
+  return undefined
 }
 
 /** Create the portable-mode trigger files/dirs next to the exe. */
@@ -413,9 +486,13 @@ async function copyFirmware(item: FirmwareItem, files: string[], exeDir: string)
   }
 }
 
+/** Messages are written with Windows separators; show the ones the player's OS uses. */
+const localSeparators = (text: string): string => (hostOs() === 'macos' ? text.replaceAll('\\', '/') : text)
+
 /**
  * Point a standalone emulator at RetroDesk's BIOS dir / copy what it needs, and check required firmware, as
  * declared by the def's `firmware` and `config`. Called right before every launch (and is cheap when already done).
+ * `exeDir` is the folder those are relative to: see standaloneDataDir.
  */
 export async function provisionStandalone(def: StandaloneDef, exeDir: string, biosDir: string): Promise<ProvisionResult> {
   const found: Record<string, string> = {}
@@ -431,7 +508,7 @@ export async function provisionStandalone(def: StandaloneDef, exeDir: string, bi
     const ready = item.installed ? installed || (files.length > 0 && !item.manual && !item.copyTo) : files.length > 0
     if (ready || !item.required) continue
     const text = files[0] && item.manual ? item.manual.replaceAll('{file}', files[0]) : (item.message ?? `${def.name} needs ${item.label} in {bios}.`)
-    problems.push({ item, error: text.replaceAll('{bios}', biosDir) })
+    problems.push({ item, error: localSeparators(text).replaceAll('{bios}', biosDir) })
   }
 
   if (def.config) {
@@ -457,7 +534,12 @@ export async function provisionStandalone(def: StandaloneDef, exeDir: string, bi
 
   if (!problems.length) return { ok: true }
   if (def.missingMessage) {
-    return { ok: false, error: def.missingMessage.replaceAll('{missing}', problems.map((p) => p.item.label).join(', ')).replaceAll('{bios}', biosDir) }
+    return {
+      ok: false,
+      error: localSeparators(def.missingMessage)
+        .replaceAll('{missing}', problems.map((p) => p.item.label).join(', '))
+        .replaceAll('{bios}', biosDir)
+    }
   }
   return { ok: false, error: problems[0]!.error }
 }

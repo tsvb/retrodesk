@@ -24,7 +24,7 @@ export interface VirtualGridProps<T> {
   onActivate: (item: T, index: number) => void
   /** Label for the confirm hint. */
   activateLabel?: string
-  /** Per-item action bindings (favourite etc.). */
+  /** Per-item action bindings (favorite etc.). */
   itemActions?: (item: T) => ActionMap
   /** Bindings for LT/RT. Defaults to page up/down. */
   pageActions?: ActionMap
@@ -43,7 +43,7 @@ export interface VirtualGridApi {
 const OVERSCAN_ROWS = 2
 
 /**
- * Virtualised, controller-navigable grid/list. The whole grid is ONE focus node: it handles directions
+ * Virtualized, controller-navigable grid/list. The whole grid is ONE focus node: it handles directions
  * internally and lets the spatial navigator take over at its edges (e.g. up from the first row reaches
  * the header controls). Only the visible rows (+ overscan) are rendered, so 5,000+ items stay smooth.
  */

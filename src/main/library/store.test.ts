@@ -32,11 +32,19 @@ function game(title: string, extra: Partial<Game> = {}): Game {
 }
 
 describe('gameIdForPath', () => {
-  it('is case/separator-insensitive and 16 hex chars', () => {
+  // Drive letters and backslashes only mean something on Windows.
+  it.runIf(process.platform === 'win32')('is case/separator-insensitive and 16 hex chars', () => {
     const a = gameIdForPath('C:\\Roms\\SNES\\Game.sfc')
     expect(a).toMatch(/^[0-9a-f]{16}$/)
     expect(gameIdForPath('c:/roms/snes/game.sfc')).toBe(a)
     expect(gameIdForPath('C:\\Roms\\SNES\\Other.sfc')).not.toBe(a)
+  })
+
+  it.skipIf(process.platform === 'win32')('is case-insensitive, ignores a trailing slash and is 16 hex chars (macOS)', () => {
+    const a = gameIdForPath('/Users/me/Roms/SNES/Game.sfc')
+    expect(a).toMatch(/^[0-9a-f]{16}$/)
+    expect(gameIdForPath('/users/me/roms/snes/game.sfc/')).toBe(a)
+    expect(gameIdForPath('/Users/me/Roms/SNES/Other.sfc')).not.toBe(a)
   })
 })
 
@@ -59,7 +67,7 @@ describe('GameStore', () => {
     expect(titles({ sort: 'playTime', limit: 1 })).toEqual(['The Legend of Zelda: A Link to the Past'])
     expect(titles({ sort: 'lastPlayed' })[0]).toBe('Pokémon Stadium')
     expect(titles({ sort: 'added' })[0]).toBe('Game 10')
-    expect(titles({ sort: 'system' })[3]).toBe('Pokémon Stadium') // catalogue order: nes, snes, n64
+    expect(titles({ sort: 'system' })[3]).toBe('Pokémon Stadium') // catalog order: nes, snes, n64
     expect(s.recent(10).map((g) => g.title)).toEqual(['Pokémon Stadium', 'The Legend of Zelda: A Link to the Past'])
   })
 

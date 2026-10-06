@@ -15,8 +15,8 @@ Confidence markers: **[confirmed]** means several sources agree. **[reported]** 
 | Screen | 5.5" AMOLED touchscreen, 1920x1080, up to 120 Hz, switchable between 60 and 120 Hz. Reviewers mention black-frame-insertion and CRT shader use at 120 Hz. [confirmed] |
 | Controls | Hall-effect sticks with L3/R3, analog L2/R2 (the "L2/R2 mode" setting picks analog, digital or both), L1/R1, ABXY, Start/Select, D-pad. Sold in two physical layouts: D-pad above or below the left stick. [confirmed] |
 | System buttons | Dedicated **Home** and **Back** buttons on the front, beside the speakers (moved there in the post-feedback redesign). Two programmable rear buttons, **M1/M2**, which were first under the screen and then moved to the back. Power and volume buttons on the right edge. [confirmed] |
-| Other | Joystick RGB LEDs (colour is set from quick settings), active cooling fan, 6000 mAh battery with 27 W charging, Wi-Fi 7, BT 5.3, USB-C 3.1 with DisplayPort output up to 4K60, 3.5 mm jack. [confirmed] |
-| OS | Android 13 with Retroid customisations and official OTA updates. No games are preloaded. [confirmed] |
+| Other | Joystick RGB LEDs (color is set from quick settings), active cooling fan, 6000 mAh battery with 27 W charging, Wi-Fi 7, BT 5.3, USB-C 3.1 with DisplayPort output up to 4K60, 3.5 mm jack. [confirmed] |
+| OS | Android 13 with Retroid customizations and official OTA updates. No games are preloaded. [confirmed] |
 | Price | Roughly $209 (8/128) to $259 (12 GB). Launched late 2025, shipped around January 2026. [reported] |
 
 ---
@@ -29,14 +29,14 @@ Confidence markers: **[confirmed]** means several sources agree. **[reported]** 
 - Per-platform **emulator selection**, including standalone apps or specific RetroArch cores, and file-extension (suffix) filtering. [reported]
 - **Direct launch**: opens the chosen emulator with the game, then returns to the launcher when the emulator closes. [confirmed]
 - Scraping: some reviews say it imports the collection and fetches box art and screenshots automatically "with varying success". Other guides say scraping is limited. Treat it as basic and unreliable. [conflicting]
-- It also works as a hub for handheld settings. Reviews call it "clean", "colourful", "serviceable" and "barely adequate". Most enthusiasts replace it with ES-DE, Daijisho, Beacon or iiSU. [confirmed]
+- It also works as a hub for handheld settings. Reviews call it "clean", "colorful", "serviceable" and "barely adequate". Most enthusiasts replace it with ES-DE, Daijisho, Beacon or iiSU. [confirmed]
 
 ### 2.2 Quick Settings / "Handheld Settings" (system level)
 Reached by swiping down twice for quick-settings tiles, or through Settings > Handheld Settings. [confirmed]
 - **Performance profile**: Standard / Balanced / Performance / High Performance. The available steps depend on firmware. Sources recommend Standard for retro systems and High Performance for PS2, GameCube, Switch and Wii U. [confirmed]
 - **Fan mode**: Quiet / Smart / Sport or Extreme (some sources say Balanced / Performance) plus custom. Smart measured about 52 dB and Extreme about 58 dB. [confirmed, naming varies]
 - **Refresh rate**: 60 Hz or 120 Hz. [confirmed]
-- **Joystick LED colour and effects**. [confirmed]
+- **Joystick LED color and effects**. [confirmed]
 - **Controller style**: Xbox layout or Nintendo/"retro" layout. This swaps how Android reports A/B and X/Y. [confirmed]
 - **L2/R2 mode**: analog, digital, or both. [confirmed]
 - **Vibration strength**. [reported]
@@ -72,10 +72,10 @@ Reached by swiping down twice for quick-settings tiles, or through Settings > Ha
 |---|---|---|
 | **ES-DE** (EmulationStation Desktop Edition) | Paid on Android (Patreon, about $5); free on Windows/Linux/macOS | Deepest theme engine with a downloadable theme library (Linear bundled on Android; Modern and Slate available). Scrapes ScreenScraper and TheGamesDB, including videos. Media types: covers, 3D boxes, marquees, screenshots, title screens, fan art, miximages, videos and PDF manuals. Automatic collections (All Games, Favorites, Last Played) plus custom collections. Filters, random game, per-system and per-game alternative emulators, screensavers (dim, black, slideshow, video), kid and kiosk UI modes, metadata editor, play count and last-played tracking, dual-screen support. |
 | **Daijisho** | Free, no ads | Fast on all hardware. Platform index downloads, "player" (emulator intent) templates, per-game emulator choice, built-in scraping, per-system wallpapers, list or grid views, light and dark themes, favorites, recently played and search. |
-| **Beacon** | Free with extras / about $3-4 | Minimal clean grid, wallpaper and accent colours, in-app box art scraping, very easy setup. |
-| **iiSU** | Free (alpha) | Visuals-first animated UI that recreates PSP/3DS/Wii U menus, widgets, **built-in RetroAchievements**, StreetPass/Miiverse-style social features, dual-screen optimised. Development has been quiet since July 2026. |
+| **Beacon** | Free with extras / about $3-4 | Minimal clean grid, wallpaper and accent colors, in-app box art scraping, very easy setup. |
+| **iiSU** | Free (alpha) | Visuals-first animated UI that recreates PSP/3DS/Wii U menus, widgets, **built-in RetroAchievements**, StreetPass/Miiverse-style social features, dual-screen optimized. Development has been quiet since July 2026. |
 | **Retroid Launcher** | Stock | See 2.1. |
-| Others | - | Cocoon (dual-screen), Pegasus (free, hard to configure), LaunchBox Android, RESET Collection (randomiser, YouTube video snaps), RetroX (subscription with cloud saves), Plain Launcher, DIG. |
+| Others | - | Cocoon (dual-screen), Pegasus (free, hard to configure), LaunchBox Android, RESET Collection (randomizer, YouTube video snaps), RetroX (subscription with cloud saves), Plain Launcher, DIG. |
 | Utility | - | **Obtainium** watches GitHub releases and keeps emulator APKs up to date. |
 
 ### 3.2 Emulators per system (RP6 consensus, 2026)
@@ -99,7 +99,7 @@ Reached by swiping down twice for quick-settings tiles, or through Settings > Ha
 | Windows PC games | Winlator (Cmod/Bionic), GameHub, GameNative | Indies and older AAA titles at 720p (e.g. Arkham Asylum at 60). 12 GB model recommended. Winlator Cmod is reported about 20 fps faster than GameHub. |
 | Native Android / streaming | Play Store games, Moonlight, Steam Link, xCloud, GeForce Now | Excellent |
 
-Typical tuning: Vulkan everywhere. RetroArch with run-ahead (1 frame) and integer scaling. Per-game overrides. Emulator battery optimisation set to "Unrestricted". Developer animation scale at 0.5x. Three-button navigation enabled.
+Typical tuning: Vulkan everywhere. RetroArch with run-ahead (1 frame) and integer scaling. Per-game overrides. Emulator battery optimization set to "Unrestricted". Developer animation scale at 0.5x. Three-button navigation enabled.
 
 ### 3.3 Folder conventions
 `/Roms/<System>/` on the SD card, with BIOS placed per emulator (DuckStation `bios/`, NetherSX2 `bios/`, RetroArch `system/`). ES-DE uses its own `ROMs/<system>` naming and `ES-DE/` data folders.
@@ -109,7 +109,7 @@ Typical tuning: Vulkan everywhere. RetroArch with run-ahead (1 frame) and intege
 ## 4. Frontend and emulator UX features people love
 
 **Library and frontend**
-- Themes and theme downloader (ES-DE), animated console-style UIs (iiSU), wallpapers and accent colours (Daijisho, Beacon).
+- Themes and theme downloader (ES-DE), animated console-style UIs (iiSU), wallpapers and accent colors (Daijisho, Beacon).
 - Scraping from ScreenScraper, TheGamesDB and libretro-thumbnails: box art, 3D boxes, marquees/wheels, screenshots, **video snaps** that play while browsing, fan art, manuals, descriptions, genres, release dates and ratings.
 - Collections: auto (All, Favorites, Last/Recently Played) and custom, genre collections, filters, search, random game, jump-to-letter.
 - Favorites, hide game, mark completed or broken.
@@ -148,13 +148,13 @@ Typical tuning: Vulkan everywhere. RetroArch with run-ahead (1 frame) and intege
 | **Performance profiles** (Standard to High Performance) | Switch **Windows power plans or overlays** (`powercfg /setactive`, Balanced/Best performance overlays) and optionally process priority and affinity. On AMD handheld PCs use the RyzenAdj TDP presets; on Intel, the vendor tools. Presets can be per game or per system. Keep the expectations modest on desktops. |
 | **Fan mode** | Usually not controllable on a desktop. Optionally integrate FanControl/LibreHardwareMonitor, or read-only display. Low priority. |
 | **60/120 Hz refresh switch** | Use `ChangeDisplaySettingsEx` / DisplayConfig APIs to set the refresh rate per game or system (e.g. 60 Hz for retro, max for BFI or modern games). Also VRR/G-Sync awareness. Restore on exit. |
-| **Joystick LED colour** | SDL `SDL_SetGamepadLED` (DualSense/DS4/some third-party pads). Optional nicety. |
+| **Joystick LED color** | SDL `SDL_SetGamepadLED` (DualSense/DS4/some third-party pads). Optional nicety. |
 | **Charging limit** | Not applicable (on laptops this is an OEM feature). Skip. |
 | **Key Adapter (touch mapping for Android games)** | Equivalent is a **gamepad-to-keyboard/mouse mapper** for PC games and emulators without controller support, as in Steam Input, JoyToKey or AntiMicroX: per-app profiles, stick to mouse, button to key or macro. |
 | **Screenshot / screen recording** | RetroArch `SCREENSHOT` / `RECORDING_TOGGLE` when it is in focus. Otherwise **Windows.Graphics.Capture** for a per-window screenshot, or FFmpeg `ddagrab` / Windows.Media.Capture for clips, plus an "instant replay" ring buffer if wanted. Files are saved per game and shown in the game's gallery. |
-| **Retroid Launcher / frontend** | A **10-foot, controller-first library UI**. Per-system ROM folders, platform definitions (system to extensions and emulators), per-system and per-game emulator or core choice, direct launch that **returns to the frontend when the emulator exits** (watch the child process), and kiosk/fullscreen behaviour. Can import or interoperate with ES-DE gamelists and RetroArch playlists. |
+| **Retroid Launcher / frontend** | A **10-foot, controller-first library UI**. Per-system ROM folders, platform definitions (system to extensions and emulators), per-system and per-game emulator or core choice, direct launch that **returns to the frontend when the emulator exits** (watch the child process), and kiosk/fullscreen behavior. Can import or interoperate with ES-DE gamelists and RetroArch playlists. |
 | **Scraping / media** | ScreenScraper API (needs a dev ID and user credentials), TheGamesDB, IGDB, and libretro-thumbnails (free, keyed by No-Intro name) for box art, screenshots, title screens, marquees, 3D boxes, **video snaps**, manuals and metadata. Hashing (CRC32/MD5/SHA1) for exact matching. Local cache. |
-| **Themes** | Theme engine with downloadable themes, wallpapers per system, accent colours, grid/list/carousel views, and optional animated console-style themes (iiSU-like). |
+| **Themes** | Theme engine with downloadable themes, wallpapers per system, accent colors, grid/list/carousel views, and optional animated console-style themes (iiSU-like). |
 | **Collections / favorites / recently played / play time** | SQLite library with auto collections (All, Favorites, Recently Played, Most Played, Never Played) and custom/genre collections, filters, search, random game. **Play time** is tracked by timing the emulator process. RetroArch runtime logs can also be imported. |
 | **Quick resume** | When leaving a game, send `SAVE_STATE` to an auto slot (RetroArch `savestate_auto_save/auto_load`, or emulator "resume state" CLI flags) before closing. A "Resume" tile then reloads it. Optionally **suspend the process** (NtSuspendProcess) for instant switching between running games, with an "active game" indicator in the frontend. |
 | **Save states / hotkeys** | Unified hotkey layer (Select-chord scheme by default, user-remappable) translated per emulator through the network command or keystroke injection. Save-state browser with thumbnails where readable. |

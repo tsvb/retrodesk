@@ -8,9 +8,11 @@ import './styles/components.css'
 import './styles/screens.css'
 import './styles/overlay.css'
 import { bridgeMissing } from './api'
+import { isMac } from './lib/platform'
 
 const isOverlay = location.hash.startsWith('#/overlay')
 if (isOverlay) document.documentElement.classList.add('is-overlay')
+if (isMac) document.documentElement.classList.add('is-mac')
 
 /** Shown instead of the app when the preload script did not load. */
 function BridgeMissing() {

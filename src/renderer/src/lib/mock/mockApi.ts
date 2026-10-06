@@ -7,6 +7,7 @@ import type {
   Game,
   GameQuery,
   LaunchResult,
+  NativePad,
   PerformanceMode,
   QuickAction,
   ScanResult,
@@ -72,7 +73,8 @@ export function createMockApi(): RetroDeskApi {
     session: new Set<(s: SessionInfo | null) => void>(),
     libraryChanged: new Set<() => void>(),
     overlay: new Set<(v: boolean) => void>(),
-    settingsChanged: new Set<(s: Settings) => void>()
+    settingsChanged: new Set<(s: Settings) => void>(),
+    gamepads: new Set<(p: NativePad[]) => void>()
   }
   const sub = <T>(set: Set<T>, cb: T) => {
     set.add(cb)
@@ -86,7 +88,7 @@ export function createMockApi(): RetroDeskApi {
     dataRoot: ROOT,
     romFolders: params.has('empty') || params.has('onboarding') ? [] : [{ path: 'D:\\Games\\ROMs' }, { path: 'E:\\Arcade', systemId: 'arcade' }],
     systemEmulator: {},
-    ui: { theme: 'midnight', accent: '#7c5cff', density: 'comfortable', sounds: true, haptics: true, startFullscreen: false, hideEmptySystems: true, buttonLayout: 'xbox' },
+    ui: { theme: 'midnight', accent: '#7c5cff', density: 'comfortable', sounds: true, haptics: true, startFullscreen: false, hideEmptySystems: true, buttonLayout: 'auto' },
     retroarch: { shader: 'none', autoSaveState: true, autoLoadState: true, showFps: false, runAhead: false, rewind: false, integerScale: false, aspect: 'core', videoDriver: 'vulkan' },
     retroAchievements: { enabled: false, username: '', password: '', hardcore: false },
     hotkeys: { quickMenu: 'Control+Alt+Home', quickMenuCombo: [8, 9] },
@@ -423,7 +425,11 @@ export function createMockApi(): RetroDeskApi {
       },
       async getVersion() {
         return '0.1.0-preview'
-      }
+      },
+      async getGamepads() {
+        return null
+      },
+      async rumbleGamepads() {}
     },
     window: {
       async toggleFullscreen() {
@@ -448,7 +454,8 @@ export function createMockApi(): RetroDeskApi {
       session: (cb) => sub(listeners.session, cb),
       libraryChanged: (cb) => sub(listeners.libraryChanged, cb),
       overlay: (cb) => sub(listeners.overlay, cb),
-      settingsChanged: (cb) => sub(listeners.settingsChanged, cb)
+      settingsChanged: (cb) => sub(listeners.settingsChanged, cb),
+      gamepads: (cb) => sub(listeners.gamepads, cb)
     }
   }
   return api

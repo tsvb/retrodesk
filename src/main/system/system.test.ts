@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { OVERLAYS, parseActiveScheme, parseRegValue } from './power'
-import { cpuPercentBetween, parseBatteryJson, parseNvidiaSmi } from './stats'
+import { OVERLAYS, parseActiveScheme, parseLowPowerMode, parseRegValue } from './power'
+import { cpuPercentBetween, parseBatteryJson, parseNvidiaSmi, parsePmsetBatt } from './stats'
 
 describe('stats parsing', () => {
   it('parses nvidia-smi csv', () => {
@@ -19,6 +19,19 @@ describe('stats parsing', () => {
     expect(parseBatteryJson('{"EstimatedChargeRemaining":99,"BatteryStatus":2}')).toEqual({ percent: 99, charging: true })
     expect(parseBatteryJson('[{"EstimatedChargeRemaining":40,"BatteryStatus":1}]')).toEqual({ percent: 40, charging: false })
     expect(parseBatteryJson('')).toBeNull()
+  })
+
+  it('parses pmset battery output', () => {
+    expect(parsePmsetBatt("Now drawing from 'Battery Power'\n -InternalBattery-0 (id=4653155)\t85%; discharging; 4:12 remaining present: true\n")).toEqual({ percent: 85, charging: false })
+    expect(parsePmsetBatt("Now drawing from 'AC Power'\n -InternalBattery-0 (id=4653155)\t100%; charged; 0:00 remaining present: true\n")).toEqual({ percent: 100, charging: true })
+    // A desktop Mac has no battery line.
+    expect(parsePmsetBatt("Now drawing from 'AC Power'\n")).toBeNull()
+  })
+
+  it('reads Low Power Mode from pmset', () => {
+    expect(parseLowPowerMode('System-wide power settings:\nCurrently in use:\n lowpowermode         1\n sleep                1\n')).toBe(true)
+    expect(parseLowPowerMode('Currently in use:\n lowpowermode         0\n')).toBe(false)
+    expect(parseLowPowerMode('')).toBe(false)
   })
 
   it('computes cpu percent from samples', () => {

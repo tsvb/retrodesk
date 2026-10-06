@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { pushInterceptor } from '../input/bus'
+import { getPads } from '../input/pads'
 import { FocusScope } from '../input/hooks'
-import { useInputStore } from '../stores/input'
-import { useSettings } from '../stores/settings'
+import { useButtonLayout, useInputStore } from '../stores/input'
 import { buttonForAction, padButtonDef, PadButton } from './Glyph'
 import { Button } from './Button'
 import type { PadFamily } from '../input/types'
@@ -24,7 +24,7 @@ export function ControllerTester({ onClose }: { onClose: () => void }) {
   const [snap, setSnap] = useState<PadSnapshot | null>(null)
   const [exitProgress, setExitProgress] = useState(0)
   const pads = useInputStore((s) => s.pads)
-  const layout = useSettings((s) => s.settings?.ui.buttonLayout ?? 'xbox')
+  const layout = useButtonLayout()
   const family: PadFamily = pads[0]?.family ?? 'xbox'
   const closeRef = useRef(onClose)
   closeRef.current = onClose
@@ -50,7 +50,7 @@ export function ControllerTester({ onClose }: { onClose: () => void }) {
       raf = requestAnimationFrame(tick)
       // Background throttling is off app-wide: don't re-render the tester every frame for an unfocused window.
       if (!document.hasFocus()) return
-      const gp = navigator.getGamepads().find((g): g is Gamepad => !!g && g.connected)
+      const gp = getPads().find((g): g is Gamepad => !!g && g.connected)
       if (!gp) {
         setSnap(null)
         return

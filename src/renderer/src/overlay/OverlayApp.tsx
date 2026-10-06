@@ -16,9 +16,10 @@ import { installKeyboard } from '../input/keyboard'
 import { formatClock, formatDuration } from '../lib/format'
 import { useBattery, useNow } from '../lib/hooks'
 import { feedback } from '../lib/feedback'
+import { canSwitchPowerPlan } from '../lib/platform'
 import { primeAudioOnGesture } from '../lib/sound'
 import { systemColor } from '../lib/color'
-import { useInputStore } from '../stores/input'
+import { currentButtonLayout, useInputStore } from '../stores/input'
 import { toast, useToasts } from '../stores/session'
 import { followSettingsChanges, useSettings } from '../stores/settings'
 
@@ -161,7 +162,7 @@ export function OverlayApp() {
       }),
       installGamepad({
         mode: 'overlay',
-        getLayout: () => useSettings.getState().settings?.ui.buttonLayout ?? 'xbox',
+        getLayout: currentButtonLayout,
         getCombo: () => useSettings.getState().settings?.hotkeys.quickMenuCombo ?? [8, 9],
         isActive: () => activeRef.current,
         onCombo: () => (activeRef.current ? void resume() : open())
@@ -302,23 +303,25 @@ function Panel({ session, system, onResume }: { session: SessionInfo | null; sys
             <p className="qa__legend">While playing, hold Select and press the button shown.</p>
           </>
         )}
-        <div className="qa__perf">
-          <span className="qa__label">Performance</span>
-          <Segmented
-            group="qa-perf"
-            value={mode}
-            onChange={(m) => {
-              setMode(m)
-              void api.system.setPerformanceMode(m).then(() => toast(`Performance mode: ${m === 'unchanged' ? 'Windows default' : m}`, 'success'))
-            }}
-            options={[
-              { value: 'quiet', label: 'Quiet' },
-              { value: 'balanced', label: 'Balanced' },
-              { value: 'performance', label: 'Max' },
-              { value: 'unchanged', label: 'Default' }
-            ]}
-          />
-        </div>
+        {canSwitchPowerPlan && (
+          <div className="qa__perf">
+            <span className="qa__label">Performance</span>
+            <Segmented
+              group="qa-perf"
+              value={mode}
+              onChange={(m) => {
+                setMode(m)
+                void api.system.setPerformanceMode(m).then(() => toast(`Performance mode: ${m === 'unchanged' ? 'system default' : m}`, 'success'))
+              }}
+              options={[
+                { value: 'quiet', label: 'Quiet' },
+                { value: 'balanced', label: 'Balanced' },
+                { value: 'performance', label: 'Max' },
+                { value: 'unchanged', label: 'Default' }
+              ]}
+            />
+          </div>
+        )}
         {common && <ActionButton id="quit" variant="danger" {...common} />}
       </div>
 

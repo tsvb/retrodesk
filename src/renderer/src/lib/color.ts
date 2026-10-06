@@ -1,4 +1,4 @@
-/** Small colour helpers used for generated covers, system cards and the ambient background. */
+/** Small color helpers used for generated covers, system cards and the ambient background. */
 
 export function hashString(s: string): number {
   let h = 2166136261
@@ -42,7 +42,7 @@ export function rgbToHex(r: number, g: number, b: number): string {
   return `#${to(r)}${to(g)}${to(b)}`
 }
 
-/** Linear mix of two hex colours; t=0 -> a, t=1 -> b. */
+/** Linear mix of two hex colors; t=0 -> a, t=1 -> b. */
 export function mix(a: string, b: string, t: number): string {
   const [r1, g1, b1] = hexToRgb(a)
   const [r2, g2, b2] = hexToRgb(b)
@@ -57,7 +57,7 @@ export function luminance(hex: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b
 }
 
-/** Deterministic colour for anything that has an id but no explicit colour. */
+/** Deterministic color for anything that has an id but no explicit color. */
 export function colorFromId(id: string): string {
   const h = hashString(id)
   return hslToHex(h % 360, 58 + (h % 17), 52 + ((h >> 8) % 8))
@@ -68,7 +68,7 @@ export function systemColor(system: { id: string; color?: string } | undefined |
   return system.color && /^#[0-9a-f]{3,8}$/i.test(system.color) ? system.color : colorFromId(system.id)
 }
 
-/** A two-stop palette for gradients derived from a base colour. */
+/** A two-stop palette for gradients derived from a base color. */
 export function paletteFor(base: string): { light: string; base: string; deep: string; ink: string } {
   return {
     light: mix(base, '#ffffff', 0.28),
@@ -93,7 +93,7 @@ export function hexToHsl(hex: string): [number, number, number] {
   return [h, s * 100, l * 100]
 }
 
-/** A sibling colour for per-game variety: same family, hue nudged by a stable hash of the key. */
+/** A sibling color for per-game variety: same family, hue nudged by a stable hash of the key. */
 export function variantOf(base: string, key: string, spread = 26): string {
   const [h, s, l] = hexToHsl(base)
   const n = hashString(key)

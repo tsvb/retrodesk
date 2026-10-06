@@ -11,6 +11,7 @@ import { useActions, useFocusGroup } from '../input/hooks'
 import { systemColor } from '../lib/color'
 import { formatPlayTime, formatRelative, letterOf, plural } from '../lib/format'
 import { feedback } from '../lib/feedback'
+import { sep } from '../lib/platform'
 import { systemById, useLibrary } from '../stores/library'
 import { useNav } from '../stores/nav'
 import { toast } from '../stores/session'
@@ -127,7 +128,7 @@ export function GameListScreen({ systemId }: { systemId: string }) {
   // Stable grid callbacks: moving focus re-renders this screen, and the memoized cells should not follow.
   const getKey = useCallback((g: Game) => g.id, [])
   const onActivate = useCallback((g: Game) => push({ name: 'game', gameId: g.id }), [push])
-  const itemActions = useCallback((g: Game) => ({ favorite: { label: g.favorite ? 'Unfavourite' : 'Favourite', run: () => void toggleFavorite(g) } }), [])
+  const itemActions = useCallback((g: Game) => ({ favorite: { label: g.favorite ? 'Unfavorite' : 'Favorite', run: () => void toggleFavorite(g) } }), [])
   const renderCell = useCallback(
     (g: Game, focused: boolean) => {
       if (!system) return null
@@ -154,7 +155,7 @@ export function GameListScreen({ systemId }: { systemId: string }) {
           <div className="gl-head__text">
             <h1 className="gl-head__title">{system.name}</h1>
             <p className="gl-head__sub">
-              {system.manufacturer}, {system.year}. {raw ? plural(games.length, favOnly ? 'favourite' : 'game') : 'Loading'}
+              {system.manufacturer}, {system.year}. {raw ? plural(games.length, favOnly ? 'favorite' : 'game') : 'Loading'}
             </p>
           </div>
         </div>
@@ -175,9 +176,9 @@ export function GameListScreen({ systemId }: { systemId: string }) {
               setFavOnly((f) => !f)
               setIndex(0)
             }}
-            label={favOnly ? 'Show all' : 'Favourites only'}
+            label={favOnly ? 'Show all' : 'Favorites only'}
           >
-            Favourites
+            Favorites
           </Button>
           <Button
             icon={view === 'grid' ? List : LayoutGrid}
@@ -281,15 +282,15 @@ function EmptySystem({ system, favOnly }: { system: SystemSummary; favOnly: bool
     <div className="gl-empty">
       {favOnly ? (
         <>
-          <h2>No favourites here yet</h2>
-          <p>Press the favourite button on any {system.shortName ?? system.name} game to pin it here.</p>
+          <h2>No favorites here yet</h2>
+          <p>Press the favorite button on any {system.shortName ?? system.name} game to pin it here.</p>
         </>
       ) : (
         <>
           <h2>No {system.name} games yet</h2>
           <p>
-            Put {system.extensions.join(', ')} files in <code>{dataRoot ? `${dataRoot}\\roms\\${folder}` : `roms\\${folder}`}</code> or any ROM folder sub-folder named <code>{folder}</code>, then
-            rescan from Settings.
+            Put {system.extensions.join(', ')} files in <code>{[dataRoot, 'roms', folder].filter(Boolean).join(sep)}</code> or any ROM folder sub-folder named <code>{folder}</code>, then rescan from
+            Settings.
           </p>
         </>
       )}

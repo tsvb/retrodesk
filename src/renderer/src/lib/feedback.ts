@@ -2,6 +2,8 @@
  * What the UI does back when you do something: one table from event to sound and controller rumble.
  * Every screen calls feedback(event); nothing else plays a sound or shakes a pad.
  */
+import { api } from '../api'
+import { padsAreNative } from '../input/pads'
 import { useInputStore } from '../stores/input'
 import { playSound, type UiSound } from './sound'
 
@@ -34,6 +36,10 @@ export function setHapticsEnabled(on: boolean): void {
 function rumble(r: Rumble): void {
   // Only when a pad is what the player is holding: a controller buzzing on the sofa during mouse use is a bug.
   if (!haptics || useInputStore.getState().source !== 'pad') return
+  if (padsAreNative()) {
+    void api.system.rumbleGamepads(r.light, r.heavy, r.ms).catch(() => undefined)
+    return
+  }
   try {
     for (const pad of navigator.getGamepads()) {
       // Not every pad or driver has an actuator; those that don't simply stay still.

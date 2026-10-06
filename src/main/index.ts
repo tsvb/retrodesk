@@ -12,12 +12,13 @@ import { ThumbCache, thumbWidth } from './library/thumbs'
 import { initEmulators, emulatorsHandlers } from './emulators'
 import { initLaunch, gameHandlers } from './launch'
 import { getStats, setPerformanceMode } from './system'
+import { getNativeGamepads, initNativeGamepads, rumbleNativeGamepads } from './gamepads'
 
 // Keep the frontend + overlay "visible" to Chromium while a fullscreen emulator covers them,
-// otherwise Windows occlusion tracking hides the page and gamepad polling / timers stop.
-app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
+// otherwise Windows (or macOS) occlusion tracking hides the page and gamepad polling / timers stop.
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion,MacWebContentsOcclusion')
 app.commandLine.appendSwitch('disable-background-timer-throttling')
-app.setAppUserModelId('com.retrodesk.app')
+if (process.platform === 'win32') app.setAppUserModelId('com.retrodesk.app')
 // Where app state (settings, library DB) lives: RETRODESK_USER_DATA is the test hook; the portable build keeps
 // it next to the exe so nothing is left behind in %APPDATA%.
 const portableData = portableDataDir()
@@ -48,7 +49,7 @@ const systemHandlers: RetroDeskApi['system'] = {
     return r.canceled ? [] : r.filePaths
   },
   async openPath(p) {
-    // The UI only opens folders RetroDesk manages. Never hand the shell an arbitrary path (it would run an .exe).
+    // The UI only opens folders RetroDesk manages. Never hand the shell an arbitrary path (it would run an .exe or .app).
     if (!isManagedPath(p)) return
     const st = await stat(p).catch(() => null)
     if (st?.isDirectory()) await shell.openPath(p)
@@ -62,6 +63,12 @@ const systemHandlers: RetroDeskApi['system'] = {
   },
   async getVersion() {
     return app.getVersion()
+  },
+  async getGamepads() {
+    return getNativeGamepads()
+  },
+  async rumbleGamepads(light, heavy, durationMs) {
+    rumbleNativeGamepads(light, heavy, durationMs)
   }
 }
 
@@ -187,6 +194,8 @@ if (!gotLock) {
   app.quit()
 } else {
   app.on('second-instance', () => focusMainWindow())
+  // macOS: clicking the Dock icon.
+  app.on('activate', () => focusMainWindow())
 
   app
     .whenReady()
@@ -194,6 +203,7 @@ if (!gotLock) {
       if (!ensureDataRoot()) return app.quit()
       registerMediaProtocol()
       registerIpc()
+      initNativeGamepads()
       // Open the window first so it paints (and loads settings) while the library loads.
       createMainWindow()
       try {

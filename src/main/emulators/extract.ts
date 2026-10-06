@@ -1,15 +1,48 @@
-// Archive extraction via the bundled 7za.exe (handles .7z and .zip, including Azahar's backslash entry names)
-// plus small filesystem helpers used by installers.
+// Archive extraction via the bundled 7za (handles .7z and .zip, including Azahar's backslash entry names) plus
+// small filesystem helpers used by installers. On macOS, disk images are mounted with hdiutil, and zip / tar
+// archives are unpacked with the system's own tools, which keep the symlinks and permissions inside .app bundles.
 import { spawn } from 'child_process'
-import { existsSync } from 'fs'
-import { mkdir, readdir, rename, rm, stat } from 'fs/promises'
+import { accessSync, chmodSync, constants, existsSync } from 'fs'
+import { mkdir, mkdtemp, readdir, rename, rm, stat } from 'fs/promises'
+import { tmpdir } from 'os'
 import { join } from 'path'
 import sevenBin from '7zip-bin'
+import { hostOs, type HostOs } from '../platform'
 import { createLimiter } from './limit'
 
-/** 7za.exe path; inside a packaged app it lives in app.asar.unpacked (see electron-builder asarUnpack). */
+/**
+ * 7za path, ready to run; inside a packaged app it lives in app.asar.unpacked (see electron-builder asarUnpack).
+ * 7zip-bin's macOS and Linux binaries are published without the execute bit, so the first call sets it.
+ */
 export function sevenZipPath(): string {
-  return sevenBin.path7za.replace(/([\\/])app\.asar([\\/])/, '$1app.asar.unpacked$2')
+  const bin = sevenBin.path7za.replace(/([\\/])app\.asar([\\/])/, '$1app.asar.unpacked$2')
+  ensureExecutable(bin)
+  return bin
+}
+
+let sevenZipChecked = false
+function ensureExecutable(bin: string): void {
+  if (sevenZipChecked || process.platform === 'win32') return
+  sevenZipChecked = true
+  try {
+    accessSync(bin, constants.X_OK)
+  } catch {
+    try {
+      chmodSync(bin, 0o755)
+    } catch (e) {
+      console.warn(`[extract] could not make ${bin} executable`, e)
+    }
+  }
+}
+
+/** How an archive is unpacked on `os`: 7za everywhere on Windows; macOS tools for what 7za cannot do well there. */
+export function extractorFor(archive: string, os: HostOs = hostOs()): 'hdiutil' | 'ditto' | 'tar' | '7za' {
+  const a = archive.toLowerCase()
+  if (os !== 'macos') return '7za'
+  if (a.endsWith('.dmg')) return 'hdiutil'
+  if (a.endsWith('.zip')) return 'ditto'
+  if (/\.(tar\.(xz|gz|bz2)|txz|tgz)$/.test(a)) return 'tar'
+  return '7za'
 }
 
 /** Parse the last "NN%" token out of 7za -bsp1 output (which uses backspaces to redraw the line). */
@@ -28,23 +61,35 @@ export interface ExtractOptions {
   signal?: AbortSignal
 }
 
-/** 7za processes at once; extraction is disk-bound, so more in parallel only makes each one slower. */
+/** Extractions at once; extraction is disk-bound, so more in parallel only makes each one slower. */
 export const MAX_CONCURRENT_EXTRACTIONS = 2
 const extractSlots = createLimiter(MAX_CONCURRENT_EXTRACTIONS)
 
-/** `7za x -y -bsp1 -o<dest> <archive>`. Resolves when done; rejects on fatal error or abort. */
+/** Unpack `archive` into `dest` (`7za x -y -bsp1 -o<dest> <archive>`, or see extractorFor). Rejects on fatal error or abort. */
 export async function extractArchive(archive: string, dest: string, opts: ExtractOptions = {}): Promise<void> {
   await mkdir(dest, { recursive: true })
-  await extractSlots(() => run7za(archive, dest, opts), { signal: opts.signal, onQueued: opts.onQueued }).catch((e: unknown) => {
+  const run = () => {
+    switch (extractorFor(archive)) {
+      case 'hdiutil':
+        return copyFromDiskImage(archive, dest, opts.signal)
+      case 'ditto':
+        return runTool('ditto', ['-x', '-k', archive, dest], opts.signal)
+      case 'tar':
+        return runTool('tar', ['-xf', archive, '-C', dest], opts.signal)
+      case '7za':
+        return run7za(archive, dest, opts)
+    }
+  }
+  await extractSlots(run, { signal: opts.signal, onQueued: opts.onQueued }).catch((e: unknown) => {
     // Canceled while queued: same error as canceled while running.
-    throw opts.signal?.aborted ? new Error('Extraction cancelled') : e
+    throw opts.signal?.aborted ? new Error('Extraction canceled') : e
   })
   opts.onProgress?.(1)
 }
 
 function run7za(archive: string, dest: string, opts: ExtractOptions): Promise<void> {
   return new Promise<void>((resolve, reject) => {
-    if (opts.signal?.aborted) return reject(new Error('Extraction cancelled'))
+    if (opts.signal?.aborted) return reject(new Error('Extraction canceled'))
     const child = spawn(sevenZipPath(), ['x', '-y', '-bsp1', '-bb0', `-o${dest}`, archive], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     let stderr = ''
     child.stdout.setEncoding('utf8')
@@ -64,7 +109,7 @@ function run7za(archive: string, dest: string, opts: ExtractOptions): Promise<vo
     })
     child.on('close', (code) => {
       opts.signal?.removeEventListener('abort', onAbort)
-      if (opts.signal?.aborted) return reject(new Error('Extraction cancelled'))
+      if (opts.signal?.aborted) return reject(new Error('Extraction canceled'))
       // 0 = OK, 1 = warnings (e.g. a locked file), 2+ = fatal.
       if (code === 0 || code === 1) resolve()
       else reject(new Error(`7-Zip failed (exit ${code}): ${stderr.trim().split(/\r?\n/).slice(-3).join(' ') || 'unknown error'}`))
@@ -72,15 +117,71 @@ function run7za(archive: string, dest: string, opts: ExtractOptions): Promise<vo
   })
 }
 
-/** If `dir` contains exactly one entry and it is a directory, return that directory; else `dir`. */
+/** Run a command to completion; rejects with the end of its stderr on a non-zero exit, and kills it on abort. */
+function runTool(cmd: string, args: string[], signal?: AbortSignal, input?: string): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) return reject(new Error('Extraction canceled'))
+    const child = spawn(cmd, args, { stdio: ['pipe', 'ignore', 'pipe'] })
+    let stderr = ''
+    child.stderr.setEncoding('utf8')
+    child.stderr.on('data', (d: string) => {
+      stderr += d
+    })
+    child.stdin.on('error', () => undefined)
+    child.stdin.end(input ?? '')
+    const onAbort = () => child.kill()
+    signal?.addEventListener('abort', onAbort, { once: true })
+    child.on('error', (e) => {
+      signal?.removeEventListener('abort', onAbort)
+      reject(e)
+    })
+    child.on('close', (code) => {
+      signal?.removeEventListener('abort', onAbort)
+      if (signal?.aborted) return reject(new Error('Extraction canceled'))
+      if (code === 0) resolve()
+      else reject(new Error(`${cmd} failed (exit ${code}): ${stderr.trim().split(/\r?\n/).slice(-3).join(' ') || 'unknown error'}`))
+    })
+  })
+}
+
+/** Files a disk image carries for the Finder window only. */
+const DMG_CHROME = /^\.(background|ds_store|volumeicon\.icns|fseventsd|trashes|disk_label.*)$/i
+
+/**
+ * Mount a disk image read-only (never shown in the Finder), copy what it holds into `dest` and unmount it.
+ * Symlinks at the top (the usual "Applications" shortcut) are left behind. "Y" on stdin accepts a license
+ * agreement, if the image has one.
+ */
+async function copyFromDiskImage(image: string, dest: string, signal?: AbortSignal): Promise<void> {
+  const mount = await mkdtemp(join(tmpdir(), 'retrodesk-dmg-'))
+  try {
+    await runTool('hdiutil', ['attach', '-nobrowse', '-readonly', '-noautoopen', '-mountpoint', mount, image], signal, 'Y\n')
+    try {
+      for (const e of await readdir(mount, { withFileTypes: true })) {
+        if (e.isSymbolicLink() || DMG_CHROME.test(e.name)) continue
+        await runTool('ditto', [join(mount, e.name), join(dest, e.name)], signal)
+      }
+    } finally {
+      await runTool('hdiutil', ['detach', mount, '-force']).catch((e: unknown) => console.warn(`[extract] could not unmount ${image}`, e))
+    }
+  } finally {
+    await rm(mount, { recursive: true, force: true }).catch(() => undefined)
+  }
+}
+
+/** A macOS application bundle: installed and replaced as a whole, never flattened or merged into. */
+export const isAppBundle = (name: string): boolean => /\.app$/i.test(name)
+
+/** If `dir` contains exactly one entry and it is a directory (not an .app bundle), return that directory; else `dir`. */
 export async function singleTopFolder(dir: string): Promise<string> {
   const entries = await readdir(dir, { withFileTypes: true })
-  if (entries.length === 1 && entries[0]!.isDirectory()) return join(dir, entries[0]!.name)
+  if (entries.length === 1 && entries[0]!.isDirectory() && !isAppBundle(entries[0]!.name)) return join(dir, entries[0]!.name)
   return dir
 }
 
 /**
- * Move everything from `src` into `dst`, merging directories and replacing files.
+ * Move everything from `src` into `dst`, merging directories and replacing files (and .app bundles, whose old
+ * contents must not linger in the new version).
  * Uses rename (same volume) so installing a 200MB RetroArch is instant and existing user data
  * (cores/, saves, portable user dirs) that the archive doesn't contain is preserved.
  */
@@ -91,7 +192,7 @@ export async function moveMerge(src: string, dst: string): Promise<void> {
     const d = join(dst, e.name)
     if (!existsSync(d)) {
       await rename(s, d)
-    } else if (e.isDirectory() && (await stat(d)).isDirectory()) {
+    } else if (e.isDirectory() && !isAppBundle(e.name) && (await stat(d)).isDirectory()) {
       await moveMerge(s, d)
     } else {
       await rm(d, { recursive: true, force: true })

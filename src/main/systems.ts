@@ -2,7 +2,7 @@ import type { SystemDef } from '../shared/types'
 import systemsData from './data/systems.json'
 
 /**
- * Static system catalogue (bundled from data/systems.json).
+ * Static system catalog (bundled from data/systems.json).
  *
  * BIOS `file` conventions (paths are relative to getPaths().bios):
  *  - plain path, e.g. "scph5501.bin" or "dc/dc_boot.bin": that exact file.
@@ -36,13 +36,13 @@ export function getSystemDef(id: string): SystemDef | undefined {
   return BY_ID.get(id)
 }
 
-/** Position of a system in the catalogue (used for sorting by system). Unknown ids sort last. */
+/** Position of a system in the catalog (used for sorting by system). Unknown ids sort last. */
 export function systemOrder(id: string): number {
   return ORDER.get(id) ?? SYSTEMS.length
 }
 
-/** Normalise a folder name for alias matching: lower-case, no diacritics, alphanumerics only. */
-export function normaliseFolderName(name: string): string {
+/** Normalize a folder name for alias matching: lower-case, no diacritics, alphanumerics only. */
+export function normalizeFolderName(name: string): string {
   return name
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
@@ -55,7 +55,7 @@ function getAliasIndex(): Map<string, string> {
   if (aliasIndex) return aliasIndex
   const idx = new Map<string, string>()
   const add = (alias: string, id: string): void => {
-    const k = normaliseFolderName(alias)
+    const k = normalizeFolderName(alias)
     if (k && !idx.has(k)) idx.set(k, id)
   }
   // Explicit ids and aliases win over derived names (system name / libretro folder).
@@ -71,7 +71,7 @@ function getAliasIndex(): Map<string, string> {
 
 /** Map a folder name (e.g. "SNES", "Super Nintendo", "Nintendo - Super Nintendo Entertainment System") to a system. */
 export function matchFolderToSystem(folderName: string): SystemDef | undefined {
-  const id = getAliasIndex().get(normaliseFolderName(folderName))
+  const id = getAliasIndex().get(normalizeFolderName(folderName))
   return id ? BY_ID.get(id) : undefined
 }
 

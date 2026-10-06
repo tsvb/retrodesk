@@ -2,7 +2,7 @@
   "name": "retrodesk",
   "productName": "RetroDesk",
   "version": "0.1.0",
-  "description": "RetroDesk - a Retroid Pocket style emulation console experience for Windows desktops",
+  "description": "RetroDesk - a Retroid Pocket style emulation console experience for Windows and macOS desktops",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -15,6 +15,7 @@
     "format:check": "prettier --check .",
     "check": "npm run lint && npm run format:check && npm run typecheck && npm test",
     "dist": "electron-vite build && electron-builder --win --x64",
+    "dist:mac": "electron-vite build && electron-builder --mac",
     "e2e": "electron-vite build && node scripts/e2e-smoke.mjs",
     "e2e:play": "electron-vite build && node scripts/e2e-play.mjs"
   },
@@ -49,6 +50,10 @@
   "allowScripts": {
     "electron@44.5.1": true,
     "esbuild@0.25.12": true,
-    "esbuild@0.28.2": true
+    "esbuild@0.28.2": true,
+    "@kmamal/sdl@0.11.13": true
+  },
+  "optionalDependencies": {
+    "@kmamal/sdl": "0.11.13"
   }
 }

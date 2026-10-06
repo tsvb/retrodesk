@@ -8,6 +8,7 @@ import { SchemaSegmented } from '../../components/SchemaSetting'
 import { useInputStore } from '../../stores/input'
 import { useSettings, useSettingsValue } from '../../stores/settings'
 import { Section } from './Settings'
+import { acceleratorKeys } from '../../lib/platform'
 
 const COMBOS: { value: string; label: string; buttons: number[] }[] = [
   { value: '8,9', label: 'Back + Start', buttons: [8, 9] },
@@ -22,7 +23,7 @@ export function ControlsTab() {
   const [testing, setTesting] = useState(false)
   const family = pads[0]?.family ?? 'xbox'
   const comboKey = settings.hotkeys.quickMenuCombo.join(',')
-  const accel = settings.hotkeys.quickMenu.split('+')
+  const accel = acceleratorKeys(settings.hotkeys.quickMenu)
 
   return (
     <>
@@ -69,7 +70,7 @@ export function ControlsTab() {
         <SettingRow title="Keyboard shortcut" description="Works while any emulator is in front.">
           <span className="keys">
             {accel.map((k) => (
-              <KeyCap key={k} label={k === 'Control' ? 'Ctrl' : k} />
+              <KeyCap key={k} label={k} />
             ))}
           </span>
         </SettingRow>
@@ -81,7 +82,7 @@ export function ControlsTab() {
             [['↑', '↓', '←', '→'], 'Move'],
             [['Enter'], 'Select'],
             [['Esc'], 'Back'],
-            [['F'], 'Favourite'],
+            [['F'], 'Favorite'],
             [['/'], 'Search'],
             [['Q', 'E'], 'Switch section'],
             [['Z', 'C'], 'Jump letter or page'],

@@ -11,17 +11,17 @@ files:
   - out/renderer/**
   - package.json
   - '!**/*.test.*'
-  # 7zip-bin carries binaries for every platform; only win/x64/7za.exe is used.
-  - '!**/node_modules/7zip-bin/{linux,mac}/**'
-  - '!**/node_modules/7zip-bin/win/{ia32,arm64}/**'
+  # 7zip-bin carries binaries for every platform; each build keeps only its own (see win/mac below).
+  - '!**/node_modules/7zip-bin/linux/**'
   - '!**/node_modules/7zip-bin/7x.sh'
 # The UI is English-only: ship one Chromium locale pack instead of ~50 MB of them.
 electronLanguages:
   - en-US
-# 7za.exe must live on disk (not inside app.asar) to be spawned.
+# 7za must live on disk (not inside app.asar) to be spawned, and SDL's native binding next to its dylib.
 asarUnpack:
   - node_modules/7zip-bin/**
-# Licence texts for everything bundled, next to the app in resources/.
+  - node_modules/@kmamal/sdl/**
+# License texts for everything bundled, next to the app in resources/.
 extraResources:
   - from: LICENSE
     to: LICENSE.txt
@@ -51,6 +51,34 @@ win:
       arch: [x64]
     - target: portable
       arch: [x64]
+  files:
+    - '!**/node_modules/7zip-bin/mac/**'
+    - '!**/node_modules/7zip-bin/win/{ia32,arm64}/**'
+    # Native controller input is macOS-only (the Gamepad API works on Windows).
+    - '!**/node_modules/@kmamal/sdl/**'
+# Separate Apple Silicon and Intel builds (Electron is per architecture; both 7za binaries are small enough to keep).
+mac:
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  category: public.app-category.games
+  # Not signed with a Developer ID: ad-hoc signing is what Apple Silicon needs to run it at all.
+  identity: '-'
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  artifactName: ${productName}-${version}-mac-${arch}.${ext}
+  # Chromium's macOS locale for US English is en.lproj.
+  electronLanguages:
+    - en
+  files:
+    - '!**/node_modules/7zip-bin/win/**'
+    # SDL's sources and build scripts; the binding and its dylib are in dist/.
+    - '!**/node_modules/@kmamal/sdl/{src/native,scripts,sdl,build}/**'
+    - '!**/node_modules/@kmamal/sdl/binding.gyp'
+dmg:
+  artifactName: ${productName}-${version}-mac-${arch}.${ext}
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
@@ -58,3 +86,6 @@ nsis:
 portable:
   artifactName: ${productName}-Portable-${version}.${ext}
 npmRebuild: false
+# Ship the @kmamal/sdl binding for each macOS package's own architecture (scripts/sdl-arch.cjs).
+beforePack: scripts/sdl-before-pack.cjs
+afterPack: scripts/sdl-after-pack.cjs

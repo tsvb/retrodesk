@@ -1,5 +1,5 @@
 // Full play-session E2E: installs RetroArch + a core through the app, launches a freely licensed homebrew ROM
-// (pinobatch's 240p Test Suite for Game Boy, zlib licence), drives the Game Assist overlay and RetroArch network
+// (pinobatch's 240p Test Suite for Game Boy, zlib license), drives the Game Assist overlay and RetroArch network
 // commands, then quits and checks play time was recorded.
 // Usage: npm run build && node scripts/e2e-play.mjs <workDir>   (workDir is reused so the RetroArch download is cached)
 import { _electron as electron } from 'playwright-core'
@@ -30,6 +30,8 @@ async function ensureRom() {
 
 /** Capture the whole primary screen (to verify the transparent overlay really composites over the game). */
 function screenGrab(file) {
+  // macOS asks once for Screen Recording permission for the terminal running this.
+  if (process.platform === 'darwin') return execFileSync('screencapture', ['-x', file])
   const ps = `Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetProcessDPIAware();' -Name U -Namespace W; [W.U]::SetProcessDPIAware() | Out-Null; Add-Type -AssemblyName System.Windows.Forms,System.Drawing; $b=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds; $bmp=New-Object System.Drawing.Bitmap $b.Width,$b.Height; $g=[System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen($b.Location,[System.Drawing.Point]::Empty,$b.Size); $bmp.Save('${file}'); $g.Dispose(); $bmp.Dispose()`
   execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps])
 }

@@ -1,5 +1,6 @@
 import { powerMonitor } from 'electron'
 import type { PerformanceMode, SystemStats } from '../../shared/types'
+import { hostOs } from '../platform'
 import { applyPerformanceMode, capturePowerState, restorePowerState as restorePower, setPowerSourceProvider, type PowerState } from './power'
 import { collectStats, invalidatePowerPlan, powerSource } from './stats'
 
@@ -17,7 +18,11 @@ export async function getStats(): Promise<SystemStats> {
   return collectStats()
 }
 
+/** Whether this OS lets RetroDesk switch power plans (Windows only). */
+export const canSwitchPowerPlan = (): boolean => hostOs() === 'windows'
+
 export async function setPerformanceMode(mode: PerformanceMode): Promise<void> {
+  if (!canSwitchPowerPlan()) return
   try {
     await applyPerformanceMode(mode)
   } finally {

@@ -1,11 +1,13 @@
 import { execFile } from 'child_process'
 import { readdir, readFile, stat } from 'fs/promises'
+import { homedir } from 'os'
 import { join, normalize } from 'path'
+import { hostOs } from '../platform'
 import { getObject, getString, parseVdf, type VdfObject } from './vdf'
 import { dirExists, fileExists, mapLimit } from './util'
 
 /**
- * Steam library discovery (Windows). Steam games are exposed as games of the pseudo-system "steam" with
+ * Steam library discovery (Windows: the registry; macOS: ~/Library/Application Support/Steam). Steam games are exposed as games of the pseudo-system "steam" with
  * path `steam://rungameid/<appid>`.
  */
 
@@ -61,6 +63,11 @@ function regQuery(key: string, value: string): Promise<string | undefined> {
 
 /** Locate the Steam install directory, or undefined if Steam isn't installed. */
 export async function findSteamPath(): Promise<string | undefined> {
+  if (hostOs() === 'macos') {
+    // The Steam app keeps its libraries (steamapps, libraryfolders.vdf, appcache) in Application Support.
+    const p = join(homedir(), 'Library', 'Application Support', 'Steam')
+    return (await dirExists(join(p, 'steamapps'))) ? p : undefined
+  }
   if (process.platform !== 'win32') return undefined
   // Each query spawns reg.exe: ask all at once, then take the first answer in this order.
   const found = await Promise.all([

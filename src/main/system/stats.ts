@@ -1,6 +1,8 @@
 // Live system stats for the Game Assist overlay: CPU, memory, NVIDIA GPU, battery, power plan.
+// Battery and power plan come from Win32_Battery / powercfg on Windows and from pmset on macOS.
 import { cpus, freemem, totalmem } from 'os'
 import type { SystemStats } from '../../shared/types'
+import { hostOs } from '../platform'
 import { powershell, run } from './exec'
 import { describePowerPlan } from './power'
 
@@ -140,8 +142,19 @@ export function parseBatteryJson(out: string): BatteryStats | null {
   return { percent: Math.max(0, Math.min(100, first.EstimatedChargeRemaining)), charging: ON_AC.has(Number(first.BatteryStatus)) }
 }
 
+/** Parse `pmset -g batt`: "Now drawing from 'AC Power'" then " -InternalBattery-0 (id=…)\t87%; charging; …". */
+export function parsePmsetBatt(out: string): BatteryStats | null {
+  const pct = /^\s*-\S*Battery\S*.*?\t?(\d{1,3})%/m.exec(out)
+  if (!pct) return null
+  return { percent: Math.max(0, Math.min(100, Number(pct[1]))), charging: /drawing from 'AC Power'/i.test(out) }
+}
+
 /** null = no battery (desktop). */
 export const getBattery = makeCached<BatteryStats | null>(30_000, async () => {
+  if (hostOs() === 'macos') {
+    const r = await run('pmset', ['-g', 'batt'], 5000)
+    return r.code === 0 ? parsePmsetBatt(r.stdout) : undefined
+  }
   const r = await powershell('Get-CimInstance -ClassName Win32_Battery | Select-Object EstimatedChargeRemaining,BatteryStatus | ConvertTo-Json -Compress', 10_000)
   if (r.code !== 0) return undefined
   return parseBatteryJson(r.stdout)

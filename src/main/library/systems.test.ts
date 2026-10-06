@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { getSystemDef, getSystemDefs, matchFolderToSystem, normaliseFolderName, systemsForExtension, uniqueSystemForExtension } from '../systems'
+import { getSystemDef, getSystemDefs, matchFolderToSystem, normalizeFolderName, systemsForExtension, uniqueSystemForExtension } from '../systems'
 
-describe('systems catalogue', () => {
+describe('systems catalog', () => {
   const defs = getSystemDefs()
 
   it('has well-formed entries', () => {
@@ -27,7 +27,7 @@ describe('systems catalogue', () => {
     const owner = new Map<string, string>()
     for (const s of defs) {
       for (const a of [s.id, ...(s.folderAliases ?? [])]) {
-        const k = normaliseFolderName(a)
+        const k = normalizeFolderName(a)
         const prev = owner.get(k)
         if (prev && prev !== s.id) throw new Error(`alias "${a}" claimed by ${prev} and ${s.id}`)
         owner.set(k, s.id)

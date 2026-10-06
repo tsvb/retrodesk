@@ -20,7 +20,7 @@ export function systemStyle(system: { id: string; color?: string }): CSSProperti
   return { '--c-light': p.light, '--c-base': p.base, '--c-deep': p.deep, '--c-ink': p.ink } as CSSProperties
 }
 
-/** A system rendered as a stylised cartridge: coloured label with a geometric motif, grip ridges below. */
+/** A system rendered as a stylized cartridge: colored label with a geometric motif, grip ridges below. */
 export const SystemCard = memo(function SystemCard({ system, size = 'lg', group, autoFocus, onActivate, onFocus }: Props) {
   const { props } = useFocusable<HTMLDivElement>({
     group,

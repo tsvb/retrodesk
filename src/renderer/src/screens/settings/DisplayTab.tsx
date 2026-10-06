@@ -34,7 +34,7 @@ export function DisplayTab() {
           ))}
         </div>
       </Section>
-      <Section title="Accent colour" description="Used for focus highlights, buttons and progress bars.">
+      <Section title="Accent color" description="Used for focus highlights, buttons and progress bars.">
         <div className="swatches">
           {ACCENTS.map((c) => (
             <Swatch key={c} color={c} selected={s.ui.accent.toLowerCase() === c} onSelect={() => void update({ ui: { accent: c } })} />
@@ -74,7 +74,7 @@ function ThemeTile({ theme, selected, onSelect }: { theme: (typeof THEMES)[numbe
 function Swatch({ color, selected, onSelect }: { color: string; selected: boolean; onSelect: () => void }) {
   const { props } = useFocusable<HTMLDivElement>({
     group: 'accents',
-    label: 'Use colour',
+    label: 'Use color',
     onActivate: () => {
       feedback('toggle')
       onSelect()

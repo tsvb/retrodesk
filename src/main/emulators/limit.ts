@@ -51,7 +51,7 @@ export function createLimiter(max: number): Limiter {
 function abortReason(signal?: AbortSignal): Error {
   const r = signal?.reason
   if (r instanceof Error) return r
-  const e = new Error('Cancelled')
+  const e = new Error('Canceled')
   e.name = 'AbortError'
   return e
 }

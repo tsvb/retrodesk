@@ -138,7 +138,7 @@ video_scale_integer = "false"
 aspect_ratio_index = "22"                        # 22 = ASPECT_RATIO_CORE (verified in gfx/video_defines.h); 20=config, 21=square pixel, 23=custom, 24=full
 video_shader_enable = "false"
 
-# Behaviour
+# Behavior
 config_save_on_exit = "false"                    # IMPORTANT when the frontend owns the config
 pause_nonactive = "false"                        # true pauses when the window loses focus
 quit_press_twice = "false"
@@ -293,7 +293,7 @@ Full machine-readable data is in `standalone-emulators.json`. Archive layouts we
 - **GitHub mirror:** `https://raw.githubusercontent.com/libretro-thumbnails/<Folder with spaces→_ and " - "→_-_>/master/<Type>/<Name>.png`, for example `Nintendo_-_Super_Nintendo_Entertainment_System`. Returned 200.
 - **Filename rule** [src: gfx/gfx_thumbnail_path.c v1.22.2]: take the No-Intro/Redump name (the ROM filename without extension) and replace each of `& * / : ` " < > ? \ |` with `_`. The double quote is also replaced, so the full set is `&*/:\`"<>?\|`. Real example: `Advanced Dungeons _ Dragons - Eye of the Beholder (USA).png`.
 - **Fallback:** RetroArch also tries a "short" name that is truncated at the first ` (`. Few files on the server use short names (`Super Mario World.png` returns 404), so fuzzy matching against the directory listing works better.
-- **Directory listings** are browsable HTML, for example `GET https://thumbnails.libretro.com/<Folder>/Named_Boxarts/`. Fetch one per system, cache it, and fuzzy-match ROM names (strip tags, normalise case and punctuation). The listings are large (SNES is thousands of entries) but static.
+- **Directory listings** are browsable HTML, for example `GET https://thumbnails.libretro.com/<Folder>/Named_Boxarts/`. Fetch one per system, cache it, and fuzzy-match ROM names (strip tags, normalize case and punctuation). The listings are large (SNES is thousands of entries) but static.
 - **Region fallback:** if `(USA)` is missing, try `(USA, Europe)`, `(World)`, `(Europe)`, then `(Japan)` by matching the title prefix in the cached listing.
 
 **Folder names per system** (exact, from the server root listing):
