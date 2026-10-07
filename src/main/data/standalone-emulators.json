@@ -166,7 +166,12 @@
         "message": "Switch firmware is not installed. Put your firmware dump (the .nca files, a sub folder is fine) in {bios}\\switch\\firmware, or install it in Eden (Tools > Install Firmware from Folder)."
       }
     ],
-    "notes": "Keys: RetroDesk copies prod.keys/title.keys from <bios> (or <bios>/switch) into user/keys/. Firmware: the .nca files under <bios>/switch/firmware (sub folders and <id>.nca/00 folders included) are mirrored into user/nand/system/Contents/registered/, replacing what is there when the set changes, as Eden's own installer does. Eden's firmware check looks for the Mii Edit applet, and Miis in games only work with it (its Mii editor runs from firmware). user/config is created up front so Eden skips its first-run migration prompt.",
+    "crashLog": {
+      "file": "user/log/eden_log.txt",
+      "patterns": ["Emulated program broke execution", "<Critical>"],
+      "message": "Eden reports that the game crashed inside the emulator, so it will not get past its loading screen. Quit it from the quick menu."
+    },
+    "notes": "Keys: RetroDesk copies prod.keys/title.keys from <bios> (or <bios>/switch) into user/keys/. Firmware: the .nca files under <bios>/switch/firmware (sub folders and <id>.nca/00 folders included) are mirrored into user/nand/system/Contents/registered/, replacing what is there when the set changes, as Eden's own installer does. Eden's firmware check looks for the Mii Edit applet, and Miis in games only work with it (its Mii editor runs from firmware). user/config is created up front so Eden skips its first-run migration prompt. Eden keeps running after a game aborts (svcBreak) or its CPU emulator asserts, so its log is followed for those lines.",
     "macos": {
       "assetPattern": "^Eden-macOS-v[\\d.]+\\.dmg$",
       "fallback": { "version": "0.2.1", "url": "https://stable.eden-emu.dev/v0.2.1/Eden-macOS-v0.2.1.dmg" },
@@ -201,7 +206,12 @@
           "message": "Switch firmware is not installed. Put your firmware dump (the .nca files, a sub folder is fine) in {bios}\\switch\\firmware, or install it in Eden (Tools > Install Firmware from Folder)."
         }
       ],
-      "notes": "Apple Silicon only. Eden uses XDG folders on macOS, not Application Support: keys and firmware go to ~/.local/share/eden (keys/, nand/), its config to ~/.config/eden ($XDG_DATA_HOME / $XDG_CONFIG_HOME when set)."
+      "crashLog": {
+        "file": "log/eden_log.txt",
+        "patterns": ["Emulated program broke execution", "<Critical>"],
+        "message": "Eden reports that the game crashed inside the emulator, so it will not get past its loading screen. Quit it from the quick menu."
+      },
+      "notes": "Apple Silicon only. Eden uses XDG folders on macOS, not Application Support: keys and firmware go to ~/.local/share/eden (keys/, nand/), its config to ~/.config/eden ($XDG_DATA_HOME / $XDG_CONFIG_HOME when set). Its CPU emulator is Dynarmic only (no NCE build for macOS)."
     }
   },
   {

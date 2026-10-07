@@ -64,6 +64,11 @@ export function plural(n: number, one: string, many = `${one}s`): string {
   return `${formatNumber(n)} ${n === 1 ? one : many}`
 }
 
+/** The label shown first among a library entry's tags when it is an add-on rather than a game. */
+export function kindTags(game: { kind?: 'update' | 'dlc' }): string[] {
+  return game.kind ? [game.kind === 'update' ? 'Update' : 'DLC'] : []
+}
+
 /** First letter used for alphabet jumping; digits and symbols collapse into "#". */
 export function letterOf(title: string): string {
   const c = title.trim().charAt(0).toUpperCase()

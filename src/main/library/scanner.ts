@@ -1,9 +1,10 @@
 import type { Dirent } from 'fs'
 import { readdir, stat } from 'fs/promises'
 import { basename, dirname, extname, join } from 'path'
-import type { MediaKind } from '../../shared/types'
+import type { GameKind, MediaKind } from '../../shared/types'
 import { ENTRY_POINT_EXTENSIONS, GENERIC_EXTENSIONS, getSystemDef, matchFolderToSystem, systemsForExtension, uniqueSystemForExtension } from '../systems'
 import { readParamSfoTitle, readWiiUTitle, referencedFiles } from './formats'
+import { switchContentKind } from './nsw'
 import { looksLikeText, sniffSystem } from './sniff'
 import { parseRomName } from './titles'
 import { errMsg, mapLimit, normPath } from './util'
@@ -35,6 +36,8 @@ export interface ScannedGame {
   sizeBytes: number
   /** Images found next to the game (same basename) or inside a directory-format game. */
   localMedia: Partial<Record<MediaKind, string>>
+  /** An update or DLC package rather than a game (Switch). */
+  kind?: GameKind
 }
 
 /**
@@ -479,7 +482,8 @@ export async function scanFolders(opts: ScanOptions): Promise<ScanOutput> {
       const fileName = basename(c.path)
       const rawName = basename(c.path, extname(c.path))
       const parsed = titleFor(rawName, systemId, opts.arcadeNames)
-      games.push({ path: c.path, systemId, fileName, rawName, title: parsed.title, regions: parsed.regions, tags: parsed.tags, sizeBytes: size, localMedia: c.localMedia })
+      const kind = systemId === 'switch' ? await switchContentKind(c.path, rawName) : undefined
+      games.push({ path: c.path, systemId, fileName, rawName, title: parsed.title, regions: parsed.regions, tags: parsed.tags, sizeBytes: size, localMedia: c.localMedia, ...(kind ? { kind } : {}) })
     } catch (e) {
       errors.push(`${c.path}: ${errMsg(e)}`)
     } finally {

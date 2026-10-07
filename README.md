@@ -127,6 +127,7 @@ docs/research/   Retroid Pocket 6 feature research and the verified emulator tec
 - **Standalone emulators** support only Quit from the quick menu. RetroArch supports the full set of quick-menu actions.
 - **Vita games** need a title ID: from `param.sfo`, from a `[PCSE00123]` tag in the file name, or from a `.vpk` being installed.
 - **Firmware and keys** for Switch, PS3 and PS2 must come from your own console. RetroDesk checks for them and copies them into place.
+- **Switch updates and DLC** come as separate `.nsp` files. RetroDesk recognizes them (by the ticket inside, or the `[title ID]` in the name) and labels them Update or DLC instead of treating them as games, but it does not install them: do that in Eden under File > Install Files to NAND, then play the base game. Eden on a Mac has no native CPU mode, so some games crash in its Dynarmic emulator; when Eden logs that the game died, RetroDesk says so instead of leaving you on Eden's loading screen.
 - **The Guide button** is often taken by Xbox Game Bar, which is why Back + Start is the default quick-menu combo.
 - **RetroAchievements credentials** are stored in plain text in RetroDesk's settings and RetroArch's appended config.
 - **Changing the data folder** copies artwork across but nothing else. Emulators, BIOS files and saves stay in the old folder, and games stored in its `roms` folder leave the library on the next scan.

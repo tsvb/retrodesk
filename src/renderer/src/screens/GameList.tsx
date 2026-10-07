@@ -9,7 +9,7 @@ import { systemStyle } from '../components/SystemCard'
 import { VirtualGrid, type VirtualGridApi } from '../components/VirtualGrid'
 import { useActions, useFocusGroup } from '../input/hooks'
 import { systemColor } from '../lib/color'
-import { formatPlayTime, formatRelative, letterOf, plural } from '../lib/format'
+import { formatPlayTime, formatRelative, kindTags, letterOf, plural } from '../lib/format'
 import { feedback } from '../lib/feedback'
 import { sep } from '../lib/platform'
 import { systemById, useLibrary } from '../stores/library'
@@ -262,7 +262,7 @@ const ListCell = memo(function ListCell({ game, system, focused }: { game: Game;
           {game.favorite && <Heart className="list-item__fav" size="0.8em" fill="currentColor" strokeWidth={0} />}
         </span>
         <span className="list-item__tags">
-          {[...game.regions, ...game.tags].map((t) => (
+          {[...kindTags(game), ...game.regions, ...game.tags].map((t) => (
             <span key={t} className="tag">
               {t}
             </span>

@@ -68,7 +68,15 @@ export interface Game {
   media: Partial<Record<MediaKind, string>>
   /** Emulator id override for this game: `retroarch:<core>` or `standalone:<id>`. */
   emulatorOverride?: string
+  /** Set when the file is not a playable game but an add-on for one (see GameKind). */
+  kind?: GameKind
 }
+
+/**
+ * Files that sit among the games but are not games: a Switch title update or DLC package. They install into the
+ * emulator rather than launch (Eden: File > Install Files to NAND); the base game is what plays.
+ */
+export type GameKind = 'update' | 'dlc'
 
 export type SortKey = 'title' | 'lastPlayed' | 'playTime' | 'added' | 'system'
 

@@ -21,6 +21,7 @@ import { expandArgs, getStandaloneDef, hasVcRedist, provisionStandalone, resolve
 import { hostOs } from '../platform'
 import { autoFetchableCore, describeMissing, missingBios } from './bios'
 import { fileWrittenSince } from './confirm'
+import { watchCrashLog } from './crashlog'
 import { createFocusHelper } from './focus'
 import { getNativeGamepads } from '../gamepads'
 import { RaCommandClient } from './racommand'
@@ -42,6 +43,8 @@ interface ActiveSession {
   exited: boolean
   /** Serializes overlay pause/resume work. */
   chain: Promise<void>
+  /** Ends the emulator-log watch (standalone emulators that declare a crashLog). */
+  stopCrashWatch?: () => void
 }
 
 let active: ActiveSession | null = null
@@ -76,6 +79,10 @@ export async function planLaunch(game: Game): Promise<PlanResult> {
   const ref = resolveGameRef(game, system, settings)
   if (!ref) return { ok: false, error: `No emulator is configured for ${system.name}.` }
   const emuName = ref.type === 'retroarch' ? `${coreDisplayName(ref.core)} (RetroArch)` : (getStandaloneDef(ref.id)?.name ?? ref.id)
+  if (game.kind) {
+    const what = game.kind === 'update' ? 'an update' : 'DLC'
+    return { ok: false, error: `${game.fileName} is ${what} for a ${system.name} game, not a game itself. Install it in ${emuName} (File > Install Files to NAND), then play the base game.` }
+  }
 
   if (!isRefInstalled(ref)) {
     // For RetroArch + core, point the UI at whichever piece is missing.
@@ -208,6 +215,7 @@ export async function launchGame(gameId: string): Promise<LaunchResult> {
     if (isRetroArch) ra = null // the session owns it now
     active = session
     child.once('exit', (code) => void endSession(session, code))
+    session.stopCrashWatch = followEmulatorLog(session, plan)
     // The power mode is switched once the emulator is on its way rather than holding up its start. The plan being
     // replaced goes to disk before anything changes, so a crash mid-game can still put it back.
     session.boosting = capturing
@@ -230,10 +238,33 @@ export async function launchGame(gameId: string): Promise<LaunchResult> {
   }
 }
 
+/**
+ * Some emulators outlive the game that died inside them (Eden sits on its loading screen after the game aborts).
+ * Following the log they declare turns that into a message; the returned function ends the watch.
+ */
+function followEmulatorLog(s: ActiveSession, plan: LaunchPlan): (() => void) | undefined {
+  if (plan.ref.type !== 'standalone') return undefined
+  const def = getStandaloneDef(plan.ref.id)
+  if (!def?.crashLog) return undefined
+  const file = join(standaloneDataDir(def, dirname(plan.exe)), ...def.crashLog.file.split('/'))
+  const message = def.crashLog.message
+  return watchCrashLog({
+    file,
+    patterns: def.crashLog.patterns,
+    since: s.info.startedAt - 1000,
+    onMatch: (line) => {
+      if (s.exited) return
+      console.warn(`[launch] ${def.name} log: ${line}`)
+      createTask(s.info.title).fail(`${message} See ${file}.`)
+    }
+  })
+}
+
 async function endSession(s: ActiveSession, code: number | null): Promise<void> {
   if (s.exited) return
   s.exited = true
   clearTimeout(s.quitTimer)
+  s.stopCrashWatch?.()
   const seconds = Math.max(0, Math.round((Date.now() - s.info.startedAt) / 1000))
   if (active === s) active = null
   unregisterShortcut()

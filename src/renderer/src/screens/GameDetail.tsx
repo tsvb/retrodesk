@@ -14,7 +14,7 @@ import { systemStyle } from '../components/SystemCard'
 import { useActions, useFocusGroup } from '../input/hooks'
 import { systemColor } from '../lib/color'
 import { defaultKeyForSystem, isKeyInstalled, keyLabel, refKey } from '../lib/emulators'
-import { formatBytes, formatNumber, formatPlayTime, formatRelative } from '../lib/format'
+import { formatBytes, formatNumber, formatPlayTime, formatRelative, kindTags } from '../lib/format'
 import { systemById, useLibrary } from '../stores/library'
 import { useNav } from '../stores/nav'
 import { toast } from '../stores/session'
@@ -81,7 +81,15 @@ export function GameDetailScreen({ gameId }: { gameId: string }) {
     })
   ]
 
-  const tags = [...game.regions, ...game.tags]
+  const tags = [...kindTags(game), ...game.regions, ...game.tags]
+  const openEmulator = async () => {
+    if (!effective) return
+    try {
+      await api.emulators.openEmulatorUi(effective)
+    } catch (e) {
+      toast(`Couldn't open ${emuName}: ${e instanceof Error ? e.message : String(e)}`, 'error')
+    }
+  }
 
   return (
     <div className="screen screen--detail" style={systemStyle(system ?? { id: game.systemId })}>
@@ -119,6 +127,20 @@ export function GameDetailScreen({ gameId }: { gameId: string }) {
             </Button>
             <Button size="xl" icon={EyeOff} group="detail-actions" variant="ghost" onPress={() => setConfirmHide(true)} label="Hide game" title="Hide from library" />
           </div>
+          {game.kind && (
+            <p className="detail__note">
+              This file is {game.kind === 'update' ? 'an update' : 'DLC'} for a {system?.name ?? 'Switch'} game, not a game itself. Install it in {emuName} under File &gt; Install Files to NAND, then
+              play the base game.
+              {emuReady && (
+                <>
+                  {' '}
+                  <Button size="sm" variant="secondary" group="detail-actions" onPress={() => void openEmulator()}>
+                    Open {emuName}
+                  </Button>
+                </>
+              )}
+            </p>
+          )}
           {!emuReady && <p className="detail__note">The emulator isn't installed yet. Press Play and RetroDesk will offer to install it.</p>}
           <dl className="stats">
             <div>

@@ -100,6 +100,11 @@ export interface StandaloneDef {
   firmware?: FirmwareItem[]
   /** Replaces the per-item messages with one listing everything missing. Placeholders: {missing} {bios}. */
   missingMessage?: string
+  /**
+   * The emulator's log, followed while a game runs: a line containing one of `patterns` means the game died
+   * inside an emulator that keeps running, and `message` is shown. `file` is relative to the data dir.
+   */
+  crashLog?: { file: string; patterns: string[]; message: string }
   /** Settings written into the emulator's own config before every launch. */
   config?: ConfigEdit
   /** Extra downloads into the BIOS dir when the emulator is installed (best effort). */

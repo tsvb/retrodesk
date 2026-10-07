@@ -150,7 +150,7 @@ export function recordPlaySession(id: string, startedAt: number, seconds: number
 
 // ---------------------------------------------------------------- scanning
 
-function newGame(sg: Pick<ScannedGame, 'path' | 'systemId' | 'fileName' | 'rawName' | 'title' | 'regions' | 'tags' | 'sizeBytes'>, id: string): Game {
+function newGame(sg: Pick<ScannedGame, 'path' | 'systemId' | 'fileName' | 'rawName' | 'title' | 'regions' | 'tags' | 'sizeBytes' | 'kind'>, id: string): Game {
   return {
     id,
     systemId: sg.systemId,
@@ -166,7 +166,8 @@ function newGame(sg: Pick<ScannedGame, 'path' | 'systemId' | 'fileName' | 'rawNa
     playCount: 0,
     favorite: false,
     hidden: false,
-    media: {}
+    media: {},
+    ...(sg.kind ? { kind: sg.kind } : {})
   }
 }
 
@@ -227,12 +228,13 @@ function rescanned(g: Game, sg: ScannedGame): Partial<Game> | undefined {
     g.rawName === sg.rawName &&
     g.title === sg.title &&
     g.sizeBytes === sg.sizeBytes &&
+    g.kind === sg.kind &&
     sameList(g.regions, sg.regions) &&
     sameList(g.tags, sg.tags) &&
     sameMedia(g.media, media)
   if (same) return undefined
-  const { systemId, path, fileName, rawName, title, regions, tags, sizeBytes } = sg
-  return { systemId, path, fileName, rawName, title, regions, tags, sizeBytes, media }
+  const { systemId, path, fileName, rawName, title, regions, tags, sizeBytes, kind } = sg
+  return { systemId, path, fileName, rawName, title, regions, tags, sizeBytes, media, kind }
 }
 
 /** Installed Steam games, reusing the Steam folder found before (finding it on Windows runs reg.exe). */

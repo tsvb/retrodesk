@@ -63,6 +63,8 @@ export function sanitizeGame(v: unknown): Game | undefined {
   if (lp > 0) g.lastPlayedAt = lp
   const ov = str('emulatorOverride')
   if (ov) g.emulatorOverride = ov
+  const kind = str('kind')
+  if (kind === 'update' || kind === 'dlc') g.kind = kind
   return g
 }
 
