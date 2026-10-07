@@ -54,10 +54,16 @@ export interface FirmwareItem {
 }
 
 export interface ConfigEdit {
-  /** INI / TOML file relative to the exe dir. */
+  /** INI / TOML file relative to the data dir (or a "~/" path). */
   file: string
-  /** Values: {bios}, or {<firmware id>} for a found file (the entry is skipped when it was not found). */
-  set: { section: string; key: string; value: string; quote?: 'toml' }[]
+  /** What goes between key and value; the default " = " suits most, Qt configs use "=". */
+  sep?: string
+  /**
+   * Values: {bios}, or {<firmware id>} for a found file (the entry is skipped when it was not found).
+   * ifDefault: Qt-style configs mark a setting the player never touched with `<key>\default=true`; only then is
+   * the value applied (and the marker cleared so the emulator reads it), so the player's own choice always wins.
+   */
+  set: { section: string; key: string; value: string; quote?: 'toml'; ifDefault?: boolean }[]
   /** A named edit for what `set` cannot express (see CONFIG_HOOKS). */
   hook?: string
 }
@@ -571,8 +577,9 @@ export async function provisionStandalone(def: StandaloneDef, exeDir: string, bi
 
   if (def.config) {
     const cfg = def.config
+    const file = expandDataPath(cfg.file, exeDir)
     const hook = cfg.hook ? CONFIG_HOOKS[cfg.hook] : undefined
-    const before = existsSync(rel(exeDir, cfg.file)) ? await readFile(rel(exeDir, cfg.file), 'utf8') : ''
+    const before = existsSync(file) ? await readFile(file, 'utf8') : ''
     let after = before
     for (const e of cfg.set) {
       let skip = false
@@ -581,12 +588,19 @@ export async function provisionStandalone(def: StandaloneDef, exeDir: string, bi
         if (found[k] === undefined) skip = true
         return found[k] ?? m
       })
-      if (!skip) after = upsertIni(after, e.section, e.key, e.quote === 'toml' ? tomlStr(value) : value)
+      if (skip) continue
+      if (e.ifDefault) {
+        const marker = `${e.key}\\default`
+        const untouched = readIniValue(after, e.section, marker)
+        if (untouched !== undefined && untouched !== 'true') continue
+        after = upsertIni(after, e.section, marker, 'false', cfg.sep)
+      }
+      after = upsertIni(after, e.section, e.key, e.quote === 'toml' ? tomlStr(value) : value, cfg.sep)
     }
     if (hook) after = await hook(after, exeDir)
     if (after !== before) {
-      await mkdir(dirname(rel(exeDir, cfg.file)), { recursive: true })
-      await writeFile(rel(exeDir, cfg.file), after)
+      await mkdir(dirname(file), { recursive: true })
+      await writeFile(file, after)
     }
   }
 

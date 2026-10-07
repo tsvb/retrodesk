@@ -326,4 +326,28 @@ describe('provisioning', () => {
     expect((await provisionStandalone(getStandaloneDef('eden')!, exeDir, bios)).ok).toBe(true)
     expect(readFileSync(join(registered, 'def.nca'), 'utf8')).toBe('kept')
   })
+  it('turns on async shaders in Eden unless the player chose otherwise', async () => {
+    const bios = join(dir, 'bios7')
+    const exeDir = join(dir, 'eden-cfg')
+    mkdirSync(join(bios, 'switch', 'firmware'), { recursive: true })
+    writeFileSync(join(bios, 'prod.keys'), 'k')
+    writeFileSync(join(bios, 'switch', 'firmware', 'abc.nca'), 'n')
+    const ini = join(exeDir, 'user', 'config', 'qt-config.ini')
+    // No config yet (first launch): written in Qt's key=value style, with the "touched" marker Eden looks at.
+    expect((await provisionStandalone(getStandaloneDef('eden')!, exeDir, bios)).ok).toBe(true)
+    let text = readFileSync(ini, 'utf8')
+    expect(readIniValue(text, 'Renderer', 'use_asynchronous_shaders')).toBe('true')
+    expect(readIniValue(text, 'Renderer', 'use_asynchronous_shaders\\default')).toBe('false')
+    expect(text).toContain('use_asynchronous_shaders=true')
+    // Eden's own untouched default is replaced too...
+    writeFileSync(ini, '[Renderer]\nbackend\\default=true\nbackend=1\nuse_asynchronous_shaders\\default=true\nuse_asynchronous_shaders=false\n')
+    await provisionStandalone(getStandaloneDef('eden')!, exeDir, bios)
+    text = readFileSync(ini, 'utf8')
+    expect(readIniValue(text, 'Renderer', 'use_asynchronous_shaders')).toBe('true')
+    expect(readIniValue(text, 'Renderer', 'backend')).toBe('1')
+    // ...but a value the player set in Eden stays.
+    writeFileSync(ini, '[Renderer]\nuse_asynchronous_shaders\\default=false\nuse_asynchronous_shaders=false\n')
+    await provisionStandalone(getStandaloneDef('eden')!, exeDir, bios)
+    expect(readIniValue(readFileSync(ini, 'utf8'), 'Renderer', 'use_asynchronous_shaders')).toBe('false')
+  })
 })
