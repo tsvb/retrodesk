@@ -1,5 +1,6 @@
 import type { ScanResult } from '@shared/types'
 import { api } from '../api'
+import { useImportCleanup } from '../stores/importCleanup'
 import { useSettings } from '../stores/settings'
 import { toast } from '../stores/session'
 import { formatNumber, plural } from './format'
@@ -44,6 +45,8 @@ export async function importPaths(paths: string[]): Promise<void> {
   try {
     const r = await api.library.importFiles(paths)
     toast(r.added ? `Imported ${plural(r.added, 'game')}` : 'No new games were found in those files', r.added ? 'success' : 'info')
+    // The copies are what the library uses now; offer to clear out the originals.
+    useImportCleanup.getState().offer(r)
   } catch (e) {
     toast(`Import failed: ${errText(e)}`, 'error')
   }

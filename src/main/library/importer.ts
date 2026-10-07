@@ -1,15 +1,17 @@
+import { existsSync } from 'fs'
 import { copyFile, cp, mkdir, readdir, readFile, stat } from 'fs/promises'
 import { basename, dirname, extname, join, relative } from 'path'
 import { ENTRY_POINT_EXTENSIONS } from '../systems'
 import { referencedFiles } from './formats'
 import { detectDirectoryGame, detectFileSystem } from './scanner'
-import { errMsg, isUnder, normPath } from './util'
+import { errMsg, isUnder, md5File, normPath } from './util'
 
 /**
  * Import ROMs picked by the user (file picker / drag & drop): detect the system of each file and copy it,
  * with its companion files (cue -> bins, m3u -> discs, gdi -> tracks, ccd -> img/sub), into <roms>/<systemId>/.
  * A multi-file game whose file names are already taken by another game goes into <roms>/<systemId>/<name>/.
  * Directory-format games (PS3, Wii U) are copied as folders. Unknown files are skipped. Nothing is overwritten.
+ * The sources are left alone; `originals` lists the ones the player may now want to remove.
  */
 
 export interface RomImportResult {
@@ -17,6 +19,19 @@ export interface RomImportResult {
   /** Already in place (same size) or not a recognized game file. */
   skipped: string[]
   errors: string[]
+  /**
+   * Source files and folders whose content is now in <roms>: copied this time, or already there byte for byte.
+   * Safe to remove as duplicates. Never anything inside <roms> itself, and never a same-named look-alike.
+   */
+  originals: string[]
+}
+
+/** Same size and same md5 (a same-sized file of the same name may still be another game). */
+async function sameContent(a: string, b: string): Promise<boolean> {
+  const [sa, sb] = await Promise.all([stat(a), stat(b)])
+  if (sa.size !== sb.size) return false
+  const [ha, hb] = await Promise.all([md5File(a), md5File(b)])
+  return ha === hb
 }
 
 async function expand(paths: string[], depth = 0): Promise<{ files: string[]; dirGames: { dir: string; systemId: string }[] }> {
@@ -116,7 +131,7 @@ async function fitsBesideOthers(plan: PlannedCopy[]): Promise<boolean> {
 }
 
 export async function importRomFiles(paths: string[], romsDir: string, onProgress?: (done: number, total: number, name: string) => void): Promise<RomImportResult> {
-  const res: RomImportResult = { copied: [], skipped: [], errors: [] }
+  const res: RomImportResult = { copied: [], skipped: [], errors: [], originals: [] }
   const { files, dirGames } = await expand(paths)
 
   // Files referenced by another selected entry point are copied as its companions, not on their own.
@@ -134,9 +149,12 @@ export async function importRomFiles(paths: string[], romsDir: string, onProgres
       const destDir = join(romsDir, g.systemId, basename(g.dir))
       if (isUnder(g.dir, join(romsDir, g.systemId))) res.skipped.push(g.dir)
       else {
+        // A folder that was already there is merged into, so only a fresh copy makes the source a duplicate.
+        const fresh = !existsSync(destDir)
         await mkdir(dirname(destDir), { recursive: true })
         await cp(g.dir, destDir, { recursive: true, force: false, errorOnExist: false })
         res.copied.push(destDir)
+        if (fresh) res.originals.push(g.dir)
       }
     } catch (e) {
       res.errors.push(`${g.dir}: ${errMsg(e)}`)
@@ -173,11 +191,13 @@ export async function importRomFiles(paths: string[], romsDir: string, onProgres
       for (const p of plan) {
         if (p.state === 'same') {
           res.skipped.push(p.src)
+          if (await sameContent(p.src, p.dest)) res.originals.push(p.src)
           continue
         }
         await mkdir(dirname(p.dest), { recursive: true })
         await copyFile(p.src, p.dest)
         res.copied.push(p.dest)
+        if ((await stat(p.dest)).size === (await stat(p.src)).size) res.originals.push(p.src)
       }
     } catch (e) {
       res.errors.push(`${f}: ${errMsg(e)}`)

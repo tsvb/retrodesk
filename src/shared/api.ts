@@ -7,6 +7,8 @@ import type {
   NativePad,
   PerformanceMode,
   QuickAction,
+  ImportResult,
+  RemoveOriginalsResult,
   ScanResult,
   SessionInfo,
   Settings,
@@ -34,7 +36,9 @@ export interface RetroDeskApi {
     /** Download artwork for the given games, or all games missing artwork. Progress via onTask. */
     fetchArtwork(gameIds?: string[]): Promise<void>
     /** Import ROM files (e.g. from drag and drop / file picker): copies into <dataRoot>/roms/<system>/ and rescans. */
-    importFiles(paths: string[]): Promise<ScanResult>
+    importFiles(paths: string[]): Promise<ImportResult>
+    /** Move originals the last import reported (ImportResult.originals) to the Trash. Anything else is refused. */
+    removeImportedOriginals(paths: string[]): Promise<RemoveOriginalsResult>
   }
   emulators: {
     list(): Promise<EmulatorStatus[]>
@@ -130,7 +134,7 @@ export const eventChannel = (name: EventName): string => `event:${name}`
 
 /** Request namespaces/methods, used by preload to build the API proxy generically. */
 export const API_SHAPE = {
-  library: ['getSystems', 'getGames', 'getGame', 'getRecent', 'scan', 'setFavorite', 'setHidden', 'setEmulatorOverride', 'fetchArtwork', 'importFiles'],
+  library: ['getSystems', 'getGames', 'getGame', 'getRecent', 'scan', 'setFavorite', 'setHidden', 'setEmulatorOverride', 'fetchArtwork', 'importFiles', 'removeImportedOriginals'],
   emulators: ['list', 'install', 'uninstall', 'installForSystem', 'openEmulatorUi'],
   bios: ['check', 'importFiles'],
   game: ['launch', 'getSession', 'quickAction'],

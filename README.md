@@ -32,6 +32,7 @@ Other features: BIOS checker with MD5 validation and import, drag-and-drop ROM i
    - **Your ROM folders.** Sub-folders are matched to systems by common names (`snes`, `psx`, `Nintendo 64`, `Sega - Mega Drive`, …). You can also assign a folder to a system. ROMs in an unrecognized folder are still found if their extension, or for disc images their header, identifies the system.
 3. RetroDesk scans your ROMs and offers to install emulators for the systems it found, then downloads artwork.
 4. Put BIOS files in `<data>/bios` or import them from Settings → BIOS. They are checked automatically.
+5. ROM folders you add are scanned in place and never changed. Games you import instead (drag and drop, or **Import ROM files**) are copied into `<data>/roms/<system>`, and RetroDesk then offers to move the originals to the Trash.
 
 ### Where your data lives
 

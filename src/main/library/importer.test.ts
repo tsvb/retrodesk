@@ -49,6 +49,28 @@ describe('importRomFiles', () => {
     expect(existsSync(join(roms, 'dreamcast', 'disc'))).toBe(false)
   })
 
+  it('reports the originals that are now duplicates, but never a same-sized look-alike', async () => {
+    const roms = join(tmp, 'd', 'roms')
+    const src = join(tmp, 'd', 'src', 'Game.gba')
+    writeFile(src, rom(4096, 11))
+    // Copied this time: the source is a duplicate now.
+    expect((await importRomFiles([src], roms)).originals).toEqual([src])
+    // Already there, byte for byte: still a duplicate.
+    const again = await importRomFiles([src], roms)
+    expect(again.copied).toEqual([])
+    expect(again.originals).toEqual([src])
+    // Same name and size, different content: skipped as "same" by size, but not offered for removal.
+    const lookalike = join(tmp, 'd', 'other', 'Game.gba')
+    writeFile(lookalike, rom(4096, 12))
+    const r = await importRomFiles([lookalike], roms)
+    expect(r.errors).toEqual([])
+    expect(r.originals).toEqual([])
+    expect(existsSync(lookalike)).toBe(true)
+    // A multi-file game lists every file it brought along.
+    const game = gdiGame(join(tmp, 'd', 'dc'), 13)
+    expect((await importRomFiles([game.gdi], roms)).originals.sort()).toEqual([game.gdi, join(tmp, 'd', 'dc', 'track01.bin'), join(tmp, 'd', 'dc', 'track03.bin')].sort())
+  })
+
   it('does not overwrite a different single-file ROM of the same name', async () => {
     const roms = join(tmp, 'c', 'roms')
     const original = rom(4096, 5)

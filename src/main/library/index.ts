@@ -1,8 +1,8 @@
-import { app } from 'electron'
+import { app, shell } from 'electron'
 import { existsSync } from 'fs'
 import { isAbsolute, join, relative } from 'path'
 import type { RetroDeskApi } from '../../shared/api'
-import type { BiosStatus, Game, MediaKind, ScanResult, SystemSummary } from '../../shared/types'
+import type { BiosStatus, Game, ImportResult, MediaKind, RemoveOriginalsResult, ScanResult, SystemSummary } from '../../shared/types'
 import { isSystemPlayable } from '../emulators'
 import { broadcast, createTask, emitLibraryChanged } from '../events'
 import { getPaths, managedPathPredicate } from '../paths'
@@ -27,6 +27,8 @@ let steamDetected = false
 let steamDetectDone: Promise<void> | null = null
 /** Arcade BIOS zips found in ROM folders during the last scan (neogeo.zip next to the ROMs counts as present). */
 let romFolderBiosFiles: string[] = []
+/** Originals the last import made redundant (normalized path -> path): the only files removeImportedOriginals will touch. */
+let removableOriginals = new Map<string, string>()
 let arcadeNames: Map<string, string> | undefined
 let scanPromise: Promise<ScanResult> | null = null
 /** The running scan only covers some folders. */
@@ -512,23 +514,48 @@ export const libraryHandlers: RetroDeskApi['library'] = {
   async fetchArtwork(gameIds) {
     await fetchArtwork(gameIds)
   },
-  async importFiles(paths) {
+  async importFiles(paths): Promise<ImportResult> {
     const task = createTask('Importing games', { kind: 'import' })
     const romsDir = getPaths().roms
     let scope: string[] | undefined
+    let copied = 0
+    let originals: string[] = []
     try {
       const res = await importRomFiles(paths ?? [], romsDir, (done, total, name) => task.update(total ? done / total : -1, name))
       task.done(`${res.copied.length} file(s) copied${res.skipped.length ? `, ${res.skipped.length} skipped` : ''}${res.errors.length ? `, ${res.errors.length} failed` : ''}`)
       if (res.errors.length) console.warn('[library] import errors', res.errors)
       // Files skipped because they are already in roms/ may not be in the library yet: look at those too.
       scope = importScope([...res.copied, ...res.skipped.filter((p) => isUnder(p, romsDir))], romsDir)
+      copied = res.copied.length
+      originals = res.originals
     } catch (e) {
       task.fail(e)
       throw e
     }
+    removableOriginals = new Map(originals.map((p) => [normPath(p), p]))
     if (scanPromise) await scanPromise.catch(() => undefined)
     // Only the folders the import touched, not every ROM folder.
-    return startScan(scope)
+    const scan = await startScan(scope)
+    return { ...scan, copied, originals }
+  },
+  async removeImportedOriginals(paths): Promise<RemoveOriginalsResult> {
+    const res: RemoveOriginalsResult = { removed: 0, errors: [] }
+    for (const p of paths ?? []) {
+      const key = normPath(p)
+      const original = removableOriginals.get(key)
+      if (!original) {
+        res.errors.push(`${p}: not an original of the last import`)
+        continue
+      }
+      try {
+        await shell.trashItem(original)
+        res.removed++
+      } catch (e) {
+        res.errors.push(`${original}: ${e instanceof Error ? e.message : String(e)}`)
+      }
+      removableOriginals.delete(key)
+    }
+    return res
   }
 }
 

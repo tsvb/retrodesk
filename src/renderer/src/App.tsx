@@ -2,6 +2,7 @@ import { memo, useEffect, useState, type CSSProperties, type ReactNode } from 'r
 import { Upload } from 'lucide-react'
 import { api, pathForFile } from './api'
 import { HintBar } from './components/HintBar'
+import { ImportCleanupDialog } from './components/ImportCleanupDialog'
 import { TaskTray, Toasts } from './components/TaskTray'
 import { TopBar, Wordmark } from './components/TopBar'
 import { installGamepad } from './input/gamepad'
@@ -109,6 +110,7 @@ export function App() {
       )}
       <TaskTray />
       <Toasts />
+      <ImportCleanupDialog />
       <DropZone />
     </div>
   )

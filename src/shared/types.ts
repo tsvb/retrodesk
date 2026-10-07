@@ -241,4 +241,18 @@ export interface ScanResult {
   durationMs: number
 }
 
+/** What an import did: the rescan it ended with, plus what the player may want to clean up. */
+export interface ImportResult extends ScanResult {
+  /** Files copied into the roms folder. */
+  copied: number
+  /** Source files and folders whose content is now in the roms folder, so they are duplicates (see library.removeImportedOriginals). */
+  originals: string[]
+}
+
+export interface RemoveOriginalsResult {
+  /** Files and folders moved to the Trash / Recycle Bin. */
+  removed: number
+  errors: string[]
+}
+
 export type LaunchResult = { ok: true; session: SessionInfo } | { ok: false; error: string; needs?: 'emulator' | 'bios'; emulatorId?: string }

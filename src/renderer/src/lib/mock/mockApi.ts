@@ -288,7 +288,11 @@ export function createMockApi(): RetroDeskApi {
         await runTask(`Importing ${paths.length} file${paths.length === 1 ? '' : 's'}`, 1200, [], { kind: 'import' })
         for (const p of paths) games.push(makeGame('nes', (p.split(/[\\/]/).pop() ?? p).replace(/\.[^.]+$/, '')))
         changed()
-        return { added: paths.length, removed: 0, total: games.length, durationMs: Date.now() - t0 }
+        return { added: paths.length, removed: 0, total: games.length, durationMs: Date.now() - t0, copied: paths.length, originals: paths }
+      },
+      async removeImportedOriginals(paths) {
+        console.info('[mock] moved to trash', paths)
+        return { removed: paths.length, errors: [] }
       }
     },
     emulators: {
