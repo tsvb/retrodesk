@@ -1,7 +1,7 @@
 {
   "name": "retrodesk",
   "productName": "RetroDesk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "RetroDesk - a Retroid Pocket style emulation console experience for Windows and macOS desktops",
   "main": "out/main/index.js",
   "scripts": {
