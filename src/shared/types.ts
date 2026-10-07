@@ -192,6 +192,8 @@ export interface TaskProgress {
   detail?: string
   state: TaskState
   error?: string
+  /** Stays in the tray until dismissed instead of fading out (a crash the player has to be able to read). */
+  sticky?: boolean
 }
 
 export interface BiosStatus {

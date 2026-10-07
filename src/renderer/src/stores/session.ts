@@ -48,7 +48,7 @@ export const useTasks = create<TasksState>((set, get) => ({
   tasks: {},
   upsert(t) {
     set((s) => ({ tasks: { ...s.tasks, [t.id]: { ...t, updatedAt: Date.now() } } }))
-    if (t.state !== 'running') {
+    if (t.state !== 'running' && !t.sticky) {
       const ttl = t.state === 'error' ? ERROR_TTL : DONE_TTL
       setTimeout(() => {
         const cur = get().tasks[t.id]

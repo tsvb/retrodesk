@@ -1,6 +1,7 @@
 // Game launcher + session tracking + Game Assist quick actions.
 import { spawn, spawnSync, type ChildProcess } from 'child_process'
 import { existsSync, rmSync } from 'fs'
+import { appendFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import { app, globalShortcut, shell } from 'electron'
 import type { RetroDeskApi } from '../../shared/api'
@@ -257,12 +258,21 @@ function followEmulatorLog(s: ActiveSession, plan: LaunchPlan): CrashLogWatcher 
     patterns: def.crashLog.patterns,
     since: s.info.startedAt - 1000,
     onMatch: (line) => {
-      console.warn(`[launch] ${def.name} log: ${line}`)
+      noteLaunch(`${s.info.title}: ${def.name} log: ${line}`)
       s.crashClosedText = `${def.name} closed because the game crashed inside it. See ${file}.`
-      s.crashTask = createTask(s.info.title)
+      s.crashTask = createTask(s.info.title, undefined, { sticky: true })
       s.crashTask.fail(`${message} See ${file}.`)
     }
   })
+}
+
+/**
+ * Launch events worth keeping: console output is lost when the app is started from the Finder, and a crash is
+ * exactly the thing one wants to look up afterwards. Appended to launch.log in the user-data folder.
+ */
+function noteLaunch(text: string): void {
+  console.warn(`[launch] ${text}`)
+  appendFile(join(app.getPath('userData'), 'launch.log'), `${new Date().toISOString()} ${text}\n`).catch(() => undefined)
 }
 
 async function endSession(s: ActiveSession, code: number | null, signal: NodeJS.Signals | null = null): Promise<void> {
@@ -300,12 +310,13 @@ async function endSession(s: ActiveSession, code: number | null, signal: NodeJS.
   }
   // A quick non-zero exit almost always means the emulator failed to boot the game, and a death by signal is
   // a crash at any point. Not when we asked it to quit, and not twice when the log already told the story.
+  noteLaunch(`${s.info.title}: ${s.info.emulatorId} exited after ${seconds}s (code ${code}, signal ${signal})${s.quitTimer ? ', on request' : ''}${s.crashTask ? ', crash already reported' : ''}`)
   if (s.crashTask || s.quitTimer) return
   const crashed = signal !== null || (code !== null && code !== 0 && seconds < 10)
   if (crashed) {
     const hint = s.info.supportsCommands ? ` See ${join(raDir(getPaths()), 'logs', 'retroarch.log')}.` : ''
     const how = signal ? `crashed (${signal})` : `closed unexpectedly (exit code ${code})`
-    createTask(s.info.title).fail(`The emulator ${how}.${hint}`)
+    createTask(s.info.title, undefined, { sticky: true }).fail(`The emulator ${how}.${hint}`)
   }
 }
 

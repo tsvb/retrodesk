@@ -27,9 +27,9 @@ export interface TaskHandle {
   fail(err: unknown): void
 }
 
-/** Create a background task whose progress is shown in the UI's task tray. */
-export function createTask(label: string, subject?: TaskSubject): TaskHandle {
-  const task: TaskProgress = { id: randomUUID(), label, subject, progress: -1, state: 'running' }
+/** Create a background task whose progress is shown in the UI's task tray. `sticky` ones stay until dismissed. */
+export function createTask(label: string, subject?: TaskSubject, opts: { sticky?: boolean } = {}): TaskHandle {
+  const task: TaskProgress = { id: randomUUID(), label, subject, progress: -1, state: 'running', ...(opts.sticky ? { sticky: true } : {}) }
   let last = 0
   let trailing: NodeJS.Timeout | undefined
   const send = (force = false) => {
