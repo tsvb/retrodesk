@@ -17,7 +17,7 @@ describe('watchCrashLog', () => {
     utimesSync(file, old, old)
     const since = Date.now()
     const hits: string[] = []
-    const stop = watchCrashLog({ file, patterns: ['Emulated program broke execution', '<Critical>'], since, onMatch: (l) => hits.push(l), intervalMs: 20 })
+    const watch = watchCrashLog({ file, patterns: ['Emulated program broke execution', '<Critical>'], since, onMatch: (l) => hits.push(l), intervalMs: 20 })
     await tick(80)
     expect(hits).toEqual([])
 
@@ -31,16 +31,30 @@ describe('watchCrashLog', () => {
     await tick(120)
     expect(hits).toHaveLength(1)
     expect(hits[0]).toContain('reason=0xE401')
-    stop()
+    expect(await watch.check()).toBe(true)
+    watch.stop()
+  })
+
+  it('catches a fatal line written just before the emulator dies, when checked at exit', async () => {
+    const file = join(tmp, 'sudden.txt')
+    const hits: string[] = []
+    // A long interval stands in for the poll that never comes because the process is already gone.
+    const watch = watchCrashLog({ file, patterns: ['<Critical>'], since: 0, onMatch: (l) => hits.push(l), intervalMs: 60_000 })
+    writeFileSync(file, '[1.0] boot\n[3.2] Debug <Critical> assert !is_executing\n')
+    expect(await watch.check()).toBe(true)
+    expect(hits).toEqual(['[3.2] Debug <Critical> assert !is_executing'])
+    watch.stop()
+    expect(await watch.check()).toBe(true)
   })
 
   it('stops when told to', async () => {
     const file = join(tmp, 'quiet.txt')
     const hits: string[] = []
-    const stop = watchCrashLog({ file, patterns: ['<Critical>'], since: 0, onMatch: (l) => hits.push(l), intervalMs: 20 })
-    stop()
+    const watch = watchCrashLog({ file, patterns: ['<Critical>'], since: 0, onMatch: (l) => hits.push(l), intervalMs: 20 })
+    watch.stop()
     writeFileSync(file, 'x <Critical> y\n')
     await tick(80)
     expect(hits).toEqual([])
+    expect(await watch.check()).toBe(false)
   })
 })

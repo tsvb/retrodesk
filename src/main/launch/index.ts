@@ -21,7 +21,7 @@ import { expandArgs, getStandaloneDef, hasVcRedist, provisionStandalone, resolve
 import { hostOs } from '../platform'
 import { autoFetchableCore, describeMissing, missingBios } from './bios'
 import { fileWrittenSince } from './confirm'
-import { watchCrashLog } from './crashlog'
+import { watchCrashLog, type CrashLogWatcher } from './crashlog'
 import { createFocusHelper } from './focus'
 import { getNativeGamepads } from '../gamepads'
 import { RaCommandClient } from './racommand'
@@ -43,8 +43,12 @@ interface ActiveSession {
   exited: boolean
   /** Serializes overlay pause/resume work. */
   chain: Promise<void>
-  /** Ends the emulator-log watch (standalone emulators that declare a crashLog). */
-  stopCrashWatch?: () => void
+  /** Follows the emulator's log (standalone emulators that declare a crashLog). */
+  crashWatch?: CrashLogWatcher
+  /** The notice that the game crashed, once shown; reworded if the emulator then goes down too. */
+  crashTask?: TaskHandle
+  /** What that notice should say once the emulator has closed on its own. */
+  crashClosedText?: string
 }
 
 let active: ActiveSession | null = null
@@ -214,8 +218,8 @@ export async function launchGame(gameId: string): Promise<LaunchResult> {
     const session: ActiveSession = { info, child, ra: isRetroArch ? ra : null, pausedByUs: false, boosting: Promise.resolve(), exited: false, chain: Promise.resolve() }
     if (isRetroArch) ra = null // the session owns it now
     active = session
-    child.once('exit', (code) => void endSession(session, code))
-    session.stopCrashWatch = followEmulatorLog(session, plan)
+    child.once('exit', (code, signal) => void endSession(session, code, signal))
+    session.crashWatch = followEmulatorLog(session, plan)
     // The power mode is switched once the emulator is on its way rather than holding up its start. The plan being
     // replaced goes to disk before anything changes, so a crash mid-game can still put it back.
     session.boosting = capturing
@@ -242,7 +246,7 @@ export async function launchGame(gameId: string): Promise<LaunchResult> {
  * Some emulators outlive the game that died inside them (Eden sits on its loading screen after the game aborts).
  * Following the log they declare turns that into a message; the returned function ends the watch.
  */
-function followEmulatorLog(s: ActiveSession, plan: LaunchPlan): (() => void) | undefined {
+function followEmulatorLog(s: ActiveSession, plan: LaunchPlan): CrashLogWatcher | undefined {
   if (plan.ref.type !== 'standalone') return undefined
   const def = getStandaloneDef(plan.ref.id)
   if (!def?.crashLog) return undefined
@@ -253,18 +257,25 @@ function followEmulatorLog(s: ActiveSession, plan: LaunchPlan): (() => void) | u
     patterns: def.crashLog.patterns,
     since: s.info.startedAt - 1000,
     onMatch: (line) => {
-      if (s.exited) return
       console.warn(`[launch] ${def.name} log: ${line}`)
-      createTask(s.info.title).fail(`${message} See ${file}.`)
+      s.crashClosedText = `${def.name} closed because the game crashed inside it. See ${file}.`
+      s.crashTask = createTask(s.info.title)
+      s.crashTask.fail(`${message} See ${file}.`)
     }
   })
 }
 
-async function endSession(s: ActiveSession, code: number | null): Promise<void> {
+async function endSession(s: ActiveSession, code: number | null, signal: NodeJS.Signals | null = null): Promise<void> {
   if (s.exited) return
   s.exited = true
   clearTimeout(s.quitTimer)
-  s.stopCrashWatch?.()
+  // The fatal line is often the last thing written before the process dies: read once more before letting go.
+  if (s.crashWatch) {
+    await s.crashWatch.check().catch(() => undefined)
+    s.crashWatch.stop()
+  }
+  // The emulator went down with the game (we did not ask it to quit): there is nothing left to quit by hand.
+  if (s.crashTask && s.crashClosedText && !s.quitTimer) s.crashTask.fail(s.crashClosedText)
   const seconds = Math.max(0, Math.round((Date.now() - s.info.startedAt) / 1000))
   if (active === s) active = null
   unregisterShortcut()
@@ -287,10 +298,14 @@ async function endSession(s: ActiveSession, code: number | null): Promise<void> 
   } catch (e) {
     console.warn('[launch] recordPlaySession failed', e)
   }
-  // A quick non-zero exit almost always means the emulator failed to boot the game.
-  if (code && code !== 0 && seconds < 10 && !s.quitTimer) {
+  // A quick non-zero exit almost always means the emulator failed to boot the game, and a death by signal is
+  // a crash at any point. Not when we asked it to quit, and not twice when the log already told the story.
+  if (s.crashTask || s.quitTimer) return
+  const crashed = signal !== null || (code !== null && code !== 0 && seconds < 10)
+  if (crashed) {
     const hint = s.info.supportsCommands ? ` See ${join(raDir(getPaths()), 'logs', 'retroarch.log')}.` : ''
-    createTask(s.info.title).fail(`The emulator closed unexpectedly (exit code ${code}).${hint}`)
+    const how = signal ? `crashed (${signal})` : `closed unexpectedly (exit code ${code})`
+    createTask(s.info.title).fail(`The emulator ${how}.${hint}`)
   }
 }
 
