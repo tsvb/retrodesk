@@ -168,7 +168,7 @@
     ],
     "crashLog": {
       "file": "user/log/eden_log.txt",
-      "patterns": ["Emulated program broke execution", "<Critical>"],
+      "patterns": ["Emulated program broke execution", "Cannot execute instruction at unmapped address", "dynarmic/backend/"],
       "message": "Eden reports that the game crashed inside the emulator, so it will not get past its loading screen. Quit it from the quick menu."
     },
     "config": {
@@ -213,7 +213,7 @@
       ],
       "crashLog": {
         "file": "log/eden_log.txt",
-        "patterns": ["Emulated program broke execution", "<Critical>"],
+        "patterns": ["Emulated program broke execution", "Cannot execute instruction at unmapped address", "dynarmic/backend/"],
         "message": "Eden reports that the game crashed inside the emulator, so it will not get past its loading screen. Quit it from the quick menu."
       },
       "config": {
