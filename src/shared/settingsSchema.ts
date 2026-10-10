@@ -126,6 +126,17 @@ export const SETTINGS_SCHEMA = {
   'retroarch.autoSaveState': toggle({ title: 'Save a state when quitting', default: true, cfg: ['savestate_auto_save'] }),
   'retroarch.autoLoadState': toggle({ title: 'Load that state when starting', default: true, cfg: ['savestate_auto_load'] }),
   'retroarch.runAhead': toggle({ title: 'Run-ahead', description: 'Removes one frame of input lag. Uses more CPU.', default: false, cfg: ['run_ahead_enabled'] }),
+  // No cfg: the button indices depend on the joypad driver (see buildRetroArchConfig).
+  'retroarch.faceButtons': choice({
+    title: 'Game buttons',
+    description: 'Which face buttons the A and B of a NES or Super NES game are on.',
+    control: 'segmented',
+    default: 'position',
+    options: [
+      { value: 'position', label: 'Like the original pad', hint: 'A is the right button, B the bottom one' },
+      { value: 'labels', label: 'Match the labels', hint: 'A is the button labeled A on Xbox-style pads' }
+    ]
+  }),
   // No cfg: whether rewind is really on also depends on RetroAchievements hardcore mode (see buildRetroArchConfig).
   'retroarch.rewind': toggle({ title: 'Rewind', description: 'Lets you step back a few seconds from the quick menu. Uses more memory.', default: false }),
 
