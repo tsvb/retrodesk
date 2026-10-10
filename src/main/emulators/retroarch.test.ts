@@ -163,9 +163,9 @@ describe('buildRetroArchConfig', () => {
       menu_swap_ok_cancel_buttons: 'true'
     })
     expect(buildRetroArchConfig({ settings: labels, paths, os: 'windows' })).toMatchObject({ input_player1_a_btn: '0', input_player1_b_btn: '1', input_player1_x_btn: '2', input_player1_y_btn: '3' })
-    // Nintendo pads already have A on the right.
+    // Nintendo pads too: macOS reports their buttons by label. The menu keeps its physical buttons.
     const nintendo = buildRetroArchConfig({ settings: labels, paths, os: 'macos', padName: 'Nintendo Switch Pro Controller' })
-    expect(nintendo).toMatchObject({ input_player1_a_btn: 'nul', menu_swap_ok_cancel_buttons: 'true' })
+    expect(nintendo).toMatchObject({ input_player1_a_btn: '0', input_player1_b_btn: '8', menu_swap_ok_cancel_buttons: 'false' })
   })
 
   it('UI mode lets RetroArch persist menu changes', () => {

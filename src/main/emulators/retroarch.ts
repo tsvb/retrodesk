@@ -312,8 +312,9 @@ export function buildRetroArchConfig({ settings, paths, shaderPath, uiMode, os =
   const comboUsesSticks = combo.includes(STD.L3) && combo.includes(STD.R3)
   const b = (v: boolean) => (v ? 'true' : 'false')
   const family = padName ? padFamily(padName) : undefined
-  // Nintendo pads already have A on the right, so their labels and positions agree.
-  const facesByLabel = ra.faceButtons === 'labels' && family !== 'nintendo'
+  // Applies to Nintendo pads too: macOS reports a Switch Pro controller's buttons by label, so by default its B
+  // (bottom) lands on RetroPad A.
+  const facesByLabel = ra.faceButtons === 'labels'
 
   const cfg: Record<string, string> = {
     // Directories

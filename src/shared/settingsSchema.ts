@@ -134,7 +134,7 @@ export const SETTINGS_SCHEMA = {
     default: 'position',
     options: [
       { value: 'position', label: 'Like the original pad', hint: 'A is the right button, B the bottom one' },
-      { value: 'labels', label: 'Match the labels', hint: 'A is the button labeled A on Xbox-style pads' }
+      { value: 'labels', label: 'Match the labels', hint: 'A is the button labeled A on your controller' }
     ]
   }),
   // No cfg: whether rewind is really on also depends on RetroAchievements hardcore mode (see buildRetroArchConfig).
