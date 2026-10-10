@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
@@ -10,7 +10,23 @@ vi.mock('electron', () => ({ app: { getPath: () => tmpdir() } }))
 
 import { defaultSettings } from '../settings'
 import type { Settings } from '../../shared/types'
-import { buildRetroArchArgs, buildRetroArchConfig, coreBasenames, coreDisplayName, coreFileBase, coreLibPath, parseCfg, raExe, resolveShaderPreset, serializeCfg, shaderDirs } from './retroarch'
+import {
+  buildRetroArchArgs,
+  buildRetroArchConfig,
+  coreBasenames,
+  coreDisplayName,
+  coreFileBase,
+  coreLibPath,
+  coreRemapName,
+  faceButtonRemap,
+  parseCfg,
+  raExe,
+  REMAP_MARKER,
+  resolveShaderPreset,
+  serializeCfg,
+  shaderDirs,
+  writeFaceButtonRemap
+} from './retroarch'
 
 const paths = { bios: 'C:\\RD\\bios', saves: 'C:\\RD\\saves', states: 'C:\\RD\\states', screenshots: 'C:\\RD\\screenshots', emulators: 'C:\\RD\\emulators' }
 
@@ -146,26 +162,19 @@ describe('buildRetroArchConfig', () => {
     expect(buildRetroArchConfig({ settings: auto, paths }).menu_swap_ok_cancel_buttons).toBe('false')
   })
 
-  it('keeps the original face-button positions by default', () => {
-    const cfg = buildRetroArchConfig({ settings: settings(), paths, os: 'macos' })
-    expect(cfg).toMatchObject({ input_player1_a_btn: 'nul', input_player1_b_btn: 'nul', input_player4_y_btn: 'nul', menu_swap_ok_cancel_buttons: 'false' })
-  })
-
-  it('puts game A and B on the buttons labeled A and B when asked', () => {
+  it('leaves face buttons to remap files, clearing binds earlier builds wrote', () => {
     const labels = settings((s) => (s.retroarch.faceButtons = 'labels'))
-    expect(buildRetroArchConfig({ settings: labels, paths, os: 'macos' })).toMatchObject({
-      input_player1_a_btn: '0',
-      input_player1_b_btn: '8',
-      input_player1_x_btn: '1',
-      input_player1_y_btn: '9',
-      input_player2_a_btn: '0',
-      // The menu still confirms with the same physical button.
-      menu_swap_ok_cancel_buttons: 'true'
+    const cfg = buildRetroArchConfig({ settings: labels, paths, os: 'macos' })
+    expect(cfg).toMatchObject({
+      input_player1_a_btn: 'nul',
+      input_player1_b_btn: 'nul',
+      input_player4_y_btn: 'nul',
+      menu_swap_ok_cancel_buttons: 'false',
+      input_remapping_directory: join(paths.emulators, 'retroarch', 'config', 'remaps'),
+      auto_remaps_enable: 'true',
+      // RetroArch would otherwise rewrite RetroDesk's remap file, without its marker, on exit.
+      remap_save_on_exit: 'false'
     })
-    expect(buildRetroArchConfig({ settings: labels, paths, os: 'windows' })).toMatchObject({ input_player1_a_btn: '0', input_player1_b_btn: '1', input_player1_x_btn: '2', input_player1_y_btn: '3' })
-    // Nintendo pads too: macOS reports their buttons by label. The menu keeps its physical buttons.
-    const nintendo = buildRetroArchConfig({ settings: labels, paths, os: 'macos', padName: 'Nintendo Switch Pro Controller' })
-    expect(nintendo).toMatchObject({ input_player1_a_btn: '0', input_player1_b_btn: '8', menu_swap_ok_cancel_buttons: 'false' })
   })
 
   it('UI mode lets RetroArch persist menu changes', () => {
@@ -175,6 +184,45 @@ describe('buildRetroArchConfig', () => {
   it('UI mode does not leave the command port enabled in the saved config', () => {
     expect(buildRetroArchConfig({ settings: settings(), paths, uiMode: true }).network_cmd_enable).toBe('false')
     expect(buildRetroArchConfig({ settings: settings(), paths }).network_cmd_enable).toBe('true')
+  })
+})
+
+describe('face-button remap', () => {
+  const root = mkdtempSync(join(tmpdir(), 'rd-remap-'))
+  afterAll(() => rmSync(root, { recursive: true, force: true }))
+  const p = { emulators: root }
+  const rmp = join(root, 'retroarch', 'config', 'remaps', 'Mesen', 'Mesen.rmp')
+  mkdirSync(join(root, 'retroarch', 'info'), { recursive: true })
+  writeFileSync(join(root, 'retroarch', 'info', 'mesen_libretro.info'), '# Software Information\ndisplay_name = "Nintendo - NES / Famicom (Mesen)"\ncorename = "Mesen"\n')
+
+  it('swaps A with B and X with Y for every player', () => {
+    const remap = parseCfg(faceButtonRemap())
+    expect(remap).toMatchObject({ input_player1_btn_b: '8', input_player1_btn_a: '0', input_player1_btn_y: '9', input_player1_btn_x: '1', input_player4_btn_b: '8' })
+    expect(faceButtonRemap().startsWith(REMAP_MARKER)).toBe(true)
+  })
+
+  it('reads the name RetroArch files remaps under from the core info', () => {
+    expect(coreRemapName('display_name = "x"\ncorename = "Beetle PSX HW"\n')).toBe('Beetle PSX HW')
+    expect(coreRemapName('display_name = "x"\n')).toBeUndefined()
+  })
+
+  it('writes the core remap when buttons match labels and removes it again', async () => {
+    await writeFaceButtonRemap(p, 'mesen', true)
+    expect(readFileSync(rmp, 'utf8')).toBe(faceButtonRemap())
+    await writeFaceButtonRemap(p, 'mesen_libretro', false)
+    expect(existsSync(rmp)).toBe(false)
+  })
+
+  it('never touches a remap the player saved', async () => {
+    writeFileSync(rmp, 'input_player1_btn_a = "1"\n')
+    await writeFaceButtonRemap(p, 'mesen', true)
+    await writeFaceButtonRemap(p, 'mesen', false)
+    expect(readFileSync(rmp, 'utf8')).toBe('input_player1_btn_a = "1"\n')
+  })
+
+  it('skips cores without info', async () => {
+    await expect(writeFaceButtonRemap(p, 'snes9x', true)).resolves.toBeUndefined()
+    expect(existsSync(join(root, 'retroarch', 'config', 'remaps', 'Snes9x'))).toBe(false)
   })
 })
 

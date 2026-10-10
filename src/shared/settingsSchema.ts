@@ -126,7 +126,7 @@ export const SETTINGS_SCHEMA = {
   'retroarch.autoSaveState': toggle({ title: 'Save a state when quitting', default: true, cfg: ['savestate_auto_save'] }),
   'retroarch.autoLoadState': toggle({ title: 'Load that state when starting', default: true, cfg: ['savestate_auto_load'] }),
   'retroarch.runAhead': toggle({ title: 'Run-ahead', description: 'Removes one frame of input lag. Uses more CPU.', default: false, cfg: ['run_ahead_enabled'] }),
-  // No cfg: the button indices depend on the joypad driver (see buildRetroArchConfig).
+  // No cfg: applied as a core remap file (see writeFaceButtonRemap).
   'retroarch.faceButtons': choice({
     title: 'Game buttons',
     description: 'Which face buttons the A and B of a NES or Super NES game are on.',
