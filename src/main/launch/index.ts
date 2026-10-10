@@ -117,7 +117,7 @@ export async function planLaunch(game: Game): Promise<PlanResult> {
   if (ref.type === 'retroarch') {
     const exe = retroArchExe()!
     // The controller main reads natively (macOS) resolves an "Automatic" button layout for RetroArch's menu too.
-    const { cfgPath, shaderPath, mainCfg } = await writeAppendConfig(settings, paths, false, getNativeGamepads()?.[0]?.id)
+    const { cfgPath, shaderPath, mainCfg } = await writeAppendConfig(settings, paths, false, getNativeGamepads()?.[0]?.id, ref.core)
     return {
       ok: true,
       plan: { exe, cwd: dirname(exe), ref, supportsCommands: true, args: buildRetroArchArgs({ coreDll: coreLibPath(paths, ref.core), rom: game.path, appendCfg: cfgPath, shaderPath, mainCfg }) }

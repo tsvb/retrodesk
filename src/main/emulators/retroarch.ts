@@ -2,9 +2,9 @@
 // Windows gets the portable 7z build; macOS the universal app bundle (RetroArch.app inside <emulators>/retroarch),
 // started with --config so it keeps its settings next to it like the portable build does.
 import { existsSync } from 'fs'
-import { mkdir, readdir, rename, rm, writeFile } from 'fs/promises'
+import { mkdir, readdir, readFile, rename, rm, writeFile } from 'fs/promises'
 import { homedir } from 'os'
-import { join } from 'path'
+import { dirname, join } from 'path'
 import { prettifyCore } from '../../shared/emulators'
 import { padFamily, resolveButtonLayout } from '../../shared/pads'
 import { hotkeyBindings, padBinding, type PadDriver } from '../../shared/quickActions'
@@ -265,20 +265,59 @@ const STD = { BACK: 8, START: 9, L3: 10, R3: 11 } as const
 /** Players whose face buttons follow Settings.retroarch.faceButtons. */
 const FACE_BUTTON_PLAYERS = 4
 
-/** RetroPad face button -> the Xbox-labeled pad button it goes on when buttons match their labels. */
-const FACE_BUTTONS_BY_LABEL = { a: 'A', b: 'B', x: 'X', y: 'Y' } as const
+/**
+ * Settings.retroarch.faceButtons is applied with a core remap file, not with input binds: RetroArch's mFi driver
+ * (macOS) ignores binds for cores that read the whole pad at once (Mesen, among others), while remaps apply to every
+ * driver and core. Earlier builds did use binds, so clear any a saved config still carries.
+ */
+function clearedFaceButtonBinds(): Record<string, string> {
+  const cfg: Record<string, string> = {}
+  for (let p = 1; p <= FACE_BUTTON_PLAYERS; p++) for (const b of ['a', 'b', 'x', 'y']) cfg[`input_player${p}_${b}_btn`] = 'nul'
+  return cfg
+}
+
+/** RetroDesk's remap folder, next to RetroArch (also RetroArch's own default for the portable Windows build). */
+export const raRemapDir = (p: Pick<RaPaths, 'emulators'>): string => join(raDir(p), 'config', 'remaps')
+
+/** First line of the remap files RetroDesk writes. Files without it are the player's own and are left alone. */
+export const REMAP_MARKER = '# Managed by RetroDesk'
 
 /**
- * Face-button binds for every player. RetroArch's autoconfig maps by position (RetroPad A is the right button, as on
- * a NES pad); "labels" binds RetroPad A to the pad's A instead. 'nul' falls back to autoconfig and clears binds a
- * previous run (or UI mode's saved config) left behind.
+ * Remap file putting the game's A/B/X/Y on the pad's A/B/X/Y. RetroArch maps by position (RetroPad A is the right
+ * button, as on a NES pad), so this swaps A with B and X with Y. Keys are the button pressed, values the RetroPad
+ * button the core sees (RETRO_DEVICE_ID_JOYPAD_*: B=0 Y=1 A=8 X=9).
  */
-function faceButtonBindings(driver: PadDriver, byLabel: boolean): Record<string, string> {
-  const cfg: Record<string, string> = {}
+export function faceButtonRemap(): string {
+  const lines = [`${REMAP_MARKER}: game buttons match their labels (Settings > Controls). Save your own remap to replace it.`]
   for (let p = 1; p <= FACE_BUTTON_PLAYERS; p++) {
-    for (const [retroPad, button] of Object.entries(FACE_BUTTONS_BY_LABEL)) cfg[`input_player${p}_${retroPad}_btn`] = byLabel ? padBinding(driver, button).btn : 'nul'
+    lines.push(`input_player${p}_btn_b = "8"`, `input_player${p}_btn_a = "0"`, `input_player${p}_btn_y = "9"`, `input_player${p}_btn_x = "1"`)
   }
-  return cfg
+  return `${lines.join('\n')}\n`
+}
+
+/** The name RetroArch files a core's remaps under: the `corename` of its .info file (= the core's library_name). */
+export function coreRemapName(info: string): string | undefined {
+  return /^\s*corename\s*=\s*"([^"]+)"/m.exec(info)?.[1]
+}
+
+/**
+ * Write (or remove) the face-button remap for `core`: <remaps>/<corename>/<corename>.rmp, the core-wide remap
+ * RetroArch loads automatically. A remap the player saved themselves is never touched.
+ */
+export async function writeFaceButtonRemap(paths: Pick<RaPaths, 'emulators'>, core: string, byLabel: boolean): Promise<void> {
+  const info = await readFile(join(raDir(paths), 'info', `${coreFileBase(core)}.info`), 'utf8').catch(() => undefined)
+  const name = info === undefined ? undefined : coreRemapName(info)
+  if (!name || /[/\\]/.test(name)) {
+    if (byLabel) console.warn(`[retroarch] no core name for ${core}, game buttons keep RetroArch's layout`)
+    return
+  }
+  const file = join(raRemapDir(paths), name, `${name}.rmp`)
+  const existing = await readFile(file, 'utf8').catch(() => undefined)
+  if (existing !== undefined && !existing.startsWith(REMAP_MARKER)) return
+  if (byLabel) {
+    await mkdir(dirname(file), { recursive: true })
+    await writeFile(file, faceButtonRemap())
+  } else if (existing !== undefined) await rm(file, { force: true })
 }
 
 /** RetroArch cfg strings can't escape quotes/newlines. */
@@ -311,10 +350,6 @@ export function buildRetroArchConfig({ settings, paths, shaderPath, uiMode, os =
   const comboUsesBackStart = combo.includes(STD.BACK) && combo.includes(STD.START)
   const comboUsesSticks = combo.includes(STD.L3) && combo.includes(STD.R3)
   const b = (v: boolean) => (v ? 'true' : 'false')
-  const family = padName ? padFamily(padName) : undefined
-  // Applies to Nintendo pads too: macOS reports a Switch Pro controller's buttons by label, so by default its B
-  // (bottom) lands on RetroPad A.
-  const facesByLabel = ra.faceButtons === 'labels'
 
   const cfg: Record<string, string> = {
     // Directories
@@ -387,9 +422,14 @@ export function buildRetroArchConfig({ settings, paths, shaderPath, uiMode, os =
     input_rewind_axis: ra.rewind ? rewind.axis : 'nul',
     input_menu_toggle_gamepad_combo: comboUsesSticks ? '0' : '2', // L3+R3 as a no-modifier fallback
     input_quit_gamepad_combo: '0',
-    ...faceButtonBindings(driver, facesByLabel),
-    // RetroArch's menu confirms with RetroPad A, so swapping the face binds swaps the menu too: undo that.
-    menu_swap_ok_cancel_buttons: b((resolveButtonLayout(settings.ui.buttonLayout, family) === 'nintendo') !== facesByLabel),
+    ...clearedFaceButtonBinds(),
+    menu_swap_ok_cancel_buttons: b(resolveButtonLayout(settings.ui.buttonLayout, padName ? padFamily(padName) : undefined) === 'nintendo'),
+    // Core remaps (Settings.retroarch.faceButtons, see writeFaceButtonRemap) live next to RetroArch and are only
+    // changed by RetroDesk or by explicitly saving a remap.
+    input_remapping_directory: raRemapDir(paths),
+    auto_remaps_enable: 'true',
+    remap_save_on_exit: 'false',
+    input_remap_sort_by_controller_enable: 'false',
 
     // RetroAchievements
     cheevos_enable: b(cheevos.enabled && !!cheevos.username),
@@ -421,9 +461,19 @@ export function parseCfg(text: string): Record<string, string> {
   return out
 }
 
-/** Write <retroarch>/retrodesk.cfg from current settings. Returns the cfg path and the shader to apply. */
-export async function writeAppendConfig(settings: Settings, paths: RaConfigInput['paths'], uiMode = false, padName?: string): Promise<{ cfgPath: string; shaderPath?: string; mainCfg?: string }> {
+/**
+ * Write <retroarch>/retrodesk.cfg from current settings, and the face-button remap of `core` (the core about to run).
+ * Returns the cfg path and the shader to apply.
+ */
+export async function writeAppendConfig(
+  settings: Settings,
+  paths: RaConfigInput['paths'],
+  uiMode = false,
+  padName?: string,
+  core?: string
+): Promise<{ cfgPath: string; shaderPath?: string; mainCfg?: string }> {
   const dir = raDir(paths)
+  if (core) await writeFaceButtonRemap(paths, core, settings.retroarch.faceButtons === 'labels').catch((e: unknown) => console.warn(`[retroarch] could not write the remap for ${core}`, e))
   const shaderPath = resolveShaderPreset(shaderDirs(paths), settings.retroarch.shader)
   if (settings.retroarch.shader !== 'none' && !shaderPath) console.warn(`[retroarch] no preset found for shader "${settings.retroarch.shader}", running without`)
   const cfgPath = uiMode ? join(dir, 'retrodesk-ui.cfg') : raAppendCfgPath(paths)
