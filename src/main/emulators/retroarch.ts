@@ -262,6 +262,25 @@ export function shaderDirs(p: Pick<RaPaths, 'emulators'>, os: HostOs = hostOs())
 /** W3C Standard Gamepad indices used by Settings.hotkeys.quickMenuCombo. */
 const STD = { BACK: 8, START: 9, L3: 10, R3: 11 } as const
 
+/** Players whose face buttons follow Settings.retroarch.faceButtons. */
+const FACE_BUTTON_PLAYERS = 4
+
+/** RetroPad face button -> the Xbox-labeled pad button it goes on when buttons match their labels. */
+const FACE_BUTTONS_BY_LABEL = { a: 'A', b: 'B', x: 'X', y: 'Y' } as const
+
+/**
+ * Face-button binds for every player. RetroArch's autoconfig maps by position (RetroPad A is the right button, as on
+ * a NES pad); "labels" binds RetroPad A to the pad's A instead. 'nul' falls back to autoconfig and clears binds a
+ * previous run (or UI mode's saved config) left behind.
+ */
+function faceButtonBindings(driver: PadDriver, byLabel: boolean): Record<string, string> {
+  const cfg: Record<string, string> = {}
+  for (let p = 1; p <= FACE_BUTTON_PLAYERS; p++) {
+    for (const [retroPad, button] of Object.entries(FACE_BUTTONS_BY_LABEL)) cfg[`input_player${p}_${retroPad}_btn`] = byLabel ? padBinding(driver, button).btn : 'nul'
+  }
+  return cfg
+}
+
 /** RetroArch cfg strings can't escape quotes/newlines. */
 function cfgValue(v: string): string {
   return v.replace(/["\r\n]/g, '')
@@ -292,6 +311,9 @@ export function buildRetroArchConfig({ settings, paths, shaderPath, uiMode, os =
   const comboUsesBackStart = combo.includes(STD.BACK) && combo.includes(STD.START)
   const comboUsesSticks = combo.includes(STD.L3) && combo.includes(STD.R3)
   const b = (v: boolean) => (v ? 'true' : 'false')
+  const family = padName ? padFamily(padName) : undefined
+  // Nintendo pads already have A on the right, so their labels and positions agree.
+  const facesByLabel = ra.faceButtons === 'labels' && family !== 'nintendo'
 
   const cfg: Record<string, string> = {
     // Directories
@@ -364,7 +386,9 @@ export function buildRetroArchConfig({ settings, paths, shaderPath, uiMode, os =
     input_rewind_axis: ra.rewind ? rewind.axis : 'nul',
     input_menu_toggle_gamepad_combo: comboUsesSticks ? '0' : '2', // L3+R3 as a no-modifier fallback
     input_quit_gamepad_combo: '0',
-    menu_swap_ok_cancel_buttons: b(resolveButtonLayout(settings.ui.buttonLayout, padName ? padFamily(padName) : undefined) === 'nintendo'),
+    ...faceButtonBindings(driver, facesByLabel),
+    // RetroArch's menu confirms with RetroPad A, so swapping the face binds swaps the menu too: undo that.
+    menu_swap_ok_cancel_buttons: b((resolveButtonLayout(settings.ui.buttonLayout, family) === 'nintendo') !== facesByLabel),
 
     // RetroAchievements
     cheevos_enable: b(cheevos.enabled && !!cheevos.username),

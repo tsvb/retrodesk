@@ -66,7 +66,8 @@ export function defaultSettings(): Settings {
       rewind: d('retroarch.rewind'),
       integerScale: d('retroarch.integerScale'),
       aspect: d('retroarch.aspect'),
-      videoDriver: d('retroarch.videoDriver')
+      videoDriver: d('retroarch.videoDriver'),
+      faceButtons: d('retroarch.faceButtons')
     },
     retroAchievements: { enabled: d('retroAchievements.enabled'), username: '', password: '', hardcore: d('retroAchievements.hardcore') },
     hotkeys: { quickMenu: 'Control+Alt+Home', quickMenuCombo: [8, 9] },

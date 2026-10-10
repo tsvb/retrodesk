@@ -4,7 +4,7 @@ import { Button } from '../../components/Button'
 import { KeyCap, PadButton } from '../../components/Glyph'
 import { Segmented, SettingRow } from '../../components/Controls'
 import { ControllerTester } from '../../components/ControllerTester'
-import { SchemaSegmented } from '../../components/SchemaSetting'
+import { SchemaSegmented, SchemaSetting } from '../../components/SchemaSetting'
 import { useInputStore } from '../../stores/input'
 import { useSettings, useSettingsValue } from '../../stores/settings'
 import { Section } from './Settings'
@@ -56,6 +56,10 @@ export function ControlsTab() {
             <PadButton family={family} index={settings.ui.buttonLayout === 'nintendo' ? 0 : 1} /> Back
           </span>
         </div>
+      </Section>
+
+      <Section title="In RetroArch games">
+        <SchemaSetting path="retroarch.faceButtons" />
       </Section>
 
       <Section title="In-game quick menu" description="Opens Game Assist on top of the running game: save and load states, screenshots, performance and quitting.">

@@ -146,6 +146,28 @@ describe('buildRetroArchConfig', () => {
     expect(buildRetroArchConfig({ settings: auto, paths }).menu_swap_ok_cancel_buttons).toBe('false')
   })
 
+  it('keeps the original face-button positions by default', () => {
+    const cfg = buildRetroArchConfig({ settings: settings(), paths, os: 'macos' })
+    expect(cfg).toMatchObject({ input_player1_a_btn: 'nul', input_player1_b_btn: 'nul', input_player4_y_btn: 'nul', menu_swap_ok_cancel_buttons: 'false' })
+  })
+
+  it('puts game A and B on the buttons labeled A and B when asked', () => {
+    const labels = settings((s) => (s.retroarch.faceButtons = 'labels'))
+    expect(buildRetroArchConfig({ settings: labels, paths, os: 'macos' })).toMatchObject({
+      input_player1_a_btn: '0',
+      input_player1_b_btn: '8',
+      input_player1_x_btn: '1',
+      input_player1_y_btn: '9',
+      input_player2_a_btn: '0',
+      // The menu still confirms with the same physical button.
+      menu_swap_ok_cancel_buttons: 'true'
+    })
+    expect(buildRetroArchConfig({ settings: labels, paths, os: 'windows' })).toMatchObject({ input_player1_a_btn: '0', input_player1_b_btn: '1', input_player1_x_btn: '2', input_player1_y_btn: '3' })
+    // Nintendo pads already have A on the right.
+    const nintendo = buildRetroArchConfig({ settings: labels, paths, os: 'macos', padName: 'Nintendo Switch Pro Controller' })
+    expect(nintendo).toMatchObject({ input_player1_a_btn: 'nul', menu_swap_ok_cancel_buttons: 'true' })
+  })
+
   it('UI mode lets RetroArch persist menu changes', () => {
     expect(buildRetroArchConfig({ settings: settings(), paths, uiMode: true }).config_save_on_exit).toBe('true')
   })

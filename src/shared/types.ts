@@ -135,6 +135,8 @@ export interface Settings {
     integerScale: boolean
     aspect: SettingValue<'retroarch.aspect'>
     videoDriver: SettingValue<'retroarch.videoDriver'>
+    /** 'position' keeps the console's layout (A on the right); 'labels' puts game A on the pad's A button. */
+    faceButtons: SettingValue<'retroarch.faceButtons'>
   }
   retroAchievements: {
     enabled: boolean
