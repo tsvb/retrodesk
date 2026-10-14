@@ -108,8 +108,8 @@ export interface ApiEvents {
   overlay: boolean
   /** Settings changed (from any window). */
   settingsChanged: Settings
-  /** Natively read controllers changed (macOS): the full current state. */
-  gamepads: NativePad[]
+  /** Natively read controllers changed (macOS): the full current state, or null once the renderer must use the Gamepad API. */
+  gamepads: NativePad[] | null
 }
 
 /** A libraryChanged event that is cheaper to apply than a reload. */
