@@ -74,7 +74,7 @@ export function createMockApi(): RetroDeskApi {
     libraryChanged: new Set<() => void>(),
     overlay: new Set<(v: boolean) => void>(),
     settingsChanged: new Set<(s: Settings) => void>(),
-    gamepads: new Set<(p: NativePad[]) => void>()
+    gamepads: new Set<(p: NativePad[] | null) => void>()
   }
   const sub = <T>(set: Set<T>, cb: T) => {
     set.add(cb)

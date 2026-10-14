@@ -5,9 +5,24 @@ import type { NativePad } from '@shared/types'
 import { api, isElectron } from '../api'
 import { isMac } from '../lib/platform'
 
-/** Null until (unless) the main process says it reads controllers itself. */
-let native: Gamepad[] | null = null
+/**
+ * Null when the renderer reads the Gamepad API itself. On macOS the main process reads controllers from the start
+ * (unless it reports it can't), and the Gamepad API stays untouched: the first call or `gamepadconnected` listener
+ * starts Chromium's own Switch Pro driver, which then handshakes with the same controllers as SDL.
+ */
+let native: Gamepad[] | null = isElectron && isMac ? [] : null
 const changeListeners = new Set<() => void>()
+const notifyChange = () => {
+  for (const l of changeListeners) l()
+}
+
+let gamepadApiEvents = false
+function listenToGamepadApi(): void {
+  if (gamepadApiEvents) return
+  gamepadApiEvents = true
+  window.addEventListener('gamepadconnected', notifyChange)
+  window.addEventListener('gamepaddisconnected', notifyChange)
+}
 
 function toGamepad(p: NativePad): Gamepad {
   return {
@@ -26,16 +41,21 @@ function toGamepad(p: NativePad): Gamepad {
 function applyNative(pads: NativePad[] | null): void {
   const before = native?.map((g) => g.id).join('\n')
   native = pads ? pads.map(toGamepad) : null
-  if (native?.map((g) => g.id).join('\n') !== before) for (const l of changeListeners) l()
+  if (!native) listenToGamepadApi()
+  if (native?.map((g) => g.id).join('\n') !== before) notifyChange()
 }
 
-if (isElectron && isMac) {
-  api.on.gamepads((p) => applyNative(p))
+if (native) {
+  let heard = false
+  api.on.gamepads((p) => {
+    heard = true
+    applyNative(p)
+  })
   void api.system
     .getGamepads()
-    .then((p) => native === null && applyNative(p))
+    .then((p) => heard || applyNative(p))
     .catch(() => undefined)
-}
+} else listenToGamepadApi()
 
 /** Connected controllers, like navigator.getGamepads(). */
 export function getPads(): readonly (Gamepad | null)[] {
@@ -53,11 +73,7 @@ export const padsAreNative = (): boolean => native !== null
 /** A controller was connected or disconnected (Gamepad API events, or a change in the native list). */
 export function onPadsChanged(cb: () => void): () => void {
   changeListeners.add(cb)
-  window.addEventListener('gamepadconnected', cb)
-  window.addEventListener('gamepaddisconnected', cb)
   return () => {
     changeListeners.delete(cb)
-    window.removeEventListener('gamepadconnected', cb)
-    window.removeEventListener('gamepaddisconnected', cb)
   }
 }

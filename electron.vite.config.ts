@@ -6,7 +6,13 @@ const shared = { '@shared': resolve('src/shared') }
 
 export default defineConfig({
   main: {
-    resolve: { alias: shared }
+    resolve: { alias: shared },
+    // The gamepads utility process is its own entry (see src/main/gamepads.ts).
+    build: {
+      rollupOptions: {
+        input: { index: resolve('src/main/index.ts'), 'gamepads-worker': resolve('src/main/gamepads-worker.ts') }
+      }
+    }
   },
   preload: {
     resolve: { alias: shared }
