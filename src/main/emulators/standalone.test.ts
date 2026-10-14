@@ -98,6 +98,11 @@ describe('definitions', () => {
     // Eden's macOS build is Apple Silicon only; Vita3K and RPCS3 have one build per architecture.
     expect(resolveStandaloneDef(raw('eden'), 'macos', 'arm64')?.firmware?.[0]?.copyTo).toBe('keys/prod.keys')
     expect(resolveStandaloneDef(raw('eden'), 'macos', 'x64')).toBeUndefined()
+    // Eden 0.2.1's multicore mode crashes Dynarmic on Apple Silicon (Eden Issue-Reports #636), so only the macOS
+    // build turns it off, and only while the player has not chosen themselves.
+    const multicore = (os: 'windows' | 'macos') => resolveStandaloneDef(raw('eden'), os, 'arm64')?.config?.set.find((e) => e.section === 'Core' && e.key === 'use_multi_core')
+    expect(multicore('macos')).toEqual({ section: 'Core', key: 'use_multi_core', value: 'false', ifDefault: true })
+    expect(multicore('windows')).toBeUndefined()
     expect(resolveStandaloneDef(raw('vita3k'), 'macos', 'arm64')?.assetPattern).toBe('^macos-arm64-latest\\.dmg$')
     expect(resolveStandaloneDef(raw('vita3k'), 'macos', 'x64')?.assetPattern).toBe('^macos-latest\\.dmg$')
     expect(resolveStandaloneDef(raw('rpcs3'), 'macos', 'arm64')?.source).toEqual({ type: 'github', repo: 'RPCS3/rpcs3-binaries-mac-arm64' })

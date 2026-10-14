@@ -219,9 +219,12 @@
       "config": {
         "file": "~/.config/eden/qt-config.ini",
         "sep": "=",
-        "set": [{ "section": "Renderer", "key": "use_asynchronous_shaders", "value": "true", "ifDefault": true }]
+        "set": [
+          { "section": "Renderer", "key": "use_asynchronous_shaders", "value": "true", "ifDefault": true },
+          { "section": "Core", "key": "use_multi_core", "value": "false", "ifDefault": true }
+        ]
       },
-      "notes": "Apple Silicon only. MoltenVK compiles pipelines slowly, so async shaders matter most here. Eden uses XDG folders on macOS, not Application Support: keys and firmware go to ~/.local/share/eden (keys/, nand/), its config to ~/.config/eden ($XDG_DATA_HOME / $XDG_CONFIG_HOME when set). Its CPU emulator is Dynarmic only (no NCE build for macOS)."
+      "notes": "Apple Silicon only. MoltenVK compiles pipelines slowly, so async shaders matter most here. Eden uses XDG folders on macOS, not Application Support: keys and firmware go to ~/.local/share/eden (keys/, nand/), its config to ~/.config/eden ($XDG_DATA_HOME / $XDG_CONFIG_HOME when set). Its CPU emulator is Dynarmic only (no NCE build for macOS). Multicore CPU emulation is turned off unless the player set it themselves: Eden 0.2.1 on Apple Silicon caches a thread-local across a guest fiber's move to another host thread, so two cores re-enter one Dynarmic JIT and games die within seconds to minutes with 'assert !is_executing', register-allocator asserts and unmapped reads (Eden Issue-Reports #636; fix in Eden PR #4497, unmerged as of October 2026). Single-core costs speed but runs the same games stably; drop this once a release ships the fix."
     }
   },
   {
